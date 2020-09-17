@@ -61,13 +61,13 @@ if not Camera.Calibrated:
 scale, inp_width, inp_height = Video.Size(Camera, cap, ImWidth)
 
 #What depends on running environment
-if platform.system() is 'Windows':
-    cv2.namedWindow(Window_name, cv2.WINDOW_AUTOSIZE )
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')
+if platform.system() == 'Windows':
+    fourcc = cv2.VideoWriter_fourcc(*'mpv4')
 else:
-    cv2.namedWindow(Window_name, cv2.WINDOW_NORMAL )
     fourcc = cv2.VideoWriter_fourcc(*'H264')
-    
+
+cv2.namedWindow(Window_name, cv2.WINDOW_NORMAL )
+
 # Output file
 if not live:
     out = cv2.VideoWriter(os.path.splitext(videoPath)[0]+'_out.MP4',fourcc, cap.get(5),\
