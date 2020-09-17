@@ -1,5 +1,6 @@
 ##    VideoF2B v0.4 - Draw F2B figures from video
 ##    Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
+##    Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
 ##
 ##    This program is free software: you can redistribute it and/or modify
 ##    it under the terms of the GNU General Public License as published by
@@ -44,13 +45,17 @@ Window_name = 'VideoF2B v0.5 - A. Solera'
 
 liveVideos = '../VideoF2B_videos'
 
-# Camera calibration loading
-Camera = Camera.CalCamera()
-if not Camera.Calibrated:
-    master.withdraw()
-
 # Video loading
 cap, videoPath, live = Video.LoadVideo()
+FULL_FRAME_SIZE = (
+    int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
+    int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+)
+
+# Camera calibration loading
+Camera = Camera.CalCamera(frame_size=FULL_FRAME_SIZE)
+if not Camera.Calibrated:
+    master.withdraw()
 
 # Video size
 scale, inp_width, inp_height = Video.Size(Camera, cap, ImWidth)
