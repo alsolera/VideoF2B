@@ -1,5 +1,6 @@
 ##    VideoF2B v0.4 - Draw F2B figures from video
 ##    Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
+##    Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
 ##
 ##    This program is free software: you can redistribute it and/or modify
 ##    it under the terms of the GNU General Public License as published by
@@ -23,7 +24,7 @@ import tkinter.simpledialog
 from os import path
 
 class CalCamera(object):
-    def __init__(self):
+    def __init__(self, frame_size):
         
         try:
             CF = open('cal.conf', 'r')
@@ -44,7 +45,12 @@ class CalCamera(object):
         self.AR = True
         
         self.PointNames = ('circle center', 'front marker', 'left marker', 'right marker');
-        
+
+        self.frame_size = frame_size
+        # Calibration default values
+        self.map1 = None
+        self.map2 = None
+
         if self.Calibrated:
             
             CF = open('cal.conf', 'w')
@@ -58,6 +64,20 @@ class CalCamera(object):
                 self.roi = npzfile['roi']
                 self.newcameramtx = npzfile['newcameramtx']
                 
+                # Recalculate matrix and roi in case video from this camera was scaled after recording.
+                newcameramtx, roi = cv2.getOptimalNewCameraMatrix(self.mtx, self.dist, self.frame_size, 1)
+                # For diagnostics only. If video was not scaled after recording, these comparisons should be exactly equal.
+                # print(f'as recorded newcameramtx =\n{self.newcameramtx}')
+                # print(f'scaled newcameramtx = \n{newcameramtx}')
+                # print(f'as recorded roi =\n{self.roi}')
+                # print(f'scaled roi =\n{roi}')
+                self.newcameramtx = newcameramtx
+                self.roi = roi
+
+                # Calculate these undistortion maps just once
+                self.map1, self.map2 = cv2.initUndistortRectifyMap(
+                    self.mtx, self.dist, np.eye(3), self.newcameramtx, self.frame_size, cv2.CV_16SC2)
+
                 self.cableLenght = tkinter.simpledialog.askfloat('Input', 'Total line lenght  (m) (Cancel = 21m)')
                 if self.cableLenght is None: self.cableLenght = 21
                 
@@ -75,12 +95,24 @@ class CalCamera(object):
         print('Using calibration: {}'.format(self.Calibrated))
     
     def Undistort (self, img):
-        # undistort
-        img = cv2.undistort(img, self.mtx, self.dist, None, self.newcameramtx)
-        # crop the image
-        x,y,w,h = self.roi
+        x, y, w, h = self.roi
+
+        # img_slow = cv2.undistort(img.copy(), self.mtx, self.dist, None, self.newcameramtx)
+        # # crop the image
+        # img_slow = img_slow[y:y+h, x:x+w]
+
+        # Faster method: calculate undistortion maps on init, then only call remap per frame.
+        img = cv2.remap(img, self.map1, self.map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+        # crop it
         img = img[y:y+h, x:x+w]
-        
+
+        # Diagnostics for testing the equality of the faster approach against the original.
+        # Uncomment above and below sections to verify.
+        # np.save('img_undistort_slow', img_slow)
+        # np.save('img_undistort_fast', img)
+        # if not np.allclose(img_slow, img):
+        #     raise ArithmeticError('img_slow and img are not exactly equal!')
+
         return img
     
     def Locate(self,img):
