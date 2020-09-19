@@ -62,7 +62,7 @@ scale, inp_width, inp_height = Video.Size(Camera, cap, ImWidth)
 
 #What depends on running environment
 if platform.system() == 'Windows':
-    fourcc = cv2.VideoWriter_fourcc(*'mpv4')
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 else:
     fourcc = cv2.VideoWriter_fourcc(*'H264')
 
