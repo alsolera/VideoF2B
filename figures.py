@@ -15,8 +15,9 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 '''Geometric definitions for F2B figures.'''
-
 import enum
+import itertools
+from collections import defaultdict
 
 import matplotlib.pyplot as plt  # for debug diagnostics
 import numpy as np
@@ -43,6 +44,16 @@ def find_min_gss(f, a, b, eps=1e-4):
         c = b - (b - a) * R
         d = a + (b - a) * R
     return (b + a) / 2
+
+
+class FigureDiagnostics:
+    def __init__(self):
+        self.args_low = None
+        self.args_high = None
+        self.errs_hist = None
+        self.fit_params = None
+        self.u0 = None
+        self.trim_indexes = None
 
 
 @enum.unique
@@ -83,8 +94,11 @@ class Figure:
             self.phi0 = np.arctan2(act_centroid[1], act_centroid[0])
         else:
             self.phi0 = 0.
+        self.diag = FigureDiagnostics()
         # Suggested count of nominal points. Override in subclasses as needed. This is primarily used for drawing.
         self.num_nominal_pts = 100
+        # Initial t-parameterization
+        self._init_path()
         # Reference to each subclassed Figure's parametric function
         self.paramfunc = self._parmfn()
 
@@ -105,52 +119,114 @@ class Figure:
     def fit(self, plot=False):
         '''Perform best fit of actual points against the nominals of the figure.'''
 
-        errs = []
-        # fits = []
+        errs = defaultdict(list)
+        fit_idx = 0
 
-        def get_residuals(p, points):
+        def get_ext_residuals(p, points, u):
             '''Objective function for least-squares fit'''
+            # print('in get_ext_residuals')
             nonlocal errs
-            # nonlocal fits
+            nonlocal fit_idx
             # print(f'fit params = {p}')  # applies to all subclasses
             # print(f'fit params = {np.degrees(p[0]):.3f}°, {np.degrees(p[1]):.3f}°, {p[2]:.3f}') # NB: applies only to InsideLoops class
             # fits.append(p)
-            p_u = np.array([self.paramfunc(u, *p) for u in self.u])
+            # p_u = np.array([self.paramfunc(u, *p) for u in self.u])
+            # print(f'p = {p}')
+            p_u = self.paramfunc(*p, *u)
             diff = points - p_u
+            # print(f'diff: {diff.shape}')
             # print(f'diff =\n{diff[10:20]}')
             dists = np.linalg.norm(diff, axis=1)  # ** 2
             # eps = sum(dists)
             eps = dists
             # print(f'eps = {eps}, p = {p}')
-            errs.append(dists)
+            errs[fit_idx].append(dists)
             return eps
 
-        self._init_path()
-        # print('Starting fit...')
-        p_fit, fit_err = optimize.leastsq(get_residuals, self.p0, (self._actuals,))
+        def get_int_residuals(u, points, p):
+            '''Objective function for optimizing the internal t values along the path.'''
+            # print('in get_int_residuals')
+            nonlocal errs
+            nonlocal fit_idx
+            p_u = self.paramfunc(*p, *u)
+            diff = points - p_u
+            dists = np.linalg.norm(diff, axis=1)
+            eps = dists
+            errs[fit_idx].append(dists)
+            return eps
 
-        # Histories of the fitting journey (for diagnostics only). We save one per each get_residuals() call.
-        self.errs_hist = errs  # history of residual sets
-        # self.fits_hist = fits  # history of parameter sets
+        fit_params = {}
+        fit_errs = {}
 
-        # # tinker with some params ourselves
-        # print(len(self.errs_hist), len(errs))
-        # get_residuals((p_fit[0], p_fit[1]+np.radians(4.), p_fit[2]+1.), self._actuals)
-        # print(len(self.errs_hist), len(errs))
-        # print(sum(self.errs_hist[-2]))
-        # print(sum(self.errs_hist[-1]))
+        c = itertools.cycle('!@#@#@#@#@#@#@#@#@#@#@#@#')
+        extrinsics = []
+        for fit_idx in range(3):
+            print(next(c) * 80)
+            if fit_idx % 2 == 0:
+                print(f'Starting fit #{fit_idx}: external figure parameters...')
+                if fit_idx == 0:
+                    x0 = self.p0
+                    arg2 = self.u
+                else:
+                    x0 = fit_params[fit_idx - 2]
+                    arg2 = fit_params[fit_idx - 1]
+                fit_params[fit_idx], fit_errs[fit_idx] = optimize.leastsq(
+                    get_ext_residuals, x0, args=(self._actuals, arg2))
+                print(f'Fit #{fit_idx} done, results = {fit_params[fit_idx], fit_errs[fit_idx]}\n')
+                extrinsics.append(fit_params[fit_idx])
+            else:
+                if fit_idx == 1:
+                    x0 = self.u
+                else:
+                    x0 = fit_params[fit_idx - 2]
+                arg2 = fit_params[fit_idx - 1]
+                print(f'Starting fit #{fit_idx}: internal t parameters...')
+                fit_params[fit_idx], fit_errs[fit_idx] = optimize.leastsq(
+                    get_int_residuals, x0, args=(self._actuals, arg2))
+                print(f'Fit #{fit_idx} done, results:')
+                # {fit_params[fit_idx], fit_errs[fit_idx]}\n')
+                self.diag.args_low = list(np.argwhere(fit_params[fit_idx] < 0.0).flat)
+                self.diag.args_high = list(np.argwhere(fit_params[fit_idx] > 1.0).flat)
+                print(f'args where t < 0: {self.diag.args_low}')
+                print(f'args where t > 1: {self.diag.args_high}')
+
+        # Histories of the fitting journey (for diagnostics only). We save one per each get_*_residuals() call.
+        self.diag.errs_hist = errs  # history of residual sets
 
         if plot:
-            n_errs = len(errs)
-            for i, err in enumerate(errs):
-                if 0 < i < n_errs:
-                    plt.plot(err, color='tab:gray', marker=None, linestyle='--')
-            plt.plot(errs[0], 'r.-')
-            plt.plot(errs[-1], 'b.-')
-            # plt.plot(errs[-2], 'b.-')
-            # plt.plot(errs[-1], 'y.-')
+            for f_idx, f_errs in errs.items():
+                n_errs = len(f_errs)
+                print(f'f_idx={f_idx}, n_errs={n_errs}')
+                if n_errs == 0:
+                    continue
+                plt.figure(f_idx)
+                for i, err in enumerate(f_errs):
+                    if 0 < i < n_errs:
+                        plt.plot(err, color='tab:gray', marker=None, linestyle='--')
+                plt.plot(f_errs[0], 'r.-')
+                plt.plot(f_errs[-1], 'b.-')
+                plt.title(f'Errors during fit #{f_idx} ({n_errs} iterations)')
+
+            plt.figure(f_idx + 1)
+            plt.plot(self.u, 'r.-')
+            plt.plot(fit_params[1], 'b.-')
+            plt.plot((0, len(self.u)), (0., 0.), 'r--')
+            plt.plot((0, len(self.u)), (1., 1.), 'r--')
+            plt.title('Initial and final $u_i$')
+
+            plt.figure(f_idx + 2)
+            extrinsics = np.asarray(extrinsics)
+            plt.plot(np.diff(extrinsics, axis=0), '.-')
+            plt.title('Trends: extrinsic parameters at each iteration')
+
             plt.show()
-        return p_fit, fit_err
+
+        self.diag.fit_params = fit_params
+        self.diag.u0 = self.u.copy()
+        candidates = fit_params[1]
+        self.diag.trim_indexes = np.logical_and(candidates >= 0.0, candidates <= 1.0)
+        self.u = candidates[self.diag.trim_indexes]
+        return fit_params[fit_idx], fit_errs[fit_idx]
 
     def _init_path(self):
         '''Creates the initial parameterization: chordal type'''
@@ -166,13 +242,14 @@ class Figure:
         # plt.title('Initial parameterization')
         # plt.show()
 
-    def get_nom_point(self, t, *params):
+    def get_nom_point(self, a, b, c, *t):
         '''Returns the nominal point at a given 0.0 < t < 1.0 using the figure's parameters.'''
-        return self.paramfunc(t, *params)
+        # TODO: make these function signatures more generic. Currently this supports only 3 params and t.
+        return self.paramfunc(a, b, c, *t)
 
-    def get_nom_points(self, t_arr, *params):
-        '''Return an array of points, one for each t in t_arr'''
-        return np.array([self.paramfunc(t, *params) for t in t_arr])
+    # def get_nom_points(self, *params, t_arr):
+    #     '''Return an array of points, one for each t in t_arr'''
+    #     return np.array([self.paramfunc(*params, t) for t in t_arr])
 
 
 class InsideLoops(Figure):
@@ -184,6 +261,7 @@ class InsideLoops(Figure):
         self.num_nominal_pts = 252
         # Initial guesses for optimization params
         self.p0 = [self.phi0, self.theta, self.r]
+        # print(f'self.p0 = {self.p0}')
         # self.p0 = [0., 0., 1.] # rather extreme case, just to test sensitivity/convergence
 
     def fit(self, plot=False):
@@ -219,8 +297,8 @@ class InsideLoops(Figure):
         # print(f'Nominal theta = {self.theta} ({np.degrees(self.theta):.3f}°)')
         print(f'Nominal r = {self.r}')
 
-        def func(t, phi=None, theta=None, r=None):
-            '''Returns a point on the nominal loops' path according to the specified parameters:
+        def func(phi, theta, r, *t):
+            '''Returns all points on the nominal loops' path according to the specified parameters:
                     `t`: 0 < t < 1 along the path where t=0 is the start point and t=1 is the end point of the loops.
                     `phi`: the azimuthal angle of the loops' normal vector (default: 0.0°)
                     `theta`: the elevation angle of the loops' normal vector (default: 22.5°)
@@ -232,6 +310,8 @@ class InsideLoops(Figure):
                 theta = self.theta
             if r is None:
                 r = self.r
+            # print('phi, theta, r =', phi, theta, r)
+            # print(f't = {t}')
             # Rotation matrix around the azimuth
             rot_mat = np.array([
                 [np.cos(phi), -np.sin(phi), 0.],
@@ -247,8 +327,14 @@ class InsideLoops(Figure):
             v = rot_mat.dot(np.array([0., 1., 0.]))
             # First orthogonal vector in loop plane: points from loop center down to the starting point of figure
             u = np.cross(n, v)
+
             # The resulting point
-            p = c + r * (np.cos(k * t) * u + np.sin(k * t) * v)
+            # if isinstance(t, (list, np.ndarray)):
+            p = np.array([c + r * (np.cos(k * t_i) * u + np.sin(k * t_i) * v) for t_i in t])
+            # print(p.shape)
+            # else:
+            #     p = c + r * (np.cos(k * t) * u + np.sin(k * t) * v)
+
             # print(f'azimuth = {azimuth}')
             # print(f't = {t}')
             # print(f'c = {c}')
@@ -265,26 +351,33 @@ class InsideLoops(Figure):
 def test():
     plot_me = 1
     data = np.load(
-        r'insert_npz_path_here')
+        r'../2020-08-12 canandaigua [field markers]/002_20200812183118_fig0_inside_loop_figures__orig.npz')
     fig_actuals = data['fig0'][:, 0, :]
     # print(fig_actuals.shape)
 
-    # trimmed_actuals = fig_actuals
+    trimmed_actuals = fig_actuals
     # trims entry/exit points. TODO: do this programmatically, maybe RANSAC is a good algo for this?
-    trimmed_actuals = fig_actuals[27:493]
+    # trimmed_actuals = fig_actuals[27:493]
 
     fig0 = Figure.create(FigureTypes.INSIDE_LOOPS, actuals=trimmed_actuals)
     # print()
     p_fig0 = fig0.fit(plot=plot_me)
+
+    print(f'  args where t < 0: {fig0.diag.args_low}')
+    print(f'  args where t > 1: {fig0.diag.args_high}')
+    print(f'shape of initial u: {fig0.diag.u0.shape}')
+    print(f'  shape of final u: {fig0.u.shape}')
 
     if plot_me:
         plt.show()
 
     assert fig0.R == Figure.DEFAULT_FLYING_RADIUS, 'Unexpected default radius R'
 
+    print('=' * 400)
     t = np.linspace(0., 1., 8)
-    test_pts = fig0.get_nom_points(t)
+    test_pts = fig0.get_nom_point(None, None, None, *t)
     norms = np.linalg.norm(test_pts, axis=1)
+    print(norms)
     assert np.allclose(norms, fig0.R), "Unexpected distances of test points from sphere center"
 
     # phi = np.radians(90.0)

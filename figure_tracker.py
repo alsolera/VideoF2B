@@ -62,7 +62,6 @@ class FigureTracker:
         self.is_figure_in_progress = False
         self.figure_idx = 0
         self.figure_params = []
-        # self.diag_params = []
         self.logger = logger or logging.getLogger(__name__)
         self.R = None
         self._callback = callback
@@ -99,9 +98,8 @@ class FigureTracker:
                 fig_type, R=self.R, actuals=self.actuals[self.figure_idx])
             self.figure_params.append(
                 # tuple of (initial, final) fit parameters
-                (self._curr_figure_fitter.p0, self._curr_figure_fitter.fit(plot=True))
+                (self._curr_figure_fitter.p0, self._curr_figure_fitter.fit(plot=False))
             )
-            # self.diag_params.append(self._curr_figure_fitter.fits_hist)
 
         self.figure_idx = len(self.actuals)
 

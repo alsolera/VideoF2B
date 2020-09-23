@@ -195,6 +195,7 @@ while True:
             # third dimension: image height
             # fourth dimension: XYZ point on sphere
             world_map = np.zeros((2, inp_width, inp_height, 3), dtype=np.float32)
+            world_map[:, :, :, :] = np.nan
             num_pts_collected = 0
             for v in range(inp_height):  # NOTE: top of sphere starts at row index 48
                 t1 = time.process_time()
@@ -213,7 +214,7 @@ while True:
             print('saving world_map array to file...')
             np.save('world_map.npy', world_map)
             print('...done.')
-        #'''
+        # '''
 
     frame = imutils.resize(frame_or, width=IM_WIDTH)
 
@@ -259,6 +260,7 @@ while True:
                 f_color = (0, 255, 0) if i == 0 else (255, 255, 0)
                 for j in range(1, len(f_pts)):
                     cv2.line(frame_or, f_pts[j], f_pts[j-1], f_color, 2)
+                    # Draw the error whiskers. TODO: verify the arrays are correct after figure.u is trimmed.
                     if i == 1:
                         cv2.line(frame_or, fig_img_pts[j], f_pts[j], (255, 255, 255), 1)
             num_draw_fit_frames += 1
@@ -325,20 +327,26 @@ while True:
             is_fig_in_progress = False
             # Uniform t along the figure path
             # t = np.linspace(0., 1., fig_tracker._curr_figure_fitter.num_nominal_pts)
-            # The figure's chosen t distribution
-            t = fig_tracker._curr_figure_fitter.u
+            # The figure's chosen t distribution (initial, final)
+            t = (fig_tracker._curr_figure_fitter.diag.u0,
+                 fig_tracker._curr_figure_fitter.u)
+            # Trim our detected points according to the fit
+            trims = fig_tracker._curr_figure_fitter.diag.trim_indexes
+            fig_img_pts = list(tuple(pair) for pair in np.array(fig_img_pts)[trims].tolist())
+            # print(fig_img_pts)
             # The last item is the tuple of (initial, final) fit params
-            for fp in fig_tracker.figure_params[-1]:
+            for i, fp in enumerate(fig_tracker.figure_params[-1]):
                 nom_pts = projection.projectSpherePointsToImage(
-                    cam, fig_tracker._curr_figure_fitter.get_nom_points(t, *fp))
+                    cam, fig_tracker._curr_figure_fitter.get_nom_point(*fp, *t[i]))
                 fit_img_pts.append(tuple(map(tuple, nom_pts.tolist())))
             # print(f't ({len(t)} pts)')
-            # print(f'fit_img_pts[initial] ({len(fit_img_pts[0])} pts)')
+            print(f'fit_img_pts[initial] ({len(fit_img_pts[0])} pts)')
             # # print(fit_img_pts[0])
-            # print(f'fit_img_pts[final] ({len(fit_img_pts[1])} pts)')
+            print(f'fit_img_pts[final] ({len(fit_img_pts[1])} pts)')
             # # print(fit_img_pts[1])
-            # print(f'fig_img_pts ({len(fig_img_pts)} pts)')
+            print(f'fig_img_pts ({len(fig_img_pts)} pts)')
             # # print()
+            # Set the flag for drawing the fit figures, diags, etc.
             draw_fit = True
 
     fps.update()
