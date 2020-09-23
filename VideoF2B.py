@@ -93,11 +93,12 @@ FULL_FRAME_SIZE = (
 )
 
 # Load camera calibration
-cam = Camera.CalCamera(frame_size=FULL_FRAME_SIZE,
-                       calibrationPath=CALIBRATION_PATH, logger=logger,
-                       flight_radius=FLIGHT_RADIUS,
-                       marker_radius=MARKER_RADIUS,
-                       marker_height=MARKER_HEIGHT)
+cam = Camera.CalCamera(
+    frame_size=FULL_FRAME_SIZE,
+    calibrationPath=CALIBRATION_PATH, logger=logger,
+    flight_radius=FLIGHT_RADIUS,
+    marker_radius=MARKER_RADIUS,
+    marker_height=MARKER_HEIGHT)
 if not cam.Calibrated:
     master.withdraw()
 
@@ -147,9 +148,9 @@ fig_tracker = None
 if cam.Calibrated and PERFORM_3D_TRACKING:
     data_path = f'{input_base_name}_out_data.csv'
     data_writer = open(data_path, 'w', encoding='utf8')
-    # data_writer.write('p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
+    # data_writer.write('frame_idx,p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
     fig_tracker = figtrack.FigureTracker(
-        logger=logger, callback=sys.stdout.write, enable_diags=False)
+        logger=logger, callback=sys.stdout.write, enable_diags=True)
 
 # aids for drawing figure start/end points over track
 is_fig_in_progress = False
@@ -165,14 +166,21 @@ frame_idx = 0
 frame_delta = 0
 num_input_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 MAX_FRAME_DELTA = int(num_input_frames / 100)
+is_paused = False
 cv2.namedWindow(WINDOW_NAME, WINDOW_FLAGS)
 
 while True:
-    _, frame_or = cap.read()
+    ret, frame_or = cap.read()
 
-    if frame_or is None:
+    if not ret or frame_or is None:
         num_empty_frames += 1
         num_consecutive_empty_frames += 1
+        logger.warning(
+            f'Failed to read frame from input! '
+            f'frame_idx={frame_idx}/{num_input_frames}, '
+            f'num_empty_frames={num_empty_frames}, '
+            f'num_consecutive_empty_frames={num_consecutive_empty_frames}, '
+            f'ret={ret}')
         if num_consecutive_empty_frames > MAX_CONSECUTIVE_EMPTY_FRAMES:  # GoPro videos show empty frames, quick fix
             break
         continue
@@ -259,7 +267,7 @@ while True:
                     # fig_tracker.add_actual_point(act_pts)
                     # Typically the first point is the "far" point on the sphere...Good enough for most figures that are on the far side of the camera.
                     # TODO: Make this smarter so that we track the correct path point at all times.
-                    fig_tracker.add_actual_point(act_pts[0])
+                    fig_tracker.add_actual_point(frame_idx, act_pts[0])
                     # fig_tracker.add_actual_point(act_pts[1])
                     if is_fig_in_progress:
                         fig_img_pts.append(detector.pts_scaled[0])
@@ -298,6 +306,7 @@ while True:
 
     # Save frame
     out.write(frame_or)
+    fps.update()
 
     # Display processing progress to user
     frame_time = frame_idx / VIDEO_FPS
@@ -318,6 +327,27 @@ while True:
     if key % 256 == 27 or key == 1048603 or cv2.getWindowProperty(WINDOW_NAME, 1) < 0:  # ESC
         # Exit
         break
+    elif key % 256 == 112:  # p
+        # Pause/Resume with ability to quit while paused
+        fps.pause()
+        is_paused = True
+        pause_str = f'pausing at frame {frame_idx}/{num_input_frames} (time={timedelta(seconds=frame_time)})'
+        print(f'\n{pause_str}')
+        logger.info(pause_str)
+        get_out = False
+        while is_paused:
+            key = cv2.waitKeyEx(100)
+            if key % 256 == 27 or cv2.getWindowProperty(WINDOW_NAME, 1) < 0:  # ESC
+                get_out = True
+                break
+            is_paused = not (key % 256 == 112)
+        if get_out:
+            logger.info(f'quitting from pause at frame {frame_idx}')
+            break
+        fps.resume()
+        resume_str = f'resuming from frame {frame_idx}'
+        print(resume_str)
+        logger.info(resume_str)
     elif key % 256 == 32 or key == 1048608:  # Space
         # Clear the current track
         detector.clear()
@@ -367,8 +397,6 @@ while True:
             # # print()
             # Set the flag for drawing the fit figures, diags, etc.
             draw_fit = True
-
-    fps.update()
 
 fps.stop()
 final_progress_str = f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%'

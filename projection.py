@@ -85,7 +85,7 @@ def projectImagePointToSphere(cam, imgPoint, frame_or, data_writer):
                 p_col = (0, 0, 255)
             cv2.circle(frame_or, (img_pt_check[0], img_pt_check[1]), p_rad, p_col, -1)
 
-        logger.debug(f'pts_world =  shape=[{pts_world.shape}]')
+        logger.debug(f'pts_world =  shape={pts_world.shape}')
         # logger.debug(pts_world)
         for pw in pts_world:
             pstr = ','.join(f'{coord:+.6f}' for coord in pw)

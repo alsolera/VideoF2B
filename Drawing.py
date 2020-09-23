@@ -325,9 +325,11 @@ def draw_points(img, cam, dist):
         elif 8 < i < 13:
             # CYAN: corners of imaginary marker at center of sphere
             pt_color = (255, 255, 0)
+            # print(f'center marker: i={i}, img_pt={img_pt}')
         else:
             # GREEN: corners of the three outside markers
             pt_color = (0, 255, 0)
+            # print(f'perimeter markers: i={i}, img_pt={img_pt}')
         cv2.circle(img, (img_pt[0], img_pt[1]), 1, pt_color, -1)
 
     return img

@@ -60,6 +60,7 @@ class FigureTracker:
         '''Create a new FigureTracker.'''
         self.enable_diags = kwargs.pop('enable_diags', False)
         self.actuals = []  # TODO: convert to dict
+        self.indexes = []  # TODO: convert to dict
         self.is_figure_in_progress = False
         self.figure_idx = 0
         self.figure_params = []
@@ -68,6 +69,7 @@ class FigureTracker:
         self._callback = callback
         self._curr_figure_fitter = None
         self._figure_actuals = None
+        self._figure_indexes = None
 
     def start_figure(self):
         '''Start tracking a new figure.'''
@@ -77,6 +79,7 @@ class FigureTracker:
             return
         self.is_figure_in_progress = True
         self._figure_actuals = []
+        self._figure_indexes = []
         self.logger.debug(f'Started tracking Figure {self.figure_idx}')
 
     def finish_figure(self):
@@ -86,12 +89,14 @@ class FigureTracker:
             return
         self.is_figure_in_progress = False
         self.actuals.append(np.asarray(self._figure_actuals))
+        self.indexes.append(self._figure_indexes)
         self.logger.debug(
             f'Finished tracking Figure {self.figure_idx} '
             f'({len(self._figure_actuals)} points)')
         # self.logger.debug(
         #     f'Figure {self.figure_idx} points:\n{self.actuals[self.figure_idx]} shape = {self.actuals[self.figure_idx].shape}')
         self._figure_actuals = None
+        self._figure_indexes = None
 
         fig_type = FigureTracker.FIGURE_MAP.get(self.figure_idx)
         if fig_type is not None and self.R is not None:
@@ -104,22 +109,26 @@ class FigureTracker:
 
         self.figure_idx = len(self.actuals)
 
-    def add_actual_point(self, point):
-        '''Add a measured (actual) point to the currently tracked figure.
+    def add_actual_point(self, idx, point):
+        '''Add a measured (actual) point to the currently tracked figure at a given index.
         If no figure is currently being tracked, this call has no effect.'''
         if not self.is_figure_in_progress:
             # no effect when we're not actively tracking any figure
             return False
-        # self.logger.debug(f'add_actual_point: point = {point} {point.shape}')
+        self.logger.debug(f'add_actual_point: point = {point} {point.shape}')
         if self.R is None:
             self.R = np.linalg.norm(point)
         self._figure_actuals.append(point)
+        self._figure_indexes.append(idx)
         return True
 
     def export(self, path):
         '''Export all tracked figures as numpy arrays to the specified file.
         Arrays are labeled "fig0", "fig1", etc.'''
-        d = {f'fig{i}': act for i, act in enumerate(self.actuals)}
+        d = {
+            f'fig{i}':
+            np.asarray([np.hstack(x) for x in zip(self.indexes[i], act)]) for i, act in enumerate(self.actuals)
+        }
         np.savez(path, **d)
         self.logger.debug(f'Exported {len(self.actuals)} figure(s) to "{path}".')
 
