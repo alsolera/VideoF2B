@@ -43,13 +43,14 @@ def projectImagePointToSphere(cam, imgPoint, frame_or, data_writer):
     coeffs = (
         -(a1**2) - (a2**2) - (a3**2),
         2.*(a1*t1 + a2*t2 + a3*t3),
-        cam.cableLength**2 - (t1**2 + t2**2 + t3**2)
+        cam.flightRadius**2 - (t1**2 + t2**2 + t3**2)
     )
     # logger.debug(f'coeffs = {coeffs}')
     # Value of determinant (b^2 - 4ac) determines type of solution (no intersection, tangent point, or two points)
     # determinant = coeffs[1]**2 - 4.*coeffs[0]*coeffs[2]
     roots = np.roots(coeffs)
     logger.debug(f'roots = {roots}')
+    pts_world = None
     if np.all(abs(roots.imag) < 1e-7):
         pts_world = np.vstack(
             [root * cam.qmat.dot(pt_px) - cam.rtvec for root in roots]).reshape(-1, 3)
@@ -95,3 +96,4 @@ def projectImagePointToSphere(cam, imgPoint, frame_or, data_writer):
         # data_writer.write('\n')
         logger.debug(
             '=====#################### roots are complex, no solution ####################=====')
+    return pts_world

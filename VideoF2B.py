@@ -32,6 +32,7 @@ from imutils.video import FPS
 import Camera
 import Detection
 import Drawing
+import figure_tracker as figtrack
 import projection
 import Video
 
@@ -51,9 +52,9 @@ chk4 = tkinter.Checkbutton(master, text="Overhead eight",
 MAX_TRACK_TIME = 15  # seconds
 IM_WIDTH = 960
 WINDOW_NAME = 'VideoF2B v0.6 - A. Solera, A. Vasilik'
-CALIBRATION_PATH = None
-VIDEO_PATH = None
-LOG_PATH = r'sphere_calcs.log'
+LOG_PATH = 'sphere_calcs.log'
+CALIBRATION_PATH = None  # Default: ask
+VIDEO_PATH = None  # Default: ask
 
 logger = logging.getLogger(__name__)
 
@@ -87,11 +88,11 @@ scale, inp_width, inp_height = Video.Size(cam, cap, IM_WIDTH)
 logger.debug(f'scale = {scale}')
 
 # Platform-dependent stuff
-if platform.system() == 'Windows':
+WINDOW_FLAGS = cv2.WINDOW_NORMAL
+fourcc = cv2.VideoWriter_fourcc(*'H264')
+if platform.system() is 'Windows':
+    WINDOW_FLAGS = cv2.WINDOW_KEEPRATIO
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-else:
-    fourcc = cv2.VideoWriter_fourcc(*'H264')
-cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
 
 # Output video file
 VIDEO_FPS = cap.get(cv2.CAP_PROP_FPS)
@@ -122,11 +123,17 @@ MAX_EMPTY_FRAMES = 256
 data_path = f'{os.path.splitext(videoPath)[0]}_out_data.csv'
 data_writer = open(data_path, 'w', encoding='utf8')
 # data_writer.write('p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
+
+fig_tracker = None
+if cam.Calibrated:
+    fig_tracker = figtrack.FigureTracker(logger=logger)
+
 frame_idx = 0
+cv2.namedWindow(WINDOW_NAME, WINDOW_FLAGS)
 while True:
     _, frame_or = cap.read()
 
-    # frame_idx += 1
+    frame_idx += 1
     # if frame_idx < int(51*VIDEO_FPS):
     #     continue
     # if frame_idx > int(64*VIDEO_FPS):
@@ -143,8 +150,36 @@ while True:
         master.update()
 
         frame_or = cam.Undistort(frame_or)
-        if cam.Located == False and cam.AR == True:
+        if not cam.Located and cam.AR:
             cam.Locate(frame_or)
+
+    '''
+    if frame_idx == 1:
+        import time
+        # first dimension: near/far point index
+        # second dimension: image width
+        # third dimension: image height
+        # fourth dimension: XYZ point on sphere
+        world_map = np.zeros((2, inp_width, inp_height, 3), dtype=np.float32)
+        num_pts_collected = 0
+        for v in range(inp_height):  # NOTE: top of sphere starts at row index 48
+            t1 = time.process_time()
+            for u in range(inp_width):
+                world_pts = projection.projectImagePointToSphere(cam, (u, v), frame_or, data_writer)
+                if world_pts is not None:
+                    # print(u)
+                    # print(world_pts)
+                    world_map[0, u, v] = world_pts[0]
+                    world_map[1, u, v] = world_pts[1]
+                    num_pts_collected += 1
+            t2 = time.process_time()
+            t_diff = t2 - t1
+            print(f'Number of world points in row index {v}: {num_pts_collected}, collected in {t_diff} s')
+            num_pts_collected = 0
+        print('saving world_map array to file...')
+        np.save('world_map.npy', world_map)
+        print('...done.')
+    #'''
 
     frame = imutils.resize(frame_or, width=IM_WIDTH)
 
@@ -156,20 +191,24 @@ while True:
         distZero = np.zeros_like(cam.dist)
         if loops_chk.get():
             Drawing.draw_loop(frame_or, azimuth_delta, cam.rvec, cam.tvec,
-                              cam.newcameramtx, distZero, cam.cableLength, color=(255, 255, 255))
+                              cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
         if ver_eight_chk.get():
             Drawing.drawVerEight(frame_or, azimuth_delta, cam.rvec, cam.tvec,
-                                 cam.newcameramtx, distZero, cam.cableLength, color=(255, 255, 255))
+                                 cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
         if hor_eight_chk.get():
             Drawing.drawHorEight(frame_or, azimuth_delta, cam.rvec, cam.tvec,
-                                 cam.newcameramtx, distZero, cam.cableLength, color=(255, 255, 255))
+                                 cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
         if over_eight_chk.get():
             Drawing.drawOverheadEight(frame_or, azimuth_delta, cam.rvec, cam.tvec,
-                                      cam.newcameramtx, distZero, cam.cableLength, color=(255, 255, 255))
+                                      cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
 
         # try to track the aircraft in world coordinates
         if detector.pts_scaled[0] is not None:
-            projection.projectImagePointToSphere(cam, detector.pts_scaled[0], frame_or, data_writer)
+            act_pts = projection.projectImagePointToSphere(
+                cam, detector.pts_scaled[0], frame_or, data_writer)
+            if act_pts is not None:  # and act_pts.shape[0] == 2:
+                fig_tracker.add_actual_point(act_pts[0])
+                # fig_tracker.add_actual_point(act_pts[1])
 
     Drawing.draw_track(frame_or, detector.pts_scaled, MAX_TRACK_LEN)
 
@@ -187,16 +226,33 @@ while True:
     # if key != -1:
     #     print(key, key & 0xff)
     if key % 256 == 27 or key == 1048603 or cv2.getWindowProperty(WINDOW_NAME, 1) < 0:  # ESC
+        # Exit
         break
     elif key % 256 == 32 or key == 1048608:  # Space
+        # Clear the current track
         detector.clear()
-    elif key == 1113939 or key == 2555904 or key == 65363:  # Arrow
+    elif key == 1113939 or key == 2555904 or key == 65363:  # Right Arrow
         azimuth_delta += 0.5
-    elif key == 1113937 or key == 2424832 or key == 65361:  # Arrow
+    elif key == 1113937 or key == 2424832 or key == 65361:  # Left Arrow
         azimuth_delta -= 0.5
     elif key % 256 == 99 or key == 1048675:  # c
+        # Relocate AR sphere
         cam.Located = False
         cam.AR = True
+    elif key % 256 == 91:  # [
+        # Mark the beginning of a new figure
+        if fig_tracker is not None:
+            try:
+                fig_tracker.start_figure()
+            except figtrack.UserError as err:
+                print(err)
+    elif key % 256 == 93:  # ]
+        # Mark the end of the current figure
+        if fig_tracker is not None:
+            try:
+                fig_tracker.finish_figure()
+            except figtrack.UserError as err:
+                print(err)
 
     fps.update()
 

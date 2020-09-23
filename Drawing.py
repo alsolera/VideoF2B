@@ -257,19 +257,19 @@ def draw_points(img, rvec, tvec, cameramtx, dist, r=25, markRadius=25):
     return img
 
 
-def draw_all_geometry(img, Camera, offsettAngle=0, axis=False):
+def draw_all_geometry(img, cam, offsettAngle=0, axis=False):
 
-    distZero = np.zeros_like(Camera.dist)
+    distZero = np.zeros_like(cam.dist)
 
-    draw_level(img, Camera.rvec, Camera.tvec, Camera.newcameramtx, distZero, Camera.cableLength)
-    draw_all_merid(img, Camera.rvec, Camera.tvec, Camera.newcameramtx,
-                   distZero, Camera.cableLength, offsettAngle)
+    draw_level(img, cam.rvec, cam.tvec, cam.newcameramtx, distZero, cam.flightRadius)
+    draw_all_merid(img, cam.rvec, cam.tvec, cam.newcameramtx,
+                   distZero, cam.flightRadius, offsettAngle)
     if axis:
-        draw_axis(img, Camera.rvec, Camera.tvec, Camera.newcameramtx, distZero)
-    draw_45(img, Camera.rvec, Camera.tvec, Camera.newcameramtx, distZero, Camera.cableLength)
+        draw_axis(img, cam.rvec, cam.tvec, cam.newcameramtx, distZero)
+    draw_45(img, cam.rvec, cam.tvec, cam.newcameramtx, distZero, cam.flightRadius)
 
-    draw_points(img, Camera.rvec, Camera.tvec, Camera.newcameramtx,
-                distZero, Camera.cableLength, Camera.markRadius)
+    draw_points(img, cam.rvec, cam.tvec, cam.newcameramtx,
+                distZero, cam.flightRadius, cam.markRadius)
 
     return img
 

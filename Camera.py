@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 
 
 class CalCamera:
-    def __init__(self, frame_size, calibrationPath=None):
+    def __init__(self, frame_size, calibrationPath=None, marker_points=None, center_height=None):
 
         try:
             CF = open('cal.conf', 'r')
@@ -42,13 +42,14 @@ class CalCamera:
         root = Tkinter.Tk()
         root.withdraw()  # use to hide tkinter window
         if calibrationPath is None:
-            calibrationPath = tkFileDialog.askopenfilename(parent=root, initialdir=initialdir,
-                                                           title='Select camera calibration .npz file or cancel to ignore')
+            calibrationPath = tkFileDialog.askopenfilename(
+                parent=root, initialdir=initialdir,
+                title='Select camera calibration .npz file or cancel to ignore')
         print(f'calibrationPath: {calibrationPath}')
         self.Calibrated = len(calibrationPath) > 1
         self.Located = False
         self.AR = True
-        self.cableLength = None
+        self.flightRadius = None
         self.markRadius = None
         self.PointNames = ('circle center', 'front marker', 'left marker', 'right marker')
 
@@ -86,14 +87,14 @@ class CalCamera:
                     self.mtx, self.dist, np.eye(3), self.newcameramtx, self.frame_size, cv2.CV_16SC2)
 
                 # TODO: temporarily here for debugging. Uncomment before checkin.
-                # self.cableLength = tkSimpleDialog.askfloat(
-                #     'Input', 'Total line length (m) (Cancel = 21m):')
-                if self.cableLength is None:
-                    self.cableLength = 21
+                self.flightRadius = tkSimpleDialog.askfloat(
+                    'Input', f'Flight radius (m) (Cancel = 21m):')
+                if self.flightRadius is None:
+                    self.flightRadius = 21
 
                 # TODO: temporarily here for debugging. Uncomment before checkin.
-                # self.markRadius = tkSimpleDialog.askfloat(
-                #     'Input', 'Height markers distance to center (m) (Cancel = 25m)')
+                self.markRadius = tkSimpleDialog.askfloat(
+                    'Input', f'Height markers distance to center (m) (Cancel = 25m)')
                 if self.markRadius is None:
                     self.markRadius = 25
             except:
@@ -103,8 +104,8 @@ class CalCamera:
 
         CF.close()
         del root
-        logger.debug(f'cable length = {self.cableLength}')
-        logger.debug(f' mark radius = {self.markRadius}')
+        logger.debug(f'flight radius = {self.flightRadius}')
+        logger.debug(f'  mark radius = {self.markRadius}')
         print('Using calibration: {}'.format(self.Calibrated))
 
     def Undistort(self, img):
@@ -144,7 +145,7 @@ class CalCamera:
         self.imagePoints = np.zeros((NumRefPoints, 2), dtype=np.float32)
 
         cv2.namedWindow(self.calWindowName, cv2.WINDOW_NORMAL)
-        cv2.setMouseCallback(self.calWindowName, self.CB_mouse)
+        cv2.setMouseCallback(self.calWindowName, self.CB_mouse, param=img)
 
         while(1):
 
@@ -188,20 +189,21 @@ class CalCamera:
 
     # mouse callback function
     def CB_mouse(self, event, x, y, flags, param):
-        global point, imagePoints
-
+        '''NOTE: param is the image frame.'''
+        # print(event, x, y, flags, param)
         if event == cv2.EVENT_LBUTTONDOWN:
             self.imagePoints[self.point, 0], self.imagePoints[self.point, 1] = x, y
             self.point += 1
-            # print(f'point {self.point} = {self.imagePoints}')
-            # cv2.circle(self.calWindowName,(x,y),1,(0,255,0),-1)
+            print(f'Point {self.point} entered. Points =\n{self.imagePoints}')
+            if param is not None:
+                cv2.circle(param, (x, y), 6, (0, 255, 0))
 
         elif event == cv2.EVENT_RBUTTONDOWN:
             if self.point > 0:
                 self.point -= 1
-#                 cv2.circle(self.calWindowName,
-#                            (imagePoints[point,0],imagePoints[point,1])
-#                            ,1,(255,255,255),-1)
+                if param is not None:
+                    cv2.circle(param, (imagePoints[point, 0], imagePoints[point, 1]),
+                               5, (0, 0, 255))
                 self.imagePoints[self.point, 0] = 0
                 self.imagePoints[self.point, 1] = 0
                 # print(self.imagePoints)

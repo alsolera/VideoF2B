@@ -78,7 +78,7 @@ def Size(Camera, cap, im_width):
 
     scale = float(inp_width)/float(im_width)
 
-    print("FPS: ", cap.get(5))
-    print("Res: ", inp_height, 'x', inp_width)
+    print(f"FPS: {cap.get(5)}")
+    print(f"Res: {inp_width} x {inp_height}")
 
     return scale, inp_width, inp_height
