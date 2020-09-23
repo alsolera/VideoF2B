@@ -32,7 +32,10 @@ class CalCamera:
     DEFAULT_MARKER_RADIUS = 25.0
     DEFAULT_MARKER_HEIGHT = 1.5
 
-    def __init__(self, frame_size, calibrationPath=None, marker_points=None, marker_height=None, logger=None):
+    def __init__(self, frame_size, calibrationPath=None,
+                 flight_radius=None, marker_radius=None, marker_height=None,
+                 marker_points=None,
+                 logger=None):
 
         self.logger = logger or logging.getLogger(__name__)
         try:
@@ -53,9 +56,9 @@ class CalCamera:
         self.Calibrated = len(calibrationPath) > 1
         self.Located = False
         self.AR = True
-        self.flightRadius = None
-        self.markRadius = None
-        self.markHeight = None
+        self.flightRadius = flight_radius
+        self.markRadius = marker_radius
+        self.markHeight = marker_height
         self.PointNames = ('circle center', 'front marker', 'left marker', 'right marker')
 
         self.frame_size = frame_size
@@ -90,17 +93,17 @@ class CalCamera:
                 self.map1, self.map2 = cv2.initUndistortRectifyMap(
                     self.mtx, self.dist, np.eye(3), self.newcameramtx, self.frame_size, cv2.CV_16SC2)
 
-                self.flightRadius = tkSimpleDialog.askfloat(
+                self.flightRadius = self.flightRadius or tkSimpleDialog.askfloat(
                     'Input', f'Flight radius (m) (Cancel = {CalCamera.DEFAULT_FLIGHT_RADIUS} m):')
                 if self.flightRadius is None:
                     self.flightRadius = CalCamera.DEFAULT_FLIGHT_RADIUS
 
-                self.markRadius = tkSimpleDialog.askfloat(
+                self.markRadius = self.markRadius or tkSimpleDialog.askfloat(
                     'Input', f'Height markers distance to center (m) (Cancel = {CalCamera.DEFAULT_MARKER_RADIUS} m)')
                 if self.markRadius is None:
                     self.markRadius = CalCamera.DEFAULT_MARKER_RADIUS
 
-                self.markHeight = tkSimpleDialog.askfloat(
+                self.markHeight = self.markHeight or tkSimpleDialog.askfloat(
                     'Input', f'Height markers: height above center of circle (m) (Cancel = {CalCamera.DEFAULT_MARKER_HEIGHT} m)')
                 if self.markHeight is None:
                     self.markHeight = CalCamera.DEFAULT_MARKER_HEIGHT
@@ -211,7 +214,7 @@ class CalCamera:
             if self.point > 0:
                 self.point -= 1
                 if param is not None:
-                    cv2.circle(param, (imagePoints[point, 0], imagePoints[point, 1]),
+                    cv2.circle(param, (imagePoints[self.point, 0], imagePoints[self.point, 1]),
                                5, (0, 0, 255))
                 self.imagePoints[self.point, 0] = 0
                 self.imagePoints[self.point, 1] = 0

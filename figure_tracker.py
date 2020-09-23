@@ -20,6 +20,8 @@ import logging
 
 import numpy as np
 
+import figures
+
 
 class UserError(Exception):
     '''Class for exception that occur during Figure tracking due to user errors.'''
@@ -49,27 +51,39 @@ class FigureTracker:
         * 4.J.15 Landing manoeuvre (Rule 4.2.15.17)
     '''
 
-    def __init__(self, logger=None):
+    # Maps figure index to figure type
+    FIGURE_MAP = {
+        0: figures.FigureTypes.INSIDE_LOOPS,
+    }
+
+    def __init__(self, logger=None, callback=lambda x: None):
         '''Create a new FigureTracker.'''
-        self.logger = logger or logging.getLogger(__name__)
         self.actuals = []
-        self._figure_actuals = None
         self.is_figure_in_progress = False
         self.figure_idx = 0
+        self.figure_params = []
+        # self.diag_params = []
+        self.logger = logger or logging.getLogger(__name__)
+        self.R = None
+        self._callback = callback
+        self._curr_figure_fitter = None
+        self._figure_actuals = None
 
     def start_figure(self):
         '''Start tracking a new figure.'''
         if self.is_figure_in_progress:
-            raise UserError(
+            self._callback(
                 f"Cannot start new figure as figure {self.figure_idx + 1} is in progress.")
+            return
         self.is_figure_in_progress = True
         self._figure_actuals = []
         self.logger.debug(f'Started tracking Figure {self.figure_idx}')
 
     def finish_figure(self):
-        '''Finish tracking the currently tracked figure.'''
+        '''Finish trfig_type_constructorhe currently tracked figure.'''
         if not self.is_figure_in_progress:
-            raise UserError(f"Cannot finish a figure as no figure is in progress.")
+            self._callback(f"Cannot finish a figure as no figure is in progress.")
+            return
         self.is_figure_in_progress = False
         self.actuals.append(np.asarray(self._figure_actuals))
         self.logger.debug(
@@ -78,6 +92,17 @@ class FigureTracker:
         # self.logger.debug(
         #     f'Figure {self.figure_idx} points:\n{self.actuals[self.figure_idx]} shape = {self.actuals[self.figure_idx].shape}')
         self._figure_actuals = None
+
+        fig_type = FigureTracker.FIGURE_MAP.get(self.figure_idx)
+        if fig_type is not None and self.R is not None:
+            self._curr_figure_fitter = figures.Figure.create(
+                fig_type, R=self.R, actuals=self.actuals[self.figure_idx])
+            self.figure_params.append(
+                # tuple of (initial, final) fit parameters
+                (self._curr_figure_fitter.p0, self._curr_figure_fitter.fit(plot=True))
+            )
+            # self.diag_params.append(self._curr_figure_fitter.fits_hist)
+
         self.figure_idx = len(self.actuals)
 
     def add_actual_point(self, point):
@@ -87,6 +112,8 @@ class FigureTracker:
             # no effect when we're not actively tracking any figure
             return False
         # self.logger.debug(f'add_actual_point: point = {point} {point.shape}')
+        if self.R is None:
+            self.R = np.linalg.norm(point)
         self._figure_actuals.append(point)
         return True
 

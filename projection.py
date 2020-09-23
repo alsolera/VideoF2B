@@ -24,6 +24,12 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
+def projectSpherePointsToImage(cam, world_pts, frame=None):
+    img_pts, _ = cv2.projectPoints(world_pts, cam.rvec, cam.tvec, cam.newcameramtx, cam.dist)
+    img_pts = np.int32(img_pts).reshape(-1, 2)
+    return img_pts
+
+
 def projectImagePointToSphere(cam, imgPoint, frame_or, data_writer):
     '''Project image point to world sphere given a calibrated camera and frame.'''
     logger.debug(f'imgPoint = {imgPoint}')
