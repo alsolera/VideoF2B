@@ -1,18 +1,18 @@
-##    VideoF2B v0.4 - Draw F2B figures from video
-##    Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
-##
-##    This program is free software: you can redistribute it and/or modify
-##    it under the terms of the GNU General Public License as published by
-##    the Free Software Foundation, either version 3 of the License, or
-##    (at your option) any later version.
-##
-##    This program is distributed in the hope that it will be useful,
-##    but WITHOUT ANY WARRANTY; without even the implied warranty of
-##    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-##    GNU General Public License for more details.
-##
-##    You should have received a copy of the GNU General Public License
-##    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# VideoF2B v0.4 - Draw F2B figures from video
+# Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import cv2
@@ -24,7 +24,7 @@ from os import path
 
 def LoadVideo():
     root = tkinter.Tk()
-    root.withdraw() #use to hide tkinter window
+    root.withdraw()  # use to hide tkinter window
     live = False
     
     try:
@@ -52,7 +52,7 @@ def LoadVideo():
     
     cap = cv2.VideoCapture(Path)
     if not cap.isOpened():  # check if we succeeded
-        print ('Error loading video file')
+        print('Error loading video file')
         cap.release()
         cv2.destroyAllWindows()
         sys.exit()
@@ -67,13 +67,10 @@ def Size(Camera, cap, ImWidth):
     else:
         inp_width = cap.get(3)
         inp_height = cap.get(4)
-            
+
     scale = float(inp_width)/float(ImWidth)
 
-    print(("FPS: ",cap.get(5)))
-    print(("Res: ",inp_height,'x',inp_width))
-    
-    return scale, inp_width, inp_height
-    
+    print("FPS: ", cap.get(5))
+    print("Res: ", inp_height, 'x', inp_width)
 
-    
+    return scale, inp_width, inp_height

@@ -1,19 +1,19 @@
-##    VideoF2B v0.4 - Draw F2B figures from video
-##    Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
-##    Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
-##
-##    This program is free software: you can redistribute it and/or modify
-##    it under the terms of the GNU General Public License as published by
-##    the Free Software Foundation, either version 3 of the License, or
-##    (at your option) any later version.
-##
-##    This program is distributed in the hope that it will be useful,
-##    but WITHOUT ANY WARRANTY; without even the implied warranty of
-##    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-##    GNU General Public License for more details.
-##
-##    You should have received a copy of the GNU General Public License
-##    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+# VideoF2B v0.4 - Draw F2B figures from video
+# Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
+# Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
 import cv2
@@ -87,29 +87,29 @@ Detector = Detection.Detector(maxlen, scale)
 
 # Speed meter
 fps = FPS().start()
-     
+
 offsettAngle = 0
 emptys = 0
 
 while True:
     _, frame_or = cap.read()
-    
+
     if frame_or is None:
         emptys += 1
-        if emptys > 256: # GoPro videos show empty frames, quick fix
+        if emptys > 256:  # GoPro videos show empty frames, quick fix
             break
         continue
     emptys = 0
-    
+
     if Camera.Calibrated:
         master.update()
         
         frame_or = Camera.Undistort(frame_or)
         if Camera.Located == False and Camera.AR == True:
             Camera.Locate(frame_or)
-        
+
     frame = imutils.resize(frame_or, width=ImWidth)
-    
+
     Detector.process(frame)
     if Camera.Located:
         Drawing.draw_all_geometry(frame_or, Camera, offsettAngle, axis=False)
@@ -125,37 +125,36 @@ while True:
             Drawing.drawOverheadEight(frame_or, offsettAngle, Camera.rvec, Camera.tvec, Camera.newcameramtx, distZero, Camera.cableLenght, color=(255,255,255))
         
     Drawing.draw_track(frame_or, Detector.pts_scaled, maxlen)
-    
+
     # Write text
-    cv2.putText(frame_or, "VideoF2B - v0.5", (10, 15),  cv2.FONT_HERSHEY_TRIPLEX,.5, (0,0,255), 1)
-    
-    #Show output
+    cv2.putText(frame_or, "VideoF2B - v0.5", (10, 15),  cv2.FONT_HERSHEY_TRIPLEX, .5, (0, 0, 255), 1)
+
+    # Show output
     cv2.imshow(Window_name, frame_or)
-    
-    #Save frame
+
+    # Save frame
     out.write(frame_or)
-    
-    key = cv2.waitKeyEx(1)# & 0xFF 
-    if key == 27 or key == 1048603 or cv2.getWindowProperty(Window_name, 1)<0: #ESC
+
+    key = cv2.waitKeyEx(1)  # & 0xFF
+    if key == 27 or key == 1048603 or cv2.getWindowProperty(Window_name, 1) < 0:  # ESC
         break
-    elif key == 32 or key == 1048608: #Space
+    elif key == 32 or key == 1048608:  # Space
         Detector.clear()
-    elif key == 1113939 or key == 2555904 or key == 65363: # Arrow
+    elif key == 1113939 or key == 2555904 or key == 65363:  # Arrow
         offsettAngle += 0.5
-    elif key == 1113937 or key == 2424832 or key == 65361: # Arrow
+    elif key == 1113937 or key == 2424832 or key == 65361:  # Arrow
         offsettAngle -= 0.5
-    elif key == 99 or key == 1048675: # c
+    elif key == 99 or key == 1048675:  # c
         Camera.Located = False
         Camera.AR = True
-        
-    fps.update()
-    
-fps.stop()
-print(("Elapsed time: {:.1f}".format(fps.elapsed())))
-print(("Approx. FPS: {:.1f}".format(fps.fps())))
 
-#Clean
+    fps.update()
+
+fps.stop()
+print("Elapsed time: {:.1f}".format(fps.elapsed()))
+print("Approx. FPS: {:.1f}".format(fps.fps()))
+
+# Clean
 cap.release()
 out.release()
 cv2.destroyAllWindows()
-
