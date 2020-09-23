@@ -120,9 +120,10 @@ azimuth_delta = 0
 num_empty_frames = 0
 MAX_EMPTY_FRAMES = 256
 
-data_path = f'{os.path.splitext(videoPath)[0]}_out_data.csv'
-data_writer = open(data_path, 'w', encoding='utf8')
-# data_writer.write('p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
+if cam.Calibrated:
+    data_path = f'{os.path.splitext(videoPath)[0]}_out_data.csv'
+    data_writer = open(data_path, 'w', encoding='utf8')
+    # data_writer.write('p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
 
 fig_tracker = None
 if cam.Calibrated:
@@ -153,33 +154,33 @@ while True:
         if not cam.Located and cam.AR:
             cam.Locate(frame_or)
 
-    '''
-    if frame_idx == 1:
-        import time
-        # first dimension: near/far point index
-        # second dimension: image width
-        # third dimension: image height
-        # fourth dimension: XYZ point on sphere
-        world_map = np.zeros((2, inp_width, inp_height, 3), dtype=np.float32)
-        num_pts_collected = 0
-        for v in range(inp_height):  # NOTE: top of sphere starts at row index 48
-            t1 = time.process_time()
-            for u in range(inp_width):
-                world_pts = projection.projectImagePointToSphere(cam, (u, v), frame_or, data_writer)
-                if world_pts is not None:
-                    # print(u)
-                    # print(world_pts)
-                    world_map[0, u, v] = world_pts[0]
-                    world_map[1, u, v] = world_pts[1]
-                    num_pts_collected += 1
-            t2 = time.process_time()
-            t_diff = t2 - t1
-            print(f'Number of world points in row index {v}: {num_pts_collected}, collected in {t_diff} s')
+        '''
+        if frame_idx == 1:
+            import time
+            # first dimension: near/far point index
+            # second dimension: image width
+            # third dimension: image height
+            # fourth dimension: XYZ point on sphere
+            world_map = np.zeros((2, inp_width, inp_height, 3), dtype=np.float32)
             num_pts_collected = 0
-        print('saving world_map array to file...')
-        np.save('world_map.npy', world_map)
-        print('...done.')
-    #'''
+            for v in range(inp_height):  # NOTE: top of sphere starts at row index 48
+                t1 = time.process_time()
+                for u in range(inp_width):
+                    world_pts = projection.projectImagePointToSphere(cam, (u, v), frame_or, data_writer)
+                    if world_pts is not None:
+                        # print(u)
+                        # print(world_pts)
+                        world_map[0, u, v] = world_pts[0]
+                        world_map[1, u, v] = world_pts[1]
+                        num_pts_collected += 1
+                t2 = time.process_time()
+                t_diff = t2 - t1
+                print(f'Number of world points in row index {v}: {num_pts_collected}, collected in {t_diff} s')
+                num_pts_collected = 0
+            print('saving world_map array to file...')
+            np.save('world_map.npy', world_map)
+            print('...done.')
+        #'''
 
     frame = imutils.resize(frame_or, width=IM_WIDTH)
 
@@ -264,4 +265,5 @@ print(f"Approx. FPS: {fps.fps():.1f}")
 cap.release()
 out.release()
 cv2.destroyAllWindows()
-data_writer.close()
+if cam.Located:
+    data_writer.close()
