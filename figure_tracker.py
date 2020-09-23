@@ -28,9 +28,29 @@ class UserError(Exception):
 
 class FigureTracker:
     '''Container that tracks F2B figures.
-    May be used for fitting the actual flight path to the nominal figure to determine a score.'''
+    May be used for fitting the actual flight path to the nominal figure to determine a score.
+
+    All FAI figures, per "F2, Annex 4J -- F2B Manoeuvre Diagrams" for reference.
+    Not all may be easy to track:
+        * 4.J.1  Take-off (Rule 4.2.15.3)
+        * 4.J.2  Reverse wingover (Rule 4.2.15.4)
+        * 4.J.3  Three consecutive inside loops (Rule 4.2.15.5)
+        * 4.J.4  Two consecutive laps of inverted level flight (Rule 4.2.15.6)
+        * 4.J.5  Three consecutive outside loops (Rule 4.2.15.7)
+        * 4.J.6  Two consecutive inside square loops (Rule 4.2.15.8)
+        * 4.J.7  Two consecutive outside square loops (Rule 4.2.15.9)
+        * 4.J.8  Two consecutive inside triangular loops (Rule 4.2.15.10)
+        * 4.J.9  Two consecutive horizontal eight (Rule 4.2.15.11)
+        * 4.J.10 Two consecutive horizontal square eight (Rule 4.2.15.12)
+        * 4.J.11 Two consecutive vertical eight (Rule 4.2.15.13)
+        * 4.J.12 Hourglass (Rule 4.2.15.14)
+        * 4.J.13 Two consecutive overhead eight (Rule 4.2.15.15)
+        * 4.J.14 Four-leaf clover manoeuvre (Rule 4.2.15.16)
+        * 4.J.15 Landing manoeuvre (Rule 4.2.15.17)
+    '''
 
     def __init__(self, logger=None):
+        '''Create a new FigureTracker.'''
         self.logger = logger or logging.getLogger(__name__)
         self.actuals = []
         self._figure_actuals = None
@@ -38,28 +58,46 @@ class FigureTracker:
         self.figure_idx = 0
 
     def start_figure(self):
+        '''Start tracking a new figure.'''
         if self.is_figure_in_progress:
             raise UserError(
                 f"Cannot start new figure as figure {self.figure_idx + 1} is in progress.")
         self.is_figure_in_progress = True
-        self._figure_actuals = np.empty((3,), float)
+        self._figure_actuals = []
         self.logger.debug(f'Started tracking Figure {self.figure_idx}')
 
     def finish_figure(self):
+        '''Finish tracking the currently tracked figure.'''
         if not self.is_figure_in_progress:
             raise UserError(f"Cannot finish a figure as no figure is in progress.")
         self.is_figure_in_progress = False
-        self.actuals.append(self._figure_actuals)
-        self._figure_actuals = None
-        self.logger.debug(f'Finished tracking Figure {self.figure_idx}')
+        self.actuals.append(np.asarray(self._figure_actuals))
         self.logger.debug(
-            f'Figure {self.figure_idx} points: {self.actuals[self.figure_idx]} shape = {self.actuals[self.figure_idx].shape}')
+            f'Finished tracking Figure {self.figure_idx} '
+            f'({len(self._figure_actuals)} points)')
+        # self.logger.debug(
+        #     f'Figure {self.figure_idx} points:\n{self.actuals[self.figure_idx]} shape = {self.actuals[self.figure_idx].shape}')
+        self._figure_actuals = None
         self.figure_idx = len(self.actuals)
 
     def add_actual_point(self, point):
+        '''Add a measured (actual) point to the currently tracked figure.
+        If no figure is currently being tracked, this call has no effect.'''
         if not self.is_figure_in_progress:
             # no effect when we're not actively tracking any figure
             return False
-        self.logger.debug(f'add_actual_point: point = {point} {point.shape}')
-        self._figure_actuals = np.append(self._figure_actuals, point, axis=0)
+        # self.logger.debug(f'add_actual_point: point = {point} {point.shape}')
+        self._figure_actuals.append(point)
         return True
+
+    def export(self, path):
+        '''Export all tracked figures as numpy arrays to the specified file.
+        Arrays are labeled "fig0", "fig1", etc.'''
+        d = {f'fig{i}': act for i, act in enumerate(self.actuals)}
+        np.savez(path, **d)
+        self.logger.debug(f'Exported {len(self.actuals)} figure(s) to "{path}".')
+
+    def finish_all(self):
+        '''Clean-up method. Finish current figure, if any figure is in progress.'''
+        if self.is_figure_in_progress:
+            self.finish_figure()

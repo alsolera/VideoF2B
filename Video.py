@@ -49,7 +49,7 @@ def LoadVideo(path=None):
         CF.write(os.path.dirname(path))
         CF.close()
 
-    print(f'video path: {path}')
+    print(f'Video path: {path}')
     if not path:
         return None, None, live
 

@@ -206,51 +206,59 @@ def draw_45(img, rvec, tvec, cameramtx, dist, r=20, color=(255, 255, 255)):
     return img
 
 
-def draw_points(img, rvec, tvec, cameramtx, dist, r=25, markRadius=25):
-    rcos45 = markRadius * 0.70710678
-    marker_size_x = 11.*0.0254  # marker width, in m
-    marker_size_z = 17.*0.0254  # marker height, in m
-    world_points = np.array([[0, 0, 0],
-                             [0, 0, -1.5],
-                             [0, 0, r],
-                             [rcos45, rcos45, 0],
-                             [-rcos45, rcos45, 0],
-                             [markRadius, 0, 0],
-                             [-markRadius, 0, 0],
-                             [0, -markRadius, 0],
-                             [0, markRadius, 0],
+def draw_points(img, cam, dist):
+    r = cam.flightRadius
+    rcos45 = cam.markRadius * 0.70710678
+    marker_size_x = 0.20  # marker width, in m
+    marker_size_z = 0.60  # marker height, in m
+    world_points = np.array([
+        # Points on sphere centerline: sphere center, pilot's feet, top of sphere.
+        [0, 0, 0],
+        [0, 0, -cam.markHeight],
+        [0, 0, r],
+        # Points on equator: bottom of right & left marker, right & left antipodes, front & rear antipodes
+        [rcos45, rcos45, 0],
+        [-rcos45, rcos45, 0],
+        [cam.markRadius, 0, 0],
+        [-cam.markRadius, 0, 0],
+        [0, -cam.markRadius, 0],
+        [0, cam.markRadius, 0],
+        # Points on corners of an imaginary marker at center of sphere (optional)
+        [0.5 * marker_size_x, 0., 0.5 * marker_size_z],
+        [-0.5 * marker_size_x, 0., 0.5 * marker_size_z],
+        [-0.5 * marker_size_x, 0., -0.5 * marker_size_z],
+        [0.5 * marker_size_x, 0., -0.5 * marker_size_z],
+        # Points on corners of front marker
+        [0.5 * marker_size_x, cam.markRadius, 0.5 * marker_size_z],
+        [-0.5 * marker_size_x, cam.markRadius, 0.5 * marker_size_z],
+        [-0.5 * marker_size_x, cam.markRadius, -0.5 * marker_size_z],
+        [0.5 * marker_size_x, cam.markRadius, -0.5 * marker_size_z],
+        # Points on corners of right marker
+        [rcos45 + 0.5 * marker_size_x, rcos45, 0.5 * marker_size_z],
+        [rcos45 - 0.5 * marker_size_x, rcos45, 0.5 * marker_size_z],
+        [rcos45 - 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
+        [rcos45 + 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
+        # Points on corners of left marker
+        [-rcos45 + 0.5 * marker_size_x, rcos45, 0.5 * marker_size_z],
+        [-rcos45 - 0.5 * marker_size_x, rcos45, 0.5 * marker_size_z],
+        [-rcos45 - 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
+        [-rcos45 + 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
+    ],
+        dtype=np.float32)
 
-                             [0.5*marker_size_x, 0., -1.5+marker_size_z],
-                             [-0.5*marker_size_x, 0., -1.5+marker_size_z],
-                             [-0.5*marker_size_x, 0., -1.5],
-                             [0.5*marker_size_x, 0., -1.5],
-
-                             [0.5*marker_size_x, markRadius, 0.5*marker_size_z],
-                             [-0.5*marker_size_x, markRadius, 0.5*marker_size_z],
-                             [-0.5*marker_size_x, markRadius, -0.5*marker_size_z],
-                             [0.5*marker_size_x, markRadius, -0.5*marker_size_z],
-
-                             [rcos45+0.5*marker_size_x, rcos45, 0.5*marker_size_z],
-                             [rcos45-0.5*marker_size_x, rcos45, 0.5*marker_size_z],
-                             [rcos45-0.5*marker_size_x, rcos45, -0.5*marker_size_z],
-                             [rcos45+0.5*marker_size_x, rcos45, -0.5*marker_size_z],
-
-                             [-rcos45+0.5*marker_size_x, rcos45, 0.5*marker_size_z],
-                             [-rcos45-0.5*marker_size_x, rcos45, 0.5*marker_size_z],
-                             [-rcos45-0.5*marker_size_x, rcos45, -0.5*marker_size_z],
-                             [-rcos45+0.5*marker_size_x, rcos45, -0.5*marker_size_z],
-                             ],
-                            dtype=np.float32)
-    imgpts, _ = cv2.projectPoints(world_points, rvec, tvec, cameramtx, dist)
-
+    imgpts, _ = cv2.projectPoints(world_points, cam.rvec, cam.tvec, cam.newcameramtx, dist)
     imgpts = np.int32(imgpts).reshape(-1, 2)
 
+    # Draw the world points in the video according to our color scheme
     for i, img_pt in enumerate(imgpts):
         if i < 9:
+            # RED: points on centerline and equator
             pt_color = (0, 0, 255)
         elif 8 < i < 13:
+            # CYAN: corners of imaginary marker at feet of pilot
             pt_color = (255, 255, 0)
         else:
+            # GREEN: corners of the three outside markers
             pt_color = (0, 255, 0)
         cv2.circle(img, (img_pt[0], img_pt[1]), 1, pt_color, -1)
 
@@ -268,8 +276,7 @@ def draw_all_geometry(img, cam, offsettAngle=0, axis=False):
         draw_axis(img, cam.rvec, cam.tvec, cam.newcameramtx, distZero)
     draw_45(img, cam.rvec, cam.tvec, cam.newcameramtx, distZero, cam.flightRadius)
 
-    draw_points(img, cam.rvec, cam.tvec, cam.newcameramtx,
-                distZero, cam.flightRadius, cam.markRadius)
+    draw_points(img, cam, distZero)
 
     return img
 

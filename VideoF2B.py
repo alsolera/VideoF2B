@@ -23,6 +23,7 @@ import platform
 import sys
 import time
 import tkinter
+from datetime import timedelta
 
 import cv2
 import imutils
@@ -71,7 +72,8 @@ liveVideos = '../VideoF2B_videos'
 
 # Load input video
 cap, videoPath, live = Video.LoadVideo(path=VIDEO_PATH)
-if cap is None:
+if cap is None or videoPath is None:
+    print('ERROR: no input specified.')
     sys.exit(1)
 FULL_FRAME_SIZE = (
     int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
@@ -94,10 +96,11 @@ if platform.system() is 'Windows':
     WINDOW_FLAGS = cv2.WINDOW_KEEPRATIO
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
+input_base_name = os.path.splitext(videoPath)[0]
 # Output video file
 VIDEO_FPS = cap.get(cv2.CAP_PROP_FPS)
 if not live:
-    out = cv2.VideoWriter(os.path.splitext(videoPath)[0]+'_out.mp4',
+    out = cv2.VideoWriter(f'{input_base_name}_out.mp4',
                           fourcc, VIDEO_FPS, (int(inp_width), int(inp_height)))
 else:
     if not os.path.exists(liveVideos):
@@ -110,18 +113,19 @@ else:
 MAX_TRACK_LEN = int(MAX_TRACK_TIME * VIDEO_FPS)
 # Detector
 detector = Detection.Detector(MAX_TRACK_LEN, scale)
-
 # Speed meter
 fps = FPS().start()
-
 # Angle offset of current AR hemisphere wrt world coordinate system
 azimuth_delta = 0
-# Number of empty frames at beginning of capture
+# Number of total empty frames in the input.
 num_empty_frames = 0
-MAX_EMPTY_FRAMES = 256
+# Number of consecutive empty frames at beginning of capture
+num_consecutive_empty_frames = 0
+# Maximum allowed number of consecutive empty frames. If we find more, we quit.
+MAX_CONSECUTIVE_EMPTY_FRAMES = 256
 
 if cam.Calibrated:
-    data_path = f'{os.path.splitext(videoPath)[0]}_out_data.csv'
+    data_path = f'{input_base_name}_out_data.csv'
     data_writer = open(data_path, 'w', encoding='utf8')
     # data_writer.write('p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
 
@@ -130,9 +134,20 @@ if cam.Calibrated:
     fig_tracker = figtrack.FigureTracker(logger=logger)
 
 frame_idx = 0
+frame_delta = 0
+num_input_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+MAX_FRAME_DELTA = int(num_input_frames / 100)
 cv2.namedWindow(WINDOW_NAME, WINDOW_FLAGS)
 while True:
     _, frame_or = cap.read()
+
+    if frame_or is None:
+        num_empty_frames += 1
+        num_consecutive_empty_frames += 1
+        if num_consecutive_empty_frames > MAX_CONSECUTIVE_EMPTY_FRAMES:  # GoPro videos show empty frames, quick fix
+            break
+        continue
+    num_consecutive_empty_frames = 0
 
     frame_idx += 1
     # if frame_idx < int(51*VIDEO_FPS):
@@ -208,7 +223,8 @@ while True:
             act_pts = projection.projectImagePointToSphere(
                 cam, detector.pts_scaled[0], frame_or, data_writer)
             if act_pts is not None:  # and act_pts.shape[0] == 2:
-                fig_tracker.add_actual_point(act_pts[0])
+                fig_tracker.add_actual_point(act_pts)
+                # fig_tracker.add_actual_point(act_pts[0])
                 # fig_tracker.add_actual_point(act_pts[1])
 
     Drawing.draw_track(frame_or, detector.pts_scaled, MAX_TRACK_LEN)
@@ -222,6 +238,17 @@ while True:
 
     # Save frame
     out.write(frame_or)
+
+    frame_time = frame_idx / VIDEO_FPS
+    progress = int(frame_idx / (num_input_frames) * 100)
+    if (frame_idx == 1) or (progress % 5 == 0 and frame_delta >= MAX_FRAME_DELTA) or (frame_time % 1 < 0.05):
+        print(
+            f'time: {timedelta(seconds=frame_time)}, '
+            f'progress: {progress:3d}% ({frame_idx:6d}/{num_input_frames:6d} frames), '
+            f'empty frames = {num_empty_frames}',
+            end='\r')
+        frame_delta = 0
+    frame_delta += 1
 
     key = cv2.waitKeyEx(1)  # & 0xFF
     # if key != -1:
@@ -258,8 +285,14 @@ while True:
     fps.update()
 
 fps.stop()
+print()
+print(f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%')
 print(f"Elapsed time: {fps.elapsed():.1f}")
 print(f"Approx. FPS: {fps.fps():.1f}")
+
+if fig_tracker is not None:
+    fig_tracker.finish_all()
+    fig_tracker.export(f'{input_base_name}_out_figures.npz')
 
 # Clean
 cap.release()

@@ -25,12 +25,16 @@ from tkinter import simpledialog as tkSimpleDialog
 import cv2
 import numpy as np
 
-logger = logging.getLogger(__name__)
-
 
 class CalCamera:
-    def __init__(self, frame_size, calibrationPath=None, marker_points=None, center_height=None):
+    # some default lengths, in meters
+    DEFAULT_FLIGHT_RADIUS = 21.0
+    DEFAULT_MARKER_RADIUS = 25.0
+    DEFAULT_MARKER_HEIGHT = 1.5
 
+    def __init__(self, frame_size, calibrationPath=None, marker_points=None, marker_height=None, logger=None):
+
+        self.logger = logger or logging.getLogger(__name__)
         try:
             CF = open('cal.conf', 'r')
             initialdir = CF.read()
@@ -51,6 +55,7 @@ class CalCamera:
         self.AR = True
         self.flightRadius = None
         self.markRadius = None
+        self.markHeight = None
         self.PointNames = ('circle center', 'front marker', 'left marker', 'right marker')
 
         self.frame_size = frame_size
@@ -63,7 +68,6 @@ class CalCamera:
             CF = open('cal.conf', 'w')
             CF.write(path.dirname(calibrationPath))
             CF.close()
-    #
             try:
                 npzfile = np.load(calibrationPath)
                 self.mtx = npzfile['mtx']
@@ -86,17 +90,20 @@ class CalCamera:
                 self.map1, self.map2 = cv2.initUndistortRectifyMap(
                     self.mtx, self.dist, np.eye(3), self.newcameramtx, self.frame_size, cv2.CV_16SC2)
 
-                # TODO: temporarily here for debugging. Uncomment before checkin.
                 self.flightRadius = tkSimpleDialog.askfloat(
-                    'Input', f'Flight radius (m) (Cancel = 21m):')
+                    'Input', f'Flight radius (m) (Cancel = {CalCamera.DEFAULT_FLIGHT_RADIUS} m):')
                 if self.flightRadius is None:
-                    self.flightRadius = 21
+                    self.flightRadius = CalCamera.DEFAULT_FLIGHT_RADIUS
 
-                # TODO: temporarily here for debugging. Uncomment before checkin.
                 self.markRadius = tkSimpleDialog.askfloat(
-                    'Input', f'Height markers distance to center (m) (Cancel = 25m)')
+                    'Input', f'Height markers distance to center (m) (Cancel = {CalCamera.DEFAULT_MARKER_RADIUS} m)')
                 if self.markRadius is None:
-                    self.markRadius = 25
+                    self.markRadius = CalCamera.DEFAULT_MARKER_RADIUS
+
+                self.markHeight = tkSimpleDialog.askfloat(
+                    'Input', f'Height markers: height above center of circle (m) (Cancel = {CalCamera.DEFAULT_MARKER_HEIGHT} m)')
+                if self.markHeight is None:
+                    self.markHeight = CalCamera.DEFAULT_MARKER_HEIGHT
             except:
                 print('Error loading calibration file')
                 self.Calibrated = False
@@ -104,8 +111,9 @@ class CalCamera:
 
         CF.close()
         del root
-        logger.debug(f'flight radius = {self.flightRadius}')
-        logger.debug(f'  mark radius = {self.markRadius}')
+        self.logger.info(f'flight radius = {self.flightRadius} m')
+        self.logger.info(f'  mark radius = {self.markRadius} m')
+        self.logger.info(f'  mark height = {self.markHeight} m')
         print('Using calibration: {}'.format(self.Calibrated))
 
     def Undistort(self, img):
@@ -134,8 +142,7 @@ class CalCamera:
         self.calWindowName = 'Calibration (Center, Front, Left, Right)'
 
         rcos45 = self.markRadius * 0.70710678
-
-        objectPoints = np.array([[0, 0, -1.5],
+        objectPoints = np.array([[0, 0, -self.markHeight],
                                  [0, self.markRadius, 0],
                                  [-rcos45, rcos45, 0],
                                  [rcos45, rcos45, 0]], dtype=np.float32)
@@ -150,7 +157,9 @@ class CalCamera:
         while(1):
 
             cv2.imshow(self.calWindowName,
-                       cv2.putText(img.copy(), 'Click ' + self.PointNames[self.point], (15, 20),  cv2.FONT_HERSHEY_SIMPLEX, .75, (0, 0, 255), 2))
+                       cv2.putText(img.copy(),
+                                   f'Click {self.PointNames[self.point]}', (15, 20),
+                                   cv2.FONT_HERSHEY_SIMPLEX, .75, (0, 0, 255), 2))
 
             k = cv2.waitKey(1) & 0xFF
 
@@ -167,15 +176,15 @@ class CalCamera:
                 self.qmat = rmat_inv.dot(m_inv)
                 self.rtvec = rmat_inv.dot(self.tvec)
 
-                logger.debug(f'imagePoints =\n{self.imagePoints}')
-                logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
-                logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
-                logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
-                logger.debug(f'rmat = {type(self.rmat)}\n{self.rmat}')
-                logger.debug(f'rmat_inv = {type(rmat_inv)}\n{rmat_inv}')
-                logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
-                logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
-                logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
+                self.logger.debug(f'imagePoints =\n{self.imagePoints}')
+                self.logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
+                self.logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
+                self.logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
+                self.logger.debug(f'rmat = {type(self.rmat)}\n{self.rmat}')
+                self.logger.debug(f'rmat_inv = {type(rmat_inv)}\n{rmat_inv}')
+                self.logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
+                self.logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
+                self.logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
 
                 self.Located = True
                 cv2.destroyWindow(self.calWindowName)
