@@ -1,4 +1,4 @@
-# VideoF2B v0.4 - Draw F2B figures from video
+# VideoF2B - Draw F2B figures from video
 # Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
 #
 # This program is free software: you can redistribute it and/or modify
@@ -14,18 +14,19 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+from collections import deque
 
 import cv2
-from collections import deque
 import imutils
-from numpy.linalg import norm
 from numpy import asarray
+from numpy.linalg import norm
 
 
 class Detector(object):
     def __init__(self, maxlen, scale):
         # Create Background subtractor object
-        self.subtractor = cv2.createBackgroundSubtractorMOG2(history=4, varThreshold=15, detectShadows=False)
+        self.subtractor = cv2.createBackgroundSubtractorMOG2(
+            history=4, varThreshold=15, detectShadows=False)
         self.pts = deque(maxlen=maxlen)
         self.pts_scaled = deque(maxlen=maxlen)
         self.scale = scale
@@ -37,8 +38,8 @@ class Detector(object):
         mask = cv2.dilate(mask, None, iterations=1)
 
         # find contours in the mask and initialize the current (x, y) center
-        cnts, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL,
-            cv2.CHAIN_APPROX_SIMPLE)[-2:]
+        cnts, _ = cv2.findContours(
+            mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[-2:]
 
         center = None
         center_scaled = None
@@ -49,14 +50,15 @@ class Detector(object):
             c = max(cnts, key=cv2.contourArea)
             #((x, y), radius) = cv2.minEnclosingCircle(c)
             M = cv2.moments(c)
-            if M["m00"]!=0:
+            if M["m00"] != 0:
                 center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
-            
-                center_scaled = (int(self.scale * M["m10"] / M["m00"]), int(self.scale * M["m01"] / M["m00"]))
+
+                center_scaled = (int(self.scale * M["m10"] / M["m00"]),
+                                 int(self.scale * M["m01"] / M["m00"]))
             else:
                 center = None
                 center_scaled = None
-            
+
             if len(self.pts) > 0 and self.pts[0] is not None:
                 # print(pts[0], center)
                 if norm(asarray(self.pts[0]) - asarray(center)) > 30:

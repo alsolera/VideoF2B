@@ -1,4 +1,4 @@
-# VideoF2B v0.4 - Draw F2B figures from video
+# VideoF2B - Draw F2B figures from video
 # Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
 # Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
 #
@@ -16,16 +16,21 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import numpy as np
-import cv2
-import tkinter
-import tkinter.filedialog
-import tkinter.simpledialog
+import logging
+import tkinter as Tkinter
 from os import path
+from tkinter import filedialog as tkFileDialog
+from tkinter import simpledialog as tkSimpleDialog
 
-class CalCamera(object):
-    def __init__(self, frame_size):
-        
+import cv2
+import numpy as np
+
+logger = logging.getLogger(__name__)
+
+
+class CalCamera:
+    def __init__(self, frame_size, calibrationPath=None):
+
         try:
             CF = open('cal.conf', 'r')
             initialdir = CF.read()
@@ -34,16 +39,17 @@ class CalCamera(object):
         except:
             initialdir = '../'
 
-        root = tkinter.Tk()
+        root = Tkinter.Tk()
         root.withdraw()  # use to hide tkinter window
-        calibrationPath = tkinter.filedialog.askopenfilename(parent=root, initialdir=initialdir,
-                                                       title='Select camera calibration .npz file or cancel to ignore')
-        print(calibrationPath)
-        #self.Calibrated = calibrationPath != ()
+        if calibrationPath is None:
+            calibrationPath = tkFileDialog.askopenfilename(parent=root, initialdir=initialdir,
+                                                           title='Select camera calibration .npz file or cancel to ignore')
+        print(f'calibrationPath: {calibrationPath}')
         self.Calibrated = len(calibrationPath) > 1
         self.Located = False
         self.AR = True
-
+        self.cableLength = None
+        self.markRadius = None
         self.PointNames = ('circle center', 'front marker', 'left marker', 'right marker')
 
         self.frame_size = frame_size
@@ -65,7 +71,8 @@ class CalCamera(object):
                 self.newcameramtx = npzfile['newcameramtx']
 
                 # Recalculate matrix and roi in case video from this camera was scaled after recording.
-                newcameramtx, roi = cv2.getOptimalNewCameraMatrix(self.mtx, self.dist, self.frame_size, 1)
+                newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
+                    self.mtx, self.dist, self.frame_size, 1)
                 # For diagnostics only. If video was not scaled after recording, these comparisons should be exactly equal.
                 # print(f'as recorded newcameramtx =\n{self.newcameramtx}')
                 # print(f'scaled newcameramtx = \n{newcameramtx}')
@@ -78,13 +85,15 @@ class CalCamera(object):
                 self.map1, self.map2 = cv2.initUndistortRectifyMap(
                     self.mtx, self.dist, np.eye(3), self.newcameramtx, self.frame_size, cv2.CV_16SC2)
 
-                self.cableLenght = tkinter.simpledialog.askfloat(
-                    'Input', 'Total line lenght  (m) (Cancel = 21m)')
-                if self.cableLenght is None:
-                    self.cableLenght = 21
+                # TODO: temporarily here for debugging. Uncomment before checkin.
+                # self.cableLength = tkSimpleDialog.askfloat(
+                #     'Input', 'Total line length (m) (Cancel = 21m):')
+                if self.cableLength is None:
+                    self.cableLength = 21
 
-                self.markRadius = tkinter.simpledialog.askfloat(
-                    'Input', 'Height markers distance to center (m) (Cancel = 25m)')
+                # TODO: temporarily here for debugging. Uncomment before checkin.
+                # self.markRadius = tkSimpleDialog.askfloat(
+                #     'Input', 'Height markers distance to center (m) (Cancel = 25m)')
                 if self.markRadius is None:
                     self.markRadius = 25
             except:
@@ -94,6 +103,8 @@ class CalCamera(object):
 
         CF.close()
         del root
+        logger.debug(f'cable length = {self.cableLength}')
+        logger.debug(f' mark radius = {self.markRadius}')
         print('Using calibration: {}'.format(self.Calibrated))
 
     def Undistort(self, img):
@@ -104,7 +115,8 @@ class CalCamera(object):
         # img_slow = img_slow[y:y+h, x:x+w]
 
         # Faster method: calculate undistortion maps on init, then only call remap per frame.
-        img = cv2.remap(img, self.map1, self.map2, interpolation=cv2.INTER_LINEAR, borderMode=cv2.BORDER_CONSTANT)
+        img = cv2.remap(img, self.map1, self.map2, interpolation=cv2.INTER_LINEAR,
+                        borderMode=cv2.BORDER_CONSTANT)
         # crop it
         img = img[y:y+h, x:x+w]
 
@@ -137,19 +149,35 @@ class CalCamera(object):
         while(1):
 
             cv2.imshow(self.calWindowName,
-                       cv2.putText(img.copy(), 'Click ' + self.PointNames[self.point], (15, 20),  cv2.FONT_HERSHEY_TRIPLEX, .75, (0, 0, 255), 1))
+                       cv2.putText(img.copy(), 'Click ' + self.PointNames[self.point], (15, 20),  cv2.FONT_HERSHEY_SIMPLEX, .75, (0, 0, 255), 2))
 
             k = cv2.waitKey(1) & 0xFF
 
             if self.imagePoints[NumRefPoints-1, 1] > 0:
                 _ret, self.rvec, self.tvec = cv2.solvePnP(objectPoints, self.imagePoints,
-                                                          self.newcameramtx, np.zeros_like(self.dist),
+                                                          self.newcameramtx,
+                                                          np.zeros_like(self.dist),
                                                           cv2.SOLVEPNP_ITERATIVE)
+                # precalculate all pieces necessary for line/sphere intersections
+                self.rmat = None
+                self.rmat, _ = cv2.Rodrigues(self.rvec, self.rmat)
+                rmat_inv = np.linalg.inv(self.rmat)
+                m_inv = np.linalg.inv(self.newcameramtx)
+                self.qmat = rmat_inv.dot(m_inv)
+                self.rtvec = rmat_inv.dot(self.tvec)
+
+                logger.debug(f'imagePoints =\n{self.imagePoints}')
+                logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
+                logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
+                logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
+                logger.debug(f'rmat = {type(self.rmat)}\n{self.rmat}')
+                logger.debug(f'rmat_inv = {type(rmat_inv)}\n{rmat_inv}')
+                logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
+                logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
+                logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
+
                 self.Located = True
                 cv2.destroyWindow(self.calWindowName)
-
-                print(self.tvec)
-
                 break
 
             if k == 27 or cv2.getWindowProperty(self.calWindowName, 1) < 0:
@@ -165,7 +193,7 @@ class CalCamera(object):
         if event == cv2.EVENT_LBUTTONDOWN:
             self.imagePoints[self.point, 0], self.imagePoints[self.point, 1] = x, y
             self.point += 1
-            # print(self.imagePoints)
+            # print(f'point {self.point} = {self.imagePoints}')
             # cv2.circle(self.calWindowName,(x,y),1,(0,255,0),-1)
 
         elif event == cv2.EVENT_RBUTTONDOWN:

@@ -1,5 +1,6 @@
-# CamCalibration v0.2
+# CamCalibration - Calibrate a camera for use with VideoF2B.
 # Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
+# Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -29,14 +30,14 @@ Path = tkFileDialog.askopenfilename(parent=root, initialdir='./', title='Select 
 print(Path)
 
 width = 7
-heigth = 10
+height = 10
 
 # termination criteria
 criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
 
 # prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
-objp = np.zeros((heigth*width, 3), np.float32)
-objp[:, :2] = np.mgrid[0:width, 0:heigth].T.reshape(-1, 2)
+objp = np.zeros((height*width, 3), np.float32)
+objp[:, :2] = np.mgrid[0:width, 0:height].T.reshape(-1, 2)
 
 # Arrays to store object points and image points from all the images.
 objpoints = []  # 3d point in real world space
@@ -44,14 +45,14 @@ imgpoints = []  # 2d points in image plane.
 
 cap = cv2.VideoCapture(Path)
 
-used = 0
-images = 0
+num_used = 0
+num_images = 0
 
 while True:
 
     for i in range(1, 10):
         _, img = cap.read()
-        if images == 0:
+        if num_images == 0:
             image_1 = img
 
     if img is None:
@@ -60,7 +61,7 @@ while True:
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
 
     # Find the chess board corners
-    ret, corners = cv2.findChessboardCorners(gray, (width, heigth), None)
+    ret, corners = cv2.findChessboardCorners(gray, (width, height), None)
 
     # If found, add object points, image points (after refining them)
     if ret == True:
@@ -70,34 +71,39 @@ while True:
         imgpoints.append(corners2)
 
         # Draw and display the corners
-        img = cv2.drawChessboardCorners(img, (width, heigth), corners2, ret)
+        img = cv2.drawChessboardCorners(img, (width, height), corners2, ret)
         cv2.imshow('img', img)
         cv2.waitKey(100)
-        used += 1
-    images += 1
+        num_used += 1
+    num_images += 1
 
 cv2.destroyAllWindows()
 
-print(images)
-print(used)
+print(f'used: {num_used}/{num_images} images')
 
+print('calibrating camera...')
 _, mtx, dist, _, _ = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
 
-w = int(cap.get(3))
-h = int(cap.get(4))
+print('getting camera matrix...')
+w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(mtx, dist, (w, h), 1)
 
+print('creating images...')
+out_dir = os.path.dirname(Path)
 # undistort
 dst = cv2.undistort(image_1, mtx, dist, None, newcameramtx)
-cv2.imwrite(os.path.dirname(Path)+'/calibresult_nocrop.png', dst)
+cv2.imwrite(os.path.join(out_dir, 'calibresult_nocrop.png'), dst)
 # cv2.imshow('calibresult no crop',dst)
 # cv2.waitKey(1000)
 
 # crop the image
 x, y, w, h = roi
 dst = dst[y:y+h, x:x+w]
-cv2.imwrite(os.path.dirname(Path)+'/calibresult.png', dst)
+cv2.imwrite(os.path.join(out_dir, 'calibresult.png'), dst)
 
-fname = os.path.dirname(Path) + '/CamCalibration'
-
+print('saving calibration data...')
+fname = os.path.join(out_dir, 'CamCalibration')
 np.savez(fname, mtx=mtx, dist=dist, newcameramtx=newcameramtx, roi=roi)
+
+print('done.')

@@ -1,5 +1,6 @@
-# VideoF2B v0.4 - Draw F2B figures from video
+# VideoF2B - Draw F2B figures from video
 # Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
+# Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -15,18 +16,19 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 
-import cv2
-import tkinter
-import tkinter.filedialog
+import os
 import sys
-from os import path
+import tkinter as Tkinter
+from tkinter import filedialog as tkFileDialog
+
+import cv2
 
 
-def LoadVideo():
-    root = tkinter.Tk()
+def LoadVideo(path=None):
+    root = Tkinter.Tk()
     root.withdraw()  # use to hide tkinter window
     live = False
-    
+
     try:
         CF = open('vid.conf', 'r')
         initialdir = CF.read()
@@ -34,33 +36,39 @@ def LoadVideo():
         CF.close()
     except:
         initialdir = '../'
-    
-    Path = tkinter.filedialog.askopenfilename(parent=root, initialdir=initialdir,
-                                        title='Select video file')
-    
-    if Path == (): #If file is not provided, ask for URL
-        Path = tkinter.simpledialog.askstring('Input', 'Input URL')
-        if Path != ():
+
+    if path is None:
+        path = tkFileDialog.askopenfilename(parent=root, initialdir=initialdir,
+                                            title='Select video file')
+    if not path:  # If file is not provided, ask for URL
+        path = Tkinter.simpledialog.askstring('Input', 'Input URL')
+        if path:
             live = True
     else:
         CF = open('vid.conf', 'w')
-        CF.write(path.dirname(Path)) 
+        CF.write(os.path.dirname(path))
         CF.close()
-        
-    print(Path)
-    assert Path != ()
-    
-    cap = cv2.VideoCapture(Path)
+
+    print(f'video path: {path}')
+    if not path:
+        return None, None, live
+
+    CF = open('vid.conf', 'w')
+    CF.write(os.path.dirname(path))
+    CF.close()
+
+    cap = cv2.VideoCapture(path)
     if not cap.isOpened():  # check if we succeeded
         print('Error loading video file')
         cap.release()
         cv2.destroyAllWindows()
         sys.exit()
-        
-    del root
-    return cap, Path, live
 
-def Size(Camera, cap, ImWidth):
+    del root
+    return cap, path, live
+
+
+def Size(Camera, cap, im_width):
     if Camera.Calibrated:
         inp_width = Camera.roi[2]
         inp_height = Camera.roi[3]
@@ -68,7 +76,7 @@ def Size(Camera, cap, ImWidth):
         inp_width = cap.get(3)
         inp_height = cap.get(4)
 
-    scale = float(inp_width)/float(ImWidth)
+    scale = float(inp_width)/float(im_width)
 
     print("FPS: ", cap.get(5))
     print("Res: ", inp_height, 'x', inp_width)
