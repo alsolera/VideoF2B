@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+'''Main VideoF2B application.'''
 
 import logging
 import logging.handlers
@@ -50,6 +51,13 @@ over_eight_chk = tkinter.BooleanVar()
 chk4 = tkinter.Checkbutton(master, text="Overhead eight",
                            variable=over_eight_chk).grid(row=3, sticky='w')
 
+# Conversion constants
+FT_TO_M = 0.3048
+M_TO_FT = 1.0 / 0.3048
+
+# TODO: make this flag configurable
+PERFORM_3D_TRACKING = False
+# TODO: make this value configurable
 MAX_TRACK_TIME = 15  # seconds
 IM_WIDTH = 960
 WINDOW_NAME = 'VideoF2B v0.6 - A. Solera, A. Vasilik'
@@ -78,6 +86,7 @@ cap, videoPath, live = Video.LoadVideo(path=VIDEO_PATH)
 if cap is None or videoPath is None:
     print('ERROR: no input specified.')
     sys.exit(1)
+logger.info(f'Loaded video file "{VIDEO_PATH}".')
 FULL_FRAME_SIZE = (
     int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
     int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -94,7 +103,9 @@ if not cam.Calibrated:
 
 # Determine input video size and the scale wrt detector's frame size
 scale, inp_width, inp_height = Video.Size(cam, cap, IM_WIDTH)
-logger.debug(f'scale = {scale}')
+logger.info(f'processing size: {inp_width} x {inp_height} px')
+logger.debug(f'detector IM_WIDTH = {IM_WIDTH} px')
+logger.debug(f'scale = {scale:.4f}')
 
 # Platform-dependent stuff
 WINDOW_FLAGS = cv2.WINDOW_NORMAL
@@ -106,9 +117,9 @@ if platform.system() is 'Windows':
 input_base_name = os.path.splitext(videoPath)[0]
 # Output video file
 VIDEO_FPS = cap.get(cv2.CAP_PROP_FPS)
+OUT_VIDEO_PATH = f'{input_base_name}_out.mp4'
 if not live:
-    out = cv2.VideoWriter(f'{input_base_name}_out.mp4',
-                          fourcc, VIDEO_FPS, (int(inp_width), int(inp_height)))
+    out = cv2.VideoWriter(OUT_VIDEO_PATH, fourcc, VIDEO_FPS, (int(inp_width), int(inp_height)))
 else:
     if not os.path.exists(liveVideos):
         os.makedirs(liveVideos)
@@ -130,30 +141,32 @@ num_empty_frames = 0
 num_consecutive_empty_frames = 0
 # Maximum allowed number of consecutive empty frames. If we find more, we quit.
 MAX_CONSECUTIVE_EMPTY_FRAMES = 256
+logger.info(f'3D tracking is {"ON" if PERFORM_3D_TRACKING else "OFF"}')
 
-if cam.Calibrated:
+fig_tracker = None
+if cam.Calibrated and PERFORM_3D_TRACKING:
     data_path = f'{input_base_name}_out_data.csv'
     data_writer = open(data_path, 'w', encoding='utf8')
     # data_writer.write('p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
-
-fig_tracker = None
-if cam.Calibrated:
-    fig_tracker = figtrack.FigureTracker(logger=logger, callback=sys.stdout.write)
+    fig_tracker = figtrack.FigureTracker(
+        logger=logger, callback=sys.stdout.write, enable_diags=False)
 
 # aids for drawing figure start/end points over track
 is_fig_in_progress = False
 fig_img_pts = []
 # aids for drawing nominal paths
-MAX_DRAW_FIT_FRAMES = int(VIDEO_FPS * 2.)
+MAX_DRAW_FIT_FRAMES = int(VIDEO_FPS * 2.)  # multiplier is the number of seconds
 fit_img_pts = []
 draw_fit = False
 num_draw_fit_frames = 0
+
 # misc
 frame_idx = 0
 frame_delta = 0
 num_input_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 MAX_FRAME_DELTA = int(num_input_frames / 100)
 cv2.namedWindow(WINDOW_NAME, WINDOW_FLAGS)
+
 while True:
     _, frame_or = cap.read()
 
@@ -204,8 +217,7 @@ while True:
                     if world_pts is not None:
                         # print(u)
                         # print(world_pts)
-                        world_map[0, u, v] = world_pts[0]
-                        world_map[1, u, v] = world_pts[1]
+                        world_map[:, u, v] = world_pts
                         num_pts_collected += 1
                 t2 = time.process_time()
                 t_diff = t2 - t1
@@ -238,46 +250,47 @@ while True:
             Drawing.drawOverheadEight(frame_or, azimuth_delta, cam.rvec, cam.tvec,
                                       cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
 
-        # try to track the aircraft in world coordinates
-        if detector.pts_scaled[0] is not None:
-            if is_fig_in_progress:
-                fig_img_pts.append(detector.pts_scaled[0])
-            act_pts = projection.projectImagePointToSphere(
-                cam, detector.pts_scaled[0], frame_or, data_writer)
-            if act_pts is not None:  # and act_pts.shape[0] == 2:
-                # fig_tracker.add_actual_point(act_pts)
-                # Typically the first point is the "far" point on the sphere...Good enough for most figures that are on the far side of the camera.
-                # TODO: Make this smarter so that we track the correct path point at all times.
-                fig_tracker.add_actual_point(act_pts[0])
-                # fig_tracker.add_actual_point(act_pts[1])
+        if PERFORM_3D_TRACKING:
+            # try to track the aircraft in world coordinates
+            if detector.pts_scaled[0] is not None:
+                act_pts = projection.projectImagePointToSphere(
+                    cam, detector.pts_scaled[0], frame_or, data_writer)
+                if act_pts is not None:  # and act_pts.shape[0] == 2:
+                    # fig_tracker.add_actual_point(act_pts)
+                    # Typically the first point is the "far" point on the sphere...Good enough for most figures that are on the far side of the camera.
+                    # TODO: Make this smarter so that we track the correct path point at all times.
+                    fig_tracker.add_actual_point(act_pts[0])
+                    # fig_tracker.add_actual_point(act_pts[1])
+                    if is_fig_in_progress:
+                        fig_img_pts.append(detector.pts_scaled[0])
 
-        # ========== Draw the fitted figures ==========
-        if draw_fit and num_draw_fit_frames < MAX_DRAW_FIT_FRAMES:
-            # Draw the nominal paths: initial and best-fit
-            for i, f_pts in enumerate(fit_img_pts):
-                # Draw the initial guess (the defined nominal path) in GREEN
-                # Draw the optimized fit path in CYAN
-                f_color = (0, 255, 0) if i == 0 else (255, 255, 0)
-                for j in range(1, len(f_pts)):
-                    cv2.line(frame_or, f_pts[j], f_pts[j-1], f_color, 2)
-                    # Draw the error whiskers. TODO: verify the arrays are correct after figure.u is trimmed.
-                    if i == 1:
-                        cv2.line(frame_or, fig_img_pts[j], f_pts[j], (255, 255, 255), 1)
-            num_draw_fit_frames += 1
-        if num_draw_fit_frames == MAX_DRAW_FIT_FRAMES:
-            draw_fit = False
-            fit_img_pts = []
-            fig_img_pts = []
-            num_draw_fit_frames = 0
+            # ========== Draw the fitted figures ==========
+            if draw_fit and num_draw_fit_frames < MAX_DRAW_FIT_FRAMES:
+                # Draw the nominal paths: initial and best-fit
+                for i, f_pts in enumerate(fit_img_pts):
+                    # Draw the initial guess (the defined nominal path) in GREEN
+                    # Draw the optimized fit path in CYAN
+                    f_color = (0, 255, 0) if i == 0 else (255, 255, 0)
+                    for j in range(1, len(f_pts)):
+                        cv2.line(frame_or, f_pts[j], f_pts[j-1], f_color, 2)
+                        # Draw the error whiskers. TODO: verify the arrays are correct after figure.u is trimmed.
+                        if i == 1:
+                            cv2.line(frame_or, fig_img_pts[j], f_pts[j], (255, 255, 255), 1)
+                num_draw_fit_frames += 1
+            if num_draw_fit_frames == MAX_DRAW_FIT_FRAMES:
+                draw_fit = False
+                fit_img_pts = []
+                fig_img_pts = []
+                num_draw_fit_frames = 0
 
-        # Draw the start/end points of the figure's actual tracked path (as marked by user)
-        if fig_img_pts:
-            cv2.circle(frame_or, fig_img_pts[0], 6, (0, 255, 255), -1)
-            if not is_fig_in_progress:
-                cv2.circle(frame_or, fig_img_pts[-1], 6, (255, 0, 255), -1)
+            # Draw the start/end points of the figure's actual tracked path (as marked by user)
+            if fig_img_pts:
+                cv2.circle(frame_or, fig_img_pts[0], 6, (0, 255, 255), -1)
+                if not is_fig_in_progress:
+                    cv2.circle(frame_or, fig_img_pts[-1], 6, (255, 0, 255), -1)
 
     # Write text
-    cv2.putText(frame_or, "VideoF2B - v0.6", (10, 15),
+    cv2.putText(frame_or, "VideoF2B - v0.6 BETA", (10, 15),
                 cv2.FONT_HERSHEY_TRIPLEX, .5, (0, 0, 255), 1)
 
     # Show output
@@ -286,6 +299,7 @@ while True:
     # Save frame
     out.write(frame_or)
 
+    # Display processing progress to user
     frame_time = frame_idx / VIDEO_FPS
     progress = int(frame_idx / (num_input_frames) * 100)
     if (frame_idx == 1) or (progress % 5 == 0 and frame_delta >= MAX_FRAME_DELTA) or (frame_time % 1 < 0.05):
@@ -297,6 +311,7 @@ while True:
         frame_delta = 0
     frame_delta += 1
 
+    # azimuth_delta += 0.4  # For quick visualization of sphere outline
     key = cv2.waitKeyEx(1)  # & 0xFF
     # if key != -1:
     #     print(key, key & 0xff)
@@ -314,15 +329,16 @@ while True:
         # Relocate AR sphere
         cam.Located = False
         cam.AR = True
-    elif key % 256 == 91:  # [
+    elif PERFORM_3D_TRACKING and key % 256 == 91:  # [ key
         # Mark the beginning of a new figure
         if fig_tracker is not None:
             detector.clear()
             fig_tracker.start_figure()
             is_fig_in_progress = True
-    elif key % 256 == 93:  # ]
+    elif PERFORM_3D_TRACKING and key % 256 == 93:  # ] key
         # Mark the end of the current figure
         if fig_tracker is not None:
+            print(f'before finishing figure: fig_img_pts size ={len(fig_img_pts)}')
             fig_tracker.finish_figure()
             is_fig_in_progress = False
             # Uniform t along the figure path
@@ -330,10 +346,13 @@ while True:
             # The figure's chosen t distribution (initial, final)
             t = (fig_tracker._curr_figure_fitter.diag.u0,
                  fig_tracker._curr_figure_fitter.u)
+            print(f'figure finish: shape of u0 vs. u final: {t[0].shape, t[1].shape}')
             # Trim our detected points according to the fit
             trims = fig_tracker._curr_figure_fitter.diag.trim_indexes
+            print(f'fig_img_pts before: size = {len(fig_img_pts)}')
+            print(f'trims: shape = {trims.shape}')
             fig_img_pts = list(tuple(pair) for pair in np.array(fig_img_pts)[trims].tolist())
-            # print(fig_img_pts)
+            print(f'fig_img_pts after: size = {len(fig_img_pts)}')
             # The last item is the tuple of (initial, final) fit params
             for i, fp in enumerate(fig_tracker.figure_params[-1]):
                 nom_pts = projection.projectSpherePointsToImage(
@@ -352,10 +371,18 @@ while True:
     fps.update()
 
 fps.stop()
+final_progress_str = f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%'
+elapsed_time_str = f'Elapsed time: {fps.elapsed():.1f}'
+mean_fps_str = f'Approx. FPS: {fps.fps():.1f}'
+logger.info(f'Finished processing {VIDEO_PATH}')
+logger.info(f'Result video written to {OUT_VIDEO_PATH}')
+logger.info(final_progress_str)
+logger.info(elapsed_time_str)
+logger.info(mean_fps_str)
 print()
-print(f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%')
-print(f"Elapsed time: {fps.elapsed():.1f}")
-print(f"Approx. FPS: {fps.fps():.1f}")
+print(final_progress_str)
+print(elapsed_time_str)
+print(mean_fps_str)
 
 if fig_tracker is not None:
     fig_tracker.finish_all()
@@ -365,5 +392,6 @@ if fig_tracker is not None:
 cap.release()
 out.release()
 cv2.destroyAllWindows()
-if cam.Located:
+if cam.Located and PERFORM_3D_TRACKING:
     data_writer.close()
+logger.info('Logger closed.')

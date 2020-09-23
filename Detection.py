@@ -29,6 +29,7 @@ class Detector(object):
             history=4, varThreshold=15, detectShadows=False)
         self.pts = deque(maxlen=maxlen)
         self.pts_scaled = deque(maxlen=maxlen)
+        self.clear()
         self.scale = scale
 
     def process(self, img):
@@ -72,3 +73,5 @@ class Detector(object):
     def clear(self):
         self.pts.clear()
         self.pts_scaled.clear()
+        self.pts.append(None)
+        self.pts_scaled.append(None)

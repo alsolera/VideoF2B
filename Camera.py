@@ -15,7 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-
 import logging
 import tkinter as Tkinter
 from os import path
@@ -52,7 +51,9 @@ class CalCamera:
             calibrationPath = tkFileDialog.askopenfilename(
                 parent=root, initialdir=initialdir,
                 title='Select camera calibration .npz file or cancel to ignore')
-        print(f'calibrationPath: {calibrationPath}')
+        cal_path_str = f'calibrationPath: {calibrationPath}'
+        self.logger.info(cal_path_str)
+        print(cal_path_str)
         self.Calibrated = len(calibrationPath) > 1
         self.Located = False
         self.AR = True
@@ -60,19 +61,24 @@ class CalCamera:
         self.markRadius = marker_radius
         self.markHeight = marker_height
         self.PointNames = ('circle center', 'front marker', 'left marker', 'right marker')
-
         self.frame_size = frame_size
         # Calibration default values
+        self.is_fisheye = None
+        self.mtx = None
+        self.dist = None
+        self.roi = None
+        self.newcameramtx = None
         self.map1 = None
         self.map2 = None
 
         if self.Calibrated:
-
             CF = open('cal.conf', 'w')
             CF.write(path.dirname(calibrationPath))
             CF.close()
             try:
                 npzfile = np.load(calibrationPath)
+                # is_fisheye: new in v0.6, default=False for compatibility with pre-v0.6 camera files.
+                self.is_fisheye = npzfile.get('is_fisheye', False)
                 self.mtx = npzfile['mtx']
                 self.dist = npzfile['dist']
                 self.roi = npzfile['roi']
@@ -93,6 +99,12 @@ class CalCamera:
                 self.map1, self.map2 = cv2.initUndistortRectifyMap(
                     self.mtx, self.dist, np.eye(3), self.newcameramtx, self.frame_size, cv2.CV_16SC2)
 
+                if self.is_fisheye:
+                    self.scaled_cam_mat = npzfile['scaled_cam_mat']
+                    self.cam_mat = npzfile['cam_mat']
+                    # 'balance' is a scalar, but numpy insists on serializing it as ndarray
+                    self.balance = float(npzfile['balance'])
+
                 self.flightRadius = self.flightRadius or tkSimpleDialog.askfloat(
                     'Input', f'Flight radius (m) (Cancel = {CalCamera.DEFAULT_FLIGHT_RADIUS} m):')
                 if self.flightRadius is None:
@@ -108,7 +120,9 @@ class CalCamera:
                 if self.markHeight is None:
                     self.markHeight = CalCamera.DEFAULT_MARKER_HEIGHT
             except:
-                print('Error loading calibration file')
+                cal_err_str = 'Error loading calibration file'
+                self.logger.error(cal_err_str)
+                print(cal_err_str)
                 self.Calibrated = False
                 input("Press <ENTER> to continue without calibration...")
 
@@ -117,27 +131,51 @@ class CalCamera:
         self.logger.info(f'flight radius = {self.flightRadius} m')
         self.logger.info(f'  mark radius = {self.markRadius} m')
         self.logger.info(f'  mark height = {self.markHeight} m')
-        print('Using calibration: {}'.format(self.Calibrated))
+        using_cal_str = f'Using calibration: {"YES" if self.Calibrated else "NO"}'
+        self.logger.info(using_cal_str)
+        print(using_cal_str)
 
     def Undistort(self, img):
         x, y, w, h = self.roi
+        if self.is_fisheye:
+            # img = cv2.fisheye.undistortImage(img, self.mtx, self.dist, None, self.newcameramtx) # kinda works, but something's still off...
+            #
+            # try the other approach
+            dim1 = img.shape[:2][::-1]  # dim1 is the dimension of input image to un-distort
+            dim2 = w, h
+            dim3 = dim2
+            if not dim2:
+                dim2 = dim1
+            if not dim3:
+                dim3 = dim1
+            # The values of scaled_cam_mat is to scale with image dimension.
+            scaled_cam_mat = self.cam_mat * dim1[0] / 1920.  # TODO: need more generic scaling here
+            scaled_cam_mat[2][2] = 1.0  # Except that mat[2][2] is always 1.0
+            final_cam_mat = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
+                scaled_cam_mat, self.dist, dim2, np.eye(3), balance=self.balance)
+            map1, map2 = cv2.fisheye.initUndistortRectifyMap(
+                scaled_cam_mat, self.dist, np.eye(3), final_cam_mat, dim3, cv2.CV_16SC2)
+            img = cv2.remap(
+                img, map1, map2,
+                interpolation=cv2.INTER_LINEAR,
+                borderMode=cv2.BORDER_CONSTANT)
+        else:
+            # img_slow = cv2.undistort(img.copy(), self.mtx, self.dist, None, self.newcameramtx)
+            # # crop the image
+            # img_slow = img_slow[y:y+h, x:x+w]
 
-        # img_slow = cv2.undistort(img.copy(), self.mtx, self.dist, None, self.newcameramtx)
-        # # crop the image
-        # img_slow = img_slow[y:y+h, x:x+w]
+            # Faster method: calculate undistortion maps on init, then only call remap per frame.
+            img = cv2.remap(img, self.map1, self.map2, interpolation=cv2.INTER_LINEAR,
+                            borderMode=cv2.BORDER_CONSTANT)
+            # crop it
+            img = img[y:y+h, x:x+w]
 
-        # Faster method: calculate undistortion maps on init, then only call remap per frame.
-        img = cv2.remap(img, self.map1, self.map2, interpolation=cv2.INTER_LINEAR,
-                        borderMode=cv2.BORDER_CONSTANT)
-        # crop it
-        img = img[y:y+h, x:x+w]
-
-        # Diagnostics for testing the equality of the faster approach against the original.
-        # Uncomment above and below sections to verify.
-        # np.save('img_undistort_slow', img_slow)
-        # np.save('img_undistort_fast', img)
-        # if not np.allclose(img_slow, img):
-        #     raise ArithmeticError('img_slow and img are not exactly equal!')
+            # Diagnostics for testing the equality of the faster approach against the original.
+            # Uncomment above and below sections to verify.
+            # np.save('img_undistort_slow', img_slow)
+            # np.save('img_undistort_fast', img)
+            # if not np.allclose(img_slow, img):
+            #     raise ArithmeticError('img_slow and img are not exactly equal!')
 
         return img
 
@@ -178,8 +216,11 @@ class CalCamera:
                 m_inv = np.linalg.inv(self.newcameramtx)
                 self.qmat = rmat_inv.dot(m_inv)
                 self.rtvec = rmat_inv.dot(self.tvec)
+                # Direct result: camera location in world coordinates is where the scaling factor = 0
+                self.cam_pos = -self.rtvec
 
-                self.logger.debug(f'imagePoints =\n{self.imagePoints}')
+                self.logger.info(f'imagePoints =\n{self.imagePoints}')
+                self.logger.debug('Matrices and vectors for 3D tracking: =====================')
                 self.logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
                 self.logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
                 self.logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
@@ -188,6 +229,8 @@ class CalCamera:
                 self.logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
                 self.logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
                 self.logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
+                self.logger.debug('End of matrices and vectors for 3D tracking ===============')
+                self.logger.info(f'world cam location =\n{self.cam_pos}')
 
                 self.Located = True
                 cv2.destroyWindow(self.calWindowName)
@@ -206,7 +249,9 @@ class CalCamera:
         if event == cv2.EVENT_LBUTTONDOWN:
             self.imagePoints[self.point, 0], self.imagePoints[self.point, 1] = x, y
             self.point += 1
-            print(f'Point {self.point} entered. Points =\n{self.imagePoints}')
+            # curr_pts_str = f'Point {self.point} entered. Points =\n{self.imagePoints}'
+            # self.logger.info(curr_pts_str)
+            # print(curr_pts_str)
             if param is not None:
                 cv2.circle(param, (x, y), 6, (0, 255, 0))
 

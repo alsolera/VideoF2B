@@ -17,12 +17,12 @@
 #
 # https://markhedleyjones.com/storage/checkerboards/Checkerboard-A4-25mm-10x7.pdf
 
-import numpy as np
-import cv2
 import os
-
 import tkinter as Tkinter
 from tkinter import filedialog as tkFileDialog
+
+import cv2
+import numpy as np
 
 root = Tkinter.Tk()
 root.withdraw()  # use to hide tkinter window

@@ -206,6 +206,74 @@ def draw_45(img, rvec, tvec, cameramtx, dist, r=20, color=(255, 255, 255)):
     return img
 
 
+def draw_base_tol(img, cam, dist, R=21.):
+    '''Draw the upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.'''
+    n = 200
+    tol = 0.3
+    r = math.sqrt(R**2 - tol**2)
+    coords = np.asarray(PointsInCircum(r, n))
+    pts_lower = np.c_[coords, np.ones(1 + n) * (-tol)]
+    pts_upper = np.c_[coords, np.ones(1 + n) * tol]
+    img_pts_lower = cv2.projectPoints(pts_lower, cam.rvec, cam.tvec,
+                                      cam.newcameramtx, dist)[0].astype(int)
+    img_pts_upper = cv2.projectPoints(pts_upper, cam.rvec, cam.tvec,
+                                      cam.newcameramtx, dist)[0].astype(int)
+    color = (204, 204, 204)
+    # Draw dashed lines
+    num_on = 3
+    num_off = 2
+    counter = 0
+    is_visible = True
+    for i in range(n):
+        counter += 1
+        if is_visible:
+            img = cv2.line(img,
+                           tuple(img_pts_lower[i].ravel()),
+                           tuple(img_pts_lower[i + 1].ravel()), color, 1)
+            img = cv2.line(img,
+                           tuple(img_pts_upper[i].ravel()),
+                           tuple(img_pts_upper[i + 1].ravel()), color, 1)
+            if counter == num_on:
+                counter = 0
+                is_visible = False
+        else:
+            if counter == num_off:
+                counter = 0
+                is_visible = True
+    return img
+
+
+def draw_edge(img, cam, dist, R):
+    '''Draw the edge outline of the flight sphere as seen from camera's perspective.'''
+    # normal vector of circle: points from sphere center to camera
+    d = np.linalg.norm(cam.cam_pos)
+    n = (cam.cam_pos / d).reshape((3,))
+    phi = np.arctan2(n[1], n[0])
+    rot_mat = np.array([
+        [np.cos(phi), -np.sin(phi), 0.],
+        [np.sin(phi), np.cos(phi), 0.],
+        [0., 0., 1.]])
+    u = np.array([0., 1., 0.])
+    u = rot_mat.dot(u)
+    v = np.cross(n, u)
+    t = np.linspace(0., 1., 100)
+    k = np.pi  # semi-circle
+    c = (R**2 / d) * n
+    det = d**2 - R**2
+    if det < 0.:
+        # guard against negative arg of sqrt
+        r = 0.0
+    else:
+        r = R / d * np.sqrt(det)
+    world_pts = np.array([c + r * (np.cos(k * t_i) * u + np.sin(k * t_i) * v) for t_i in t])
+    img_pts, _ = cv2.projectPoints(world_pts, cam.rvec, cam.tvec, cam.newcameramtx, dist)
+    img_pts = img_pts.astype(int)
+    for i in range(img_pts.shape[0] - 1):
+        img = cv2.line(
+            img, tuple(img_pts[i].ravel()), tuple(img_pts[i+1].ravel()), (255, 0, 255), 1)
+    return img
+
+
 def draw_points(img, cam, dist):
     r = cam.flightRadius
     rcos45 = cam.markRadius * 0.70710678
@@ -255,7 +323,7 @@ def draw_points(img, cam, dist):
             # RED: points on centerline and equator
             pt_color = (0, 0, 255)
         elif 8 < i < 13:
-            # CYAN: corners of imaginary marker at feet of pilot
+            # CYAN: corners of imaginary marker at center of sphere
             pt_color = (255, 255, 0)
         else:
             # GREEN: corners of the three outside markers
@@ -274,7 +342,10 @@ def draw_all_geometry(img, cam, offsettAngle=0, axis=False):
                    distZero, cam.flightRadius, offsettAngle)
     if axis:
         draw_axis(img, cam.rvec, cam.tvec, cam.newcameramtx, distZero)
-    draw_45(img, cam.rvec, cam.tvec, cam.newcameramtx, distZero, cam.flightRadius)
+    draw_45(img, cam.rvec, cam.tvec, cam.newcameramtx,
+            distZero, cam.flightRadius, color=(0, 255, 0))
+    draw_base_tol(img, cam, distZero, cam.flightRadius)
+    draw_edge(img, cam, distZero, cam.flightRadius)
 
     draw_points(img, cam, distZero)
 
