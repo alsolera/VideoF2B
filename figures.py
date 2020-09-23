@@ -109,6 +109,7 @@ class Figure:
         # fits = []
 
         def get_residuals(p, points):
+            '''Objective function for least-squares fit'''
             nonlocal errs
             # nonlocal fits
             # print(f'fit params = {p}')  # applies to all subclasses
@@ -143,7 +144,7 @@ class Figure:
         return p_fit, fit_err
 
     def _init_path(self):
-        '''Create initial parameterization: chordal'''
+        '''Creates the initial parameterization: chordal type'''
         norms = np.linalg.norm(np.diff(self._actuals, axis=0), axis=1)
         self.u = np.hstack(
             (0.0, np.cumsum(norms) / sum(norms))
@@ -152,6 +153,14 @@ class Figure:
         # plt.plot(self.u)
         # plt.title('Initial parameterization')
         # plt.show()
+
+    def get_nom_point(self, t, *params):
+        '''Returns the nominal point at a given 0.0 < t < 1.0 using the figure's parameters.'''
+        return self.paramfunc(t, *params)
+
+    def get_nom_points(self, t_arr, *params):
+        '''Return an array of points, one for each t in t_arr'''
+        return np.array([self.paramfunc(t, *params) for t in t_arr])
 
 
 class InsideLoops(Figure):
@@ -181,14 +190,6 @@ class InsideLoops(Figure):
         print(f'  r    = {p_fit[2]}')
 
         return p_fit
-
-    def get_nom_point(self, t, *params):
-        '''Returns the nominal point at a given 0.0 < t < 1.0 using the figure's parameters.'''
-        return self.paramfunc(t, *params)
-
-    def get_nom_points(self, t_arr, *params):
-        '''Return an array of points, one for each t in t_arr'''
-        return np.array([self.paramfunc(t, *params) for t in t_arr])
 
     def _parmfn(self):
         '''Parameterizing function for three consecutive inside loops.'''
