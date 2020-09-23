@@ -141,10 +141,8 @@ if cam.Calibrated:
     fig_tracker = figtrack.FigureTracker(logger=logger, callback=sys.stdout.write)
 
 # aids for drawing figure start/end points over track
-is_fig_start = False
-is_fig_end = False
-fig_start_pt = None
-fig_end_pt = None
+is_fig_in_progress = False
+fig_img_pts = []
 # aids for drawing nominal paths
 MAX_DRAW_FIT_FRAMES = int(VIDEO_FPS * 2.)
 fit_img_pts = []
@@ -241,12 +239,8 @@ while True:
 
         # try to track the aircraft in world coordinates
         if detector.pts_scaled[0] is not None:
-            if is_fig_start:
-                fig_start_pt = detector.pts_scaled[0]
-                is_fig_start = False
-            if is_fig_end:
-                fig_end_pt = detector.pts_scaled[0]
-                is_fig_end = False
+            if is_fig_in_progress:
+                fig_img_pts.append(detector.pts_scaled[0])
             act_pts = projection.projectImagePointToSphere(
                 cam, detector.pts_scaled[0], frame_or, data_writer)
             if act_pts is not None:  # and act_pts.shape[0] == 2:
@@ -265,19 +259,20 @@ while True:
                 f_color = (0, 255, 0) if i == 0 else (255, 255, 0)
                 for j in range(1, len(f_pts)):
                     cv2.line(frame_or, f_pts[j], f_pts[j-1], f_color, 2)
+                    if i == 1:
+                        cv2.line(frame_or, fig_img_pts[j], f_pts[j], (255, 255, 255), 1)
             num_draw_fit_frames += 1
         if num_draw_fit_frames == MAX_DRAW_FIT_FRAMES:
             draw_fit = False
             fit_img_pts = []
+            fig_img_pts = []
             num_draw_fit_frames = 0
-            fig_start_pt = None
-            fig_end_pt = None
 
         # Draw the start/end points of the figure's actual tracked path (as marked by user)
-        if fig_start_pt is not None:
-            cv2.circle(frame_or, fig_start_pt, 10, (0, 255, 255), -1)
-        if fig_end_pt is not None:
-            cv2.circle(frame_or, fig_end_pt, 10, (255, 0, 255), -1)
+        if fig_img_pts:
+            cv2.circle(frame_or, fig_img_pts[0], 6, (0, 255, 255), -1)
+            if not is_fig_in_progress:
+                cv2.circle(frame_or, fig_img_pts[-1], 6, (255, 0, 255), -1)
 
     # Write text
     cv2.putText(frame_or, "VideoF2B - v0.6", (10, 15),
@@ -322,21 +317,28 @@ while True:
         if fig_tracker is not None:
             detector.clear()
             fig_tracker.start_figure()
-            is_fig_start = True
+            is_fig_in_progress = True
     elif key % 256 == 93:  # ]
         # Mark the end of the current figure
         if fig_tracker is not None:
             fig_tracker.finish_figure()
-            is_fig_end = True
-            t = np.linspace(0., 1., fig_tracker._curr_figure_fitter.num_nominal_pts)
+            is_fig_in_progress = False
+            # Uniform t along the figure path
+            # t = np.linspace(0., 1., fig_tracker._curr_figure_fitter.num_nominal_pts)
+            # The figure's chosen t distribution
+            t = fig_tracker._curr_figure_fitter.u
             # The last item is the tuple of (initial, final) fit params
             for fp in fig_tracker.figure_params[-1]:
                 nom_pts = projection.projectSpherePointsToImage(
                     cam, fig_tracker._curr_figure_fitter.get_nom_points(t, *fp))
                 fit_img_pts.append(tuple(map(tuple, nom_pts.tolist())))
-            # print('fit_img_pts:')
-            # print(fit_img_pts)
-            # print()
+            # print(f't ({len(t)} pts)')
+            # print(f'fit_img_pts[initial] ({len(fit_img_pts[0])} pts)')
+            # # print(fit_img_pts[0])
+            # print(f'fit_img_pts[final] ({len(fit_img_pts[1])} pts)')
+            # # print(fit_img_pts[1])
+            # print(f'fig_img_pts ({len(fig_img_pts)} pts)')
+            # # print()
             draw_fit = True
 
     fps.update()

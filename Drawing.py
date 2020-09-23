@@ -281,15 +281,22 @@ def draw_all_geometry(img, cam, offsettAngle=0, axis=False):
     return img
 
 
+def get_track_color(x, x_max):
+    color = int(255 * float(x) / float(x_max))
+    return (0, min(255, color*2), min(255, (255-color)*2))
+
+
 def draw_track(img, pts_scaled, maxlen):
     # loop over the set of tracked points
     for i in range(1, len(pts_scaled)):
-        # if either of the tracked points are None, ignore them
-        if pts_scaled[i - 1] is None or pts_scaled[i] is None:
+        # If either of the tracked points are None, draw the available point
+        f1 = pts_scaled[i] is None
+        f2 = pts_scaled[i - 1] is None
+        if f1 or f2:
+            if not (f1 and f2):
+                pt = pts_scaled[i-1] if f1 else pts_scaled[i]
+                cv2.circle(img, pt, 1, get_track_color(i, maxlen), -1)
             continue
         # draw the lines
-        thickness = 1
-        color = int(255 * float(i) / float(maxlen))
-        cv2.line(img, pts_scaled[i - 1], pts_scaled[i],
-                 (0, min(255, color*2), min(255, (255-color)*2)), thickness)
+        cv2.line(img, pts_scaled[i - 1], pts_scaled[i], get_track_color(i, maxlen), 1)
     return img

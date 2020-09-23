@@ -133,6 +133,13 @@ class Figure:
         self.errs_hist = errs  # history of residual sets
         # self.fits_hist = fits  # history of parameter sets
 
+        # # tinker with some params ourselves
+        # print(len(self.errs_hist), len(errs))
+        # get_residuals((p_fit[0], p_fit[1]+np.radians(4.), p_fit[2]+1.), self._actuals)
+        # print(len(self.errs_hist), len(errs))
+        # print(sum(self.errs_hist[-2]))
+        # print(sum(self.errs_hist[-1]))
+
         if plot:
             n_errs = len(errs)
             for i, err in enumerate(errs):
@@ -140,12 +147,17 @@ class Figure:
                     plt.plot(err, color='tab:gray', marker=None, linestyle='--')
             plt.plot(errs[0], 'r.-')
             plt.plot(errs[-1], 'b.-')
+            # plt.plot(errs[-2], 'b.-')
+            # plt.plot(errs[-1], 'y.-')
             plt.show()
         return p_fit, fit_err
 
     def _init_path(self):
         '''Creates the initial parameterization: chordal type'''
+        # chordal parameterization
         norms = np.linalg.norm(np.diff(self._actuals, axis=0), axis=1)
+        # # centripetal parameterization (doesn't work so well here)
+        # norms = np.linalg.norm(np.diff(self._actuals, axis=0), axis=1) ** 2
         self.u = np.hstack(
             (0.0, np.cumsum(norms) / sum(norms))
         )
@@ -171,64 +183,65 @@ class InsideLoops(Figure):
         # Nominal point every 5 degrees of the loop
         self.num_nominal_pts = 252
         # Initial guesses for optimization params
-        self.p0 = [self.phi0, self.beta, self.r]
+        self.p0 = [self.phi0, self.theta, self.r]
         # self.p0 = [0., 0., 1.] # rather extreme case, just to test sensitivity/convergence
 
     def fit(self, plot=False):
         '''Fit actual flight path to this Figure's nominal path.'''
 
         print('Initial parameters:')
-        print(f'  phi  = {self.p0[0]} ({np.degrees(self.p0[0]):.3f}°)')
-        print(f'  beta = {self.p0[1]} ({np.degrees(self.p0[1]):.3f}°)')
-        print(f'  r    = {self.p0[2]}')
+        print(f'  phi   = {self.p0[0]} ({np.degrees(self.p0[0]):.3f}°)')
+        print(f'  theta = {self.p0[1]} ({np.degrees(self.p0[1]):.3f}°)')
+        print(f'  r     = {self.p0[2]}')
 
         p_fit, fit_err = super().fit(plot=plot)
 
         print(f'Optimized parameters: {p_fit, fit_err}')
-        print(f'  phi  = {p_fit[0]} ({np.degrees(p_fit[0]):.3f}°)')
-        print(f'  beta = {p_fit[1]} ({np.degrees(p_fit[1]):.3f}°)')
-        print(f'  r    = {p_fit[2]}')
+        print(f'  phi   = {p_fit[0]} ({np.degrees(p_fit[0]):.3f}°)')
+        print(f'  theta = {p_fit[1]} ({np.degrees(p_fit[1]):.3f}°)')
+        print(f'  r     = {p_fit[2]}')
 
         return p_fit
 
     def _parmfn(self):
         '''Parameterizing function for three consecutive inside loops.'''
         #### Values that don't depend on figure parameters. Calculate these once per instance. ####
-        # Elevation angle at top of loop
+        # Included angle of cone
         alpha = np.radians(45.0)
         # Elevation angle of loop normal
-        self.beta = 0.5 * alpha
+        self.theta = np.radians(22.5)
         # Parametric angle inside loop when t = 1 (3.5 loops)
         k = 7.0 * np.pi
         # Radius of loop
-        self.r = self.R * np.sin(self.beta)
+        self.r = self.R * np.sin(0.5 * alpha)
         print(f'Nominal R = {self.R}')
         # print(f'Nominal phi = {self.phi0} ({np.degrees(self.phi0):.3f}°)')
-        # print(f'Nominal beta = {self.beta} ({np.degrees(self.beta):.3f}°)')
+        # print(f'Nominal theta = {self.theta} ({np.degrees(self.theta):.3f}°)')
         print(f'Nominal r = {self.r}')
 
-        def func(t, phi=None, beta=None, r=None):
+        def func(t, phi=None, theta=None, r=None):
             '''Returns a point on the nominal loops' path according to the specified parameters:
-                t: 0 < t < 1 along the path where t=0 is the start point and t=1 is the end point of the loops.
-                phi: the azimuthal angle of the loops' normal vector (default: 0.0)
-                beta: the elevation angle of the loops' normal vector (default: 22.5 degrees)
-                r: the radius of the loops (default: such that elevation at the top of the loops is at (2 * beta))
+                    `t`: 0 < t < 1 along the path where t=0 is the start point and t=1 is the end point of the loops.
+                    `phi`: the azimuthal angle of the loops' normal vector (default: 0.0°)
+                    `theta`: the elevation angle of the loops' normal vector (default: 22.5°)
+                    `r`: the radius of the loops (default: such that elevation at the top of the loops is 45°)
             '''
             if phi is None:
                 phi = 0.0
-            if beta is None:
-                beta = self.beta
+            if theta is None:
+                theta = self.theta
             if r is None:
                 r = self.r
+            # Rotation matrix around the azimuth
             rot_mat = np.array([
                 [np.cos(phi), -np.sin(phi), 0.],
                 [np.sin(phi), np.cos(phi), 0.],
                 [0., 0., 1.]])
             # Normal vector of loop: points from center of loop to center of sphere
-            n = rot_mat.dot(np.array([-np.cos(beta), 0., -np.sin(beta)]))
+            n = rot_mat.dot(np.array([-np.cos(theta), 0., -np.sin(theta)]))
             # print(f'n = {n} {n.shape}')
             # Center of loop
-            c = -n * self.R * np.cos(beta)
+            c = -n * self.R * np.cos(0.5 * alpha)
             # Second orthogonal vector in loop plane: points from loop center to the left (from pilot's POV).
             # We define this one first because it's easy.
             v = rot_mat.dot(np.array([0., 1., 0.]))
