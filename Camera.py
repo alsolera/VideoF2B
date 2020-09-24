@@ -259,7 +259,7 @@ class CalCamera:
             if self.point > 0:
                 self.point -= 1
                 if param is not None:
-                    cv2.circle(param, (imagePoints[self.point, 0], imagePoints[self.point, 1]),
+                    cv2.circle(param, (self.imagePoints[self.point, 0], self.imagePoints[self.point, 1]),
                                5, (0, 0, 255))
                 self.imagePoints[self.point, 0] = 0
                 self.imagePoints[self.point, 1] = 0
