@@ -1,0 +1,23 @@
+# autopep8 & friends
+autopep8>=1.5.3
+pycodestyle>=2.6.0
+toml>=0.10.1
+
+# matplotlib & friends
+matplotlib>=3.3.1
+certifi>=2020.6.20
+cycler>=0.10.0
+kiwisolver>=1.2.0
+numpy>=1.19.1
+Pillow>=7.2.0
+pyparsing>=2.4.7
+python-dateutil>=2.8.1
+six>=1.15.0
+
+# PySide2 & friends (for matplotlib Qt5 backend)
+PySide2>=5.15.0
+shiboken2>=5.15.0
+
+# scipy & friends
+numpy>=1.19.1
+scipy>=1.5.2
