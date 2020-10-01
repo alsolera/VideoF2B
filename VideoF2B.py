@@ -111,7 +111,7 @@ logger.debug(f'scale = {scale:.4f}')
 # Platform-dependent stuff
 WINDOW_FLAGS = cv2.WINDOW_NORMAL
 fourcc = cv2.VideoWriter_fourcc(*'H264')
-if platform.system() is 'Windows':
+if platform.system() == 'Windows':
     WINDOW_FLAGS = cv2.WINDOW_KEEPRATIO
     fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
