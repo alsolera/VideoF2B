@@ -46,8 +46,6 @@ class Drawing:
             Optional:
                 `point_density`: number of arc points per 180 degrees of arc. Default is 100 points.
         '''
-        # Flag that indicates whether AR geometry is defined. Requires a located camera.
-        self.AR = False
         # Defines the visibility state of all drawn figures.
         self.figure_state = defaultdict(bool)
         # Map figure types to their drawing functions. Not all figure types are used.
@@ -65,7 +63,6 @@ class Drawing:
         self._detector = detector
         self._cam = kwargs.pop('cam', None)
         if self._cam is not None:
-            self.AR = self._cam.AR
             self.R = kwargs.pop('R', common.DEFAULT_FLIGHT_RADIUS)
             self.marker_radius = kwargs.pop('marker_radius', common.DEFAULT_MARKER_RADIUS)
             self.center = kwargs.pop('center', Drawing.DEFAULT_CENTER)
@@ -112,7 +109,7 @@ class Drawing:
     def draw(self, img, azimuth_delta, axis=False, figures=None):
         '''Draw all relevant geometry in the given image frame.'''
         self._draw_track(img)
-        if self.AR:
+        if self._cam.Located:
             self._draw_all_geometry(img, azimuth_delta, axis)
             self._draw_figures(img, azimuth_delta, figures)
 
