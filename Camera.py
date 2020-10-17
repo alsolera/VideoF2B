@@ -24,12 +24,10 @@ from tkinter import simpledialog as tkSimpleDialog
 import cv2
 import numpy as np
 
+import common
+
 
 class CalCamera:
-    # some default lengths, in meters
-    DEFAULT_FLIGHT_RADIUS = 21.0
-    DEFAULT_MARKER_RADIUS = 25.0
-    DEFAULT_MARKER_HEIGHT = 1.5
 
     def __init__(self, frame_size, calibrationPath=None,
                  flight_radius=None, marker_radius=None, marker_height=None,
@@ -106,19 +104,19 @@ class CalCamera:
                     self.balance = float(npzfile['balance'])
 
                 self.flightRadius = self.flightRadius or tkSimpleDialog.askfloat(
-                    'Input', f'Flight radius (m) (Cancel = {CalCamera.DEFAULT_FLIGHT_RADIUS} m):')
+                    'Input', f'Flight radius (m) (Cancel = {common.DEFAULT_FLIGHT_RADIUS} m):')
                 if self.flightRadius is None:
-                    self.flightRadius = CalCamera.DEFAULT_FLIGHT_RADIUS
+                    self.flightRadius = common.DEFAULT_FLIGHT_RADIUS
 
                 self.markRadius = self.markRadius or tkSimpleDialog.askfloat(
-                    'Input', f'Height markers distance to center (m) (Cancel = {CalCamera.DEFAULT_MARKER_RADIUS} m)')
+                    'Input', f'Height markers distance to center (m) (Cancel = {common.DEFAULT_MARKER_RADIUS} m)')
                 if self.markRadius is None:
-                    self.markRadius = CalCamera.DEFAULT_MARKER_RADIUS
+                    self.markRadius = common.DEFAULT_MARKER_RADIUS
 
                 self.markHeight = self.markHeight or tkSimpleDialog.askfloat(
-                    'Input', f'Height markers: height above center of circle (m) (Cancel = {CalCamera.DEFAULT_MARKER_HEIGHT} m)')
+                    'Input', f'Height markers: height above center of circle (m) (Cancel = {common.DEFAULT_MARKER_HEIGHT} m)')
                 if self.markHeight is None:
-                    self.markHeight = CalCamera.DEFAULT_MARKER_HEIGHT
+                    self.markHeight = common.DEFAULT_MARKER_HEIGHT
             except:
                 cal_err_str = 'Error loading calibration file'
                 self.logger.error(cal_err_str)
