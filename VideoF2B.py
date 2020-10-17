@@ -68,6 +68,7 @@ VIDEO_PATH = None  # Default: ask
 FLIGHT_RADIUS = None  # Default: ask
 MARKER_RADIUS = None  # Default: ask
 MARKER_HEIGHT = None  # Default: ask
+SPHERE_OFFSET = None  # Default: world origin
 
 logger = logging.getLogger(__name__)
 
