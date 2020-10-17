@@ -211,6 +211,7 @@ while True:
         frame_or = cam.Undistort(frame_or)
         if not cam.Located and cam.AR:
             cam.Locate(frame_or)
+            artist.AR = cam.AR
 
         '''
         # This section maps the entire image space to world, effectively meshing the sphere
