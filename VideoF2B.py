@@ -37,6 +37,7 @@ import Drawing
 import figure_tracker as figtrack
 import projection
 import Video
+from common import FigureTypes
 
 master = tkinter.Tk()
 loops_chk = tkinter.BooleanVar()
@@ -67,6 +68,7 @@ VIDEO_PATH = None  # Default: ask
 FLIGHT_RADIUS = None  # Default: ask
 MARKER_RADIUS = None  # Default: ask
 MARKER_HEIGHT = None  # Default: ask
+SPHERE_OFFSET = None  # Default: world origin
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +134,10 @@ else:
 MAX_TRACK_LEN = int(MAX_TRACK_TIME * VIDEO_FPS)
 # Detector
 detector = Detection.Detector(MAX_TRACK_LEN, scale)
+# Drawing artist
+artist = Drawing.Drawing(detector, cam=cam, R=FLIGHT_RADIUS,
+                         marker_radius=MARKER_RADIUS,
+                         center=SPHERE_OFFSET)
 # Speed meter
 fps = FPS().start()
 # Angle offset of current AR hemisphere wrt world coordinate system
@@ -239,25 +245,16 @@ while True:
     frame = imutils.resize(frame_or, width=IM_WIDTH)
 
     detector.process(frame)
-    Drawing.draw_track(frame_or, detector.pts_scaled, MAX_TRACK_LEN)
 
     if cam.Located:
-        Drawing.draw_all_geometry(frame_or, cam, azimuth_delta, axis=False)
+        artist.figure_state[FigureTypes.INSIDE_LOOPS] = loops_chk.get()
+        artist.figure_state[FigureTypes.VERTICAL_EIGHTS] = ver_eight_chk.get()
+        artist.figure_state[FigureTypes.HORIZONTAL_EIGHTS] = hor_eight_chk.get()
+        artist.figure_state[FigureTypes.OVERHEAD_EIGHTS] = over_eight_chk.get()
 
-        distZero = np.zeros_like(cam.dist)
-        if loops_chk.get():
-            Drawing.draw_loop(frame_or, azimuth_delta, cam.rvec, cam.tvec,
-                              cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
-        if ver_eight_chk.get():
-            Drawing.drawVerEight(frame_or, azimuth_delta, cam.rvec, cam.tvec,
-                                 cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
-        if hor_eight_chk.get():
-            Drawing.drawHorEight(frame_or, azimuth_delta, cam.rvec, cam.tvec,
-                                 cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
-        if over_eight_chk.get():
-            Drawing.drawOverheadEight(frame_or, azimuth_delta, cam.rvec, cam.tvec,
-                                      cam.newcameramtx, distZero, cam.flightRadius, color=(255, 255, 255))
+    artist.draw(frame_or, azimuth_delta, axis=False)
 
+    if cam.Located:
         if PERFORM_3D_TRACKING:
             # try to track the aircraft in world coordinates
             if detector.pts_scaled[0] is not None:
