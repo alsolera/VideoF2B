@@ -216,6 +216,7 @@ class CalCamera:
                 self.rtvec = rmat_inv.dot(self.tvec)
                 # Direct result: camera location in world coordinates is where the scaling factor = 0
                 self.cam_pos = -self.rtvec
+                cam_d = np.linalg.norm(self.cam_pos)
 
                 self.logger.info(f'imagePoints =\n{self.imagePoints}')
                 self.logger.debug('Matrices and vectors for 3D tracking: =====================')
@@ -229,6 +230,7 @@ class CalCamera:
                 self.logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
                 self.logger.debug('End of matrices and vectors for 3D tracking ===============')
                 self.logger.info(f'world cam location =\n{self.cam_pos}')
+                self.logger.info(f'world cam straight distance from sphere center = {cam_d:.3f}')
 
                 self.Located = True
                 cv2.destroyWindow(self.calWindowName)
