@@ -121,8 +121,27 @@ input_base_name = os.path.splitext(videoPath)[0]
 # Output video file
 VIDEO_FPS = cap.get(cv2.CAP_PROP_FPS)
 OUT_VIDEO_PATH = f'{input_base_name}_out.mp4'
+w_ratio = inp_width / FULL_FRAME_SIZE[0]
+h_ratio = inp_height / FULL_FRAME_SIZE[1]
+RESTORE_SIZE = w_ratio > 0.95 and h_ratio > 0.95
+logger.info(f'FULL_FRAME_SIZE = {FULL_FRAME_SIZE}')
+logger.debug(f'input ratios w,h = {w_ratio:.4f}, {h_ratio:.4f}')
 if not live:
-    out = cv2.VideoWriter(OUT_VIDEO_PATH, fourcc, VIDEO_FPS, (int(inp_width), int(inp_height)))
+    if RESTORE_SIZE:
+        out = cv2.VideoWriter(OUT_VIDEO_PATH, fourcc, VIDEO_FPS, FULL_FRAME_SIZE)
+        # The resized width if we resize height to full size
+        w_final = int(FULL_FRAME_SIZE[1] / inp_height * inp_width)
+        resize_kwarg = {'height': FULL_FRAME_SIZE[1]}
+        crop_offset = (int(0.5*(w_final - FULL_FRAME_SIZE[0])), 0)
+        if w_final < FULL_FRAME_SIZE[0]:
+            # The resized height if we resize width to full size
+            h_final = int(FULL_FRAME_SIZE[0] / inp_width * inp_height)
+            resize_kwarg = {'width': FULL_FRAME_SIZE[0]}
+            crop_offset = (0, int(0.5*(h_final - FULL_FRAME_SIZE[1])))
+        crop_idx_y = crop_offset[1] + FULL_FRAME_SIZE[1]
+        crop_idx_x = crop_offset[0] + FULL_FRAME_SIZE[0]
+    else:
+        out = cv2.VideoWriter(OUT_VIDEO_PATH, fourcc, VIDEO_FPS, (int(inp_width), int(inp_height)))
 else:
     if not os.path.exists(liveVideos):
         os.makedirs(liveVideos)
@@ -293,6 +312,12 @@ while True:
                 cv2.circle(frame_or, fig_img_pts[0], 6, (0, 255, 255), -1)
                 if not is_fig_in_progress:
                     cv2.circle(frame_or, fig_img_pts[-1], 6, (255, 0, 255), -1)
+
+    if not live and RESTORE_SIZE:
+        # Size us back up to original. preserve aspect, crop to middle
+        frame_or = imutils.resize(frame_or, **resize_kwarg)[
+            crop_offset[1]:crop_idx_y,
+            crop_offset[0]:crop_idx_x]
 
     # Write text
     cv2.putText(frame_or, "VideoF2B - v0.6 BETA", (10, 15),
