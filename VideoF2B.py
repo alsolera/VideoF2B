@@ -69,6 +69,7 @@ FLIGHT_RADIUS = None  # Default: ask
 MARKER_RADIUS = None  # Default: ask
 MARKER_HEIGHT = None  # Default: ask
 SPHERE_OFFSET = None  # Default: world origin
+SPHERE_DELTA = 0.1  # offset delta in m
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,7 @@ logger.info(f'FULL_FRAME_SIZE = {FULL_FRAME_SIZE}')
 logger.debug(f'input ratios w,h = {w_ratio:.4f}, {h_ratio:.4f}')
 if not live:
     if RESTORE_SIZE:
+        print(f'Output size: {FULL_FRAME_SIZE}')
         out = cv2.VideoWriter(OUT_VIDEO_PATH, fourcc, VIDEO_FPS, FULL_FRAME_SIZE)
         # The resized width if we resize height to full size
         w_final = int(FULL_FRAME_SIZE[1] / inp_height * inp_width)
@@ -156,7 +158,9 @@ detector = Detection.Detector(MAX_TRACK_LEN, scale)
 # Drawing artist
 artist = Drawing.Drawing(detector, cam=cam, R=FLIGHT_RADIUS,
                          marker_radius=MARKER_RADIUS,
-                         center=SPHERE_OFFSET)
+                         center=SPHERE_OFFSET,
+                         axis=False,
+                         logger=logger)
 # Speed meter
 fps = FPS().start()
 # Angle offset of current AR hemisphere wrt world coordinate system
@@ -217,13 +221,6 @@ while True:
     # if frame_idx > int(64*VIDEO_FPS):
     #     break
 
-    if frame_or is None:
-        num_empty_frames += 1
-        if num_empty_frames > MAX_CONSECUTIVE_EMPTY_FRAMES:  # GoPro videos show empty frames, quick fix
-            break
-        continue
-    num_empty_frames = 0
-
     if cam.Calibrated:
         master.update()
 
@@ -271,14 +268,14 @@ while True:
         artist.figure_state[FigureTypes.HORIZONTAL_EIGHTS] = hor_eight_chk.get()
         artist.figure_state[FigureTypes.OVERHEAD_EIGHTS] = over_eight_chk.get()
 
-    artist.draw(frame_or, azimuth_delta, axis=False)
+    artist.draw(frame_or, azimuth_delta)
 
     if cam.Located:
         if PERFORM_3D_TRACKING:
             # try to track the aircraft in world coordinates
             if detector.pts_scaled[0] is not None:
                 act_pts = projection.projectImagePointToSphere(
-                    cam, detector.pts_scaled[0], frame_or, data_writer)
+                    cam, artist.center, detector.pts_scaled[0], frame_or, data_writer)
                 if act_pts is not None:  # and act_pts.shape[0] == 2:
                     # fig_tracker.add_actual_point(act_pts)
                     # Typically the first point is the "far" point on the sphere...Good enough for most figures that are on the far side of the camera.
@@ -344,12 +341,15 @@ while True:
 
     # azimuth_delta += 0.4  # For quick visualization of sphere outline
     key = cv2.waitKeyEx(1)  # & 0xFF
+    LSB = key & 0xff
+
     # if key != -1:
-    #     print(key, key & 0xff)
-    if key % 256 == 27 or key == 1048603 or cv2.getWindowProperty(WINDOW_NAME, 1) < 0:  # ESC
+    #     print(f'\nKey: {key}  LSB: {key & 0xff}')
+
+    if LSB == 27 or key == 1048603 or cv2.getWindowProperty(WINDOW_NAME, 1) < 0:  # ESC
         # Exit
         break
-    elif key % 256 == 112:  # p
+    elif LSB == 112:  # p
         # Pause/Resume with ability to quit while paused
         fps.pause()
         is_paused = True
@@ -359,10 +359,11 @@ while True:
         get_out = False
         while is_paused:
             key = cv2.waitKeyEx(100)
-            if key % 256 == 27 or cv2.getWindowProperty(WINDOW_NAME, 1) < 0:  # ESC
+            LSB = key & 0xff
+            if LSB == 27 or cv2.getWindowProperty(WINDOW_NAME, 1) < 0:  # ESC
                 get_out = True
                 break
-            is_paused = not (key % 256 == 112)
+            is_paused = not (LSB == 112)
         if get_out:
             logger.info(f'quitting from pause at frame {frame_idx}')
             break
@@ -370,24 +371,24 @@ while True:
         resume_str = f'resuming from frame {frame_idx}'
         print(resume_str)
         logger.info(resume_str)
-    elif key % 256 == 32 or key == 1048608:  # Space
+    elif LSB == 32 or key == 1048608:  # Space
         # Clear the current track
         detector.clear()
     elif key == 1113939 or key == 2555904 or key == 65363:  # Right Arrow
         azimuth_delta += 0.5
     elif key == 1113937 or key == 2424832 or key == 65361:  # Left Arrow
         azimuth_delta -= 0.5
-    elif key % 256 == 99 or key == 1048675:  # c
+    elif LSB == 99 or key == 1048675:  # c
         # Relocate AR sphere
         cam.Located = False
         cam.AR = True
-    elif PERFORM_3D_TRACKING and key % 256 == 91:  # [ key
+    elif PERFORM_3D_TRACKING and LSB == 91:  # [ key
         # Mark the beginning of a new figure
         if fig_tracker is not None:
             detector.clear()
             fig_tracker.start_figure()
             is_fig_in_progress = True
-    elif PERFORM_3D_TRACKING and key % 256 == 93:  # ] key
+    elif PERFORM_3D_TRACKING and LSB == 93:  # ] key
         # Mark the end of the current figure
         if fig_tracker is not None:
             print(f'before finishing figure: fig_img_pts size ={len(fig_img_pts)}')
@@ -419,6 +420,31 @@ while True:
             # # print()
             # Set the flag for drawing the fit figures, diags, etc.
             draw_fit = True
+    elif LSB == ord('d'):
+        # offset sphere right (+X)
+        logger.info(
+            f'User moves sphere center X by {SPHERE_DELTA} after frame {frame_idx} ({timedelta(seconds=frame_time)})')
+        artist.MoveCenterX(SPHERE_DELTA)
+    elif LSB == ord('a'):
+        # offset sphere left (-X)
+        logger.info(
+            f'User moves sphere center X by {-SPHERE_DELTA} after frame {frame_idx} ({timedelta(seconds=frame_time)})')
+        artist.MoveCenterX(-SPHERE_DELTA)
+    elif LSB == ord('w'):
+        # offset sphere away from cam (+Y)
+        logger.info(
+            f'User moves sphere center Y by {SPHERE_DELTA} after frame {frame_idx} ({timedelta(seconds=frame_time)})')
+        artist.MoveCenterY(SPHERE_DELTA)
+    elif LSB == ord('s'):
+        # offset sphere toward cam (-Y)
+        logger.info(
+            f'User moves sphere center Y by {-SPHERE_DELTA} after frame {frame_idx} ({timedelta(seconds=frame_time)})')
+        artist.MoveCenterY(-SPHERE_DELTA)
+    elif LSB == ord('x'):
+        # reset sphere offset to world origin
+        logger.info(
+            f'User resets sphere center after frame {frame_idx} ({timedelta(seconds=frame_time)})')
+        artist.ResetCenter()
 
 fps.stop()
 final_progress_str = f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%'

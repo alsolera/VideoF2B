@@ -24,6 +24,7 @@ import numpy as np
 from scipy import optimize
 
 import common
+from common import FigureTypes
 
 # ==================== Golden Section Search method ===============================
 # NOTE: Unused as of yet. Also available in scipy.optimize
