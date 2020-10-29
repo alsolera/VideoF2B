@@ -27,10 +27,20 @@ import common
 from common import FigureTypes
 
 
+class Scatter:
+    '''Defines a collection of scattered points.'''
+    pass
+
+
+class Polyline:
+    '''Defines a polyline.'''
+    pass
+
+
 class Drawing:
     '''Container that performs all the drawing of AR sphere, track, figures, etc. in any given image frame.'''
     # Default location of drawn sphere wrt world center.
-    DEFAULT_CENTER = np.array([0., 0., 0.])
+    DEFAULT_CENTER = np.float32([0., 0., 0.])
     # Default point density per pi (180 degrees) of arc.
     DEFAULT_N = 100
 
@@ -60,18 +70,39 @@ class Drawing:
             FigureTypes.OVERHEAD_EIGHTS: Drawing.drawOverheadEight,
             FigureTypes.FOUR_LEAF_CLOVER: Drawing.drawFourLeafClover
         }
+        self._is_center_at_origin = False
         self._detector = detector
+        self.axis = kwargs.pop('axis', False)
         self._cam = kwargs.pop('cam', None)
         if self._cam is not None:
             self.R = kwargs.pop('R', common.DEFAULT_FLIGHT_RADIUS)
             self.marker_radius = kwargs.pop('marker_radius', common.DEFAULT_MARKER_RADIUS)
-            self.center = kwargs.pop('center', Drawing.DEFAULT_CENTER)
+            center = kwargs.pop('center', Drawing.DEFAULT_CENTER.copy()
+                                ) or Drawing.DEFAULT_CENTER.copy()
             # Ensure it's a numpy array (allow tuple, list as input)
-            self.center = np.array(self.center, dtype=np.float32)
-            self.point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
+            self._center = np.float32(center)
+            self._evaluate_center()
+            self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
 
         # Cache of drawing point collections, keyed on the variables that affect a unique AR scene.
         self._cache = {}
+
+    def MoveCenterX(self, delta):
+        self._center[0] += delta
+        self._evaluate_center()
+
+    def MoveCenterY(self, delta):
+        self._center[1] += delta
+        self._evaluate_center()
+
+    def ResetCenter(self):
+        '''Reset sphere center to default.'''
+        self._center = Drawing.DEFAULT_CENTER.copy()
+        self._evaluate_center()
+
+    def _evaluate_center(self):
+        self._center = self._center.round(1)
+        self._is_center_at_origin = (abs(self._center) < 0.01).all()
 
     @staticmethod
     def PointsInCircum(r, n=100):
@@ -106,14 +137,14 @@ class Drawing:
             cv2.line(img, pts[i - 1], pts[i], Drawing._get_track_color(i, maxlen), 1)
         return img
 
-    def draw(self, img, azimuth_delta, axis=False, figures=None):
+    def draw(self, img, azimuth_delta=0, figures=None):
         '''Draw all relevant geometry in the given image frame.'''
         self._draw_track(img)
         if self._cam.Located:
-            self._draw_all_geometry(img, azimuth_delta, axis)
+            self._draw_all_geometry(img, azimuth_delta)
             self._draw_figures(img, azimuth_delta, figures)
 
-    def _draw_all_geometry(self, img, azimuth_delta=0, axis=False):
+    def _draw_all_geometry(self, img, azimuth_delta=0):
         '''Draw all AR geometry according to the current location and rotation of AR sphere.'''
         # Local names to minimize dot-name lookups
         rvec = self._cam.rvec
@@ -122,15 +153,21 @@ class Drawing:
         distZero = np.zeros_like(self._cam.dist)
         cam_pos = self._cam.cam_pos
         r = self._cam.flightRadius
+        center = self._center
         # Begin drawing
-        Drawing._draw_level(img, rvec, tvec, newcameramtx, distZero, r)
-        Drawing._draw_all_merid(img, rvec, tvec, newcameramtx, distZero, r, azimuth_delta)
-        if axis:
-            Drawing._draw_axis(img, rvec, tvec, newcameramtx, distZero)
-        Drawing._draw_45(img, rvec, tvec, newcameramtx, distZero, r, color=(0, 255, 0))
-        Drawing._draw_base_tol(img, rvec, tvec, newcameramtx, distZero, r)
-        Drawing._draw_edge(img, cam_pos, rvec, tvec, newcameramtx, distZero, r)
-        Drawing._draw_points(img, self._cam, rvec, tvec, newcameramtx, distZero)
+        if not self._is_center_at_origin:
+            cv2.putText(
+                img,
+                f'Center: ({center[0]:.1f}, {center[1]:.1f}, {center[2]:.1f})',
+                (10, img.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, .6, (0, 255, 0), 2)
+        Drawing._draw_level(img, rvec, tvec, newcameramtx, distZero, center, r)
+        Drawing._draw_all_merid(img, rvec, tvec, newcameramtx, distZero, center, r, azimuth_delta)
+        if self.axis:
+            Drawing._draw_axis(img, rvec, tvec, newcameramtx, distZero, center)
+        Drawing._draw_45(img, rvec, tvec, newcameramtx, distZero, center, r, color=(0, 255, 0))
+        Drawing._draw_base_tol(img, rvec, tvec, newcameramtx, distZero, center, r)
+        Drawing._draw_edge(img, cam_pos, rvec, tvec, newcameramtx, distZero, center, r)
+        Drawing._draw_points(img, self._cam, rvec, tvec, newcameramtx, distZero, center)
         return img
 
     def _draw_figures(self, img, azimuth_delta=0., figures=None):
@@ -147,12 +184,12 @@ class Drawing:
                         img, azimuth_delta, rvec, tvec, newcameramtx, distZero, r)
 
     @staticmethod
-    def _draw_level(img, rvec, tvec, cameramtx, dist, r):
+    def _draw_level(img, rvec, tvec, cameramtx, dist, center, r):
         '''Draw the base level (aka the equator) of flight hemisphere.'''
         # unit is m
         n = 100
-        coords = np.asarray(Drawing.PointsInCircum(r=r, n=n), np.float32)
-        points = np.c_[coords, np.zeros(1 + n)]
+        coords = np.asarray(Drawing.PointsInCircum(r, n), np.float32)
+        points = np.c_[coords, np.zeros(1 + n)] + center
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
         twoDPoints = twoDPoints.astype(int)
         for i in range(np.shape(twoDPoints)[0] - 1):
@@ -161,16 +198,17 @@ class Drawing:
         return img
 
     @staticmethod
-    def _draw_all_merid(img, rvec, tvec, cameramtx, dist, r, azimuth_delta):
+    def _draw_all_merid(img, rvec, tvec, cameramtx, dist, center, r, azimuth_delta):
         '''Draw all the meridians of the flight hemisphere.'''
         for angle in range(0, 180, 45):
             gray = 255 - angle*2
             color = (gray, gray, gray)
-            Drawing._draw_merid(img, angle + azimuth_delta, rvec, tvec, cameramtx, dist, r, color)
+            Drawing._draw_merid(img, angle + azimuth_delta, rvec, tvec,
+                                cameramtx, dist, center, r, color)
         return img
 
     @staticmethod
-    def _draw_merid(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
+    def _draw_merid(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
         '''Draw one meridian of the flight hemisphere, defined by an angle in degrees CCW from the reference azimuth.'''
         # unit is m
         n = 100
@@ -185,7 +223,7 @@ class Drawing:
         coords = np.asarray(Drawing.PointsInHalfCircum(r=r, n=n), np.float32)
         points = np.c_[np.zeros(1+n), coords]
 
-        points = np.matmul(points, RotMatrix)
+        points = np.matmul(points, RotMatrix) + center
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
         twoDPoints = twoDPoints.astype(int)
 
@@ -195,27 +233,30 @@ class Drawing:
         return img
 
     @staticmethod
-    def _draw_axis(img, rvec, tvec, cameramtx, dist):
+    def _draw_axis(img, rvec, tvec, cameramtx, dist, center):
         # unit is m
-        points = np.float32([[2, 0, 0], [0, 2, 0], [0, 0, 5], [0, 0, 0]])
+        points = np.float32([[2, 0, 0], [0, 2, 0], [0, 0, 5], [0, 0, 0]]) + center
         axisPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
-        img = cv2.line(img, tuple(axisPoints[3].ravel()),
-                       tuple(axisPoints[0].ravel()), (255, 0, 0), 1)
-        img = cv2.line(img, tuple(axisPoints[3].ravel()),
+        img = cv2.line(img,
+                       tuple(axisPoints[3].ravel()),
+                       tuple(axisPoints[0].ravel()), (0, 0, 255), 1)
+        img = cv2.line(img,
+                       tuple(axisPoints[3].ravel()),
                        tuple(axisPoints[1].ravel()), (0, 255, 0), 1)
-        img = cv2.line(img, tuple(axisPoints[3].ravel()),
-                       tuple(axisPoints[2].ravel()), (0, 0, 255), 1)
+        img = cv2.line(img,
+                       tuple(axisPoints[3].ravel()),
+                       tuple(axisPoints[2].ravel()), (255, 0, 0), 1)
         return img
 
     @staticmethod
-    def _draw_45(img, rvec, tvec, cameramtx, dist, r=20, color=(255, 255, 255)):
+    def _draw_45(img, rvec, tvec, cameramtx, dist, center, r=20, color=(255, 255, 255)):
         # unit is m
         n = 100
         pi = math.pi
         r45 = math.cos(pi/4) * r
         # TODO: use np.float32() constructor
         coords = np.asarray(Drawing.PointsInCircum(r=r45, n=n), np.float32)
-        points = np.c_[coords, np.ones(1+n)*r45]
+        points = np.c_[coords, np.ones(1+n)*r45] + center
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
         twoDPoints = twoDPoints.astype(int)
         for i in range(np.shape(twoDPoints)[0] - 1):
@@ -225,14 +266,14 @@ class Drawing:
         return img
 
     @staticmethod
-    def _draw_base_tol(img, rvec, tvec, cameramtx, dist, R=21.):
+    def _draw_base_tol(img, rvec, tvec, cameramtx, dist, center, R=21.):
         '''Draw the upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.'''
         n = 200
         tol = 0.3
         r = math.sqrt(R**2 - tol**2)
         coords = np.asarray(Drawing.PointsInCircum(r, n))
-        pts_lower = np.c_[coords, np.ones(1 + n) * (-tol)]
-        pts_upper = np.c_[coords, np.ones(1 + n) * tol]
+        pts_lower = np.c_[coords, np.ones(1 + n) * (-tol)] + center
+        pts_upper = np.c_[coords, np.ones(1 + n) * tol] + center
         img_pts_lower = cv2.projectPoints(pts_lower, rvec, tvec, cameramtx, dist)[0].astype(int)
         img_pts_upper = cv2.projectPoints(pts_upper, rvec, tvec, cameramtx, dist)[0].astype(int)
         color = (204, 204, 204)
@@ -260,13 +301,18 @@ class Drawing:
         return img
 
     @staticmethod
-    def _draw_edge(img, cam_pos, rvec, tvec, cameramtx, dist, R):
+    def _draw_edge(img, cam_pos, rvec, tvec, cameramtx, dist, center, R):
         '''Draw the edge outline of the flight sphere as seen from camera's perspective.'''
         # normal vector of circle: points from sphere center to camera
-        d = np.linalg.norm(cam_pos)
-        n = (cam_pos / d).reshape((3,))
+        p = cam_pos.reshape((3,)) - center
+        d = np.linalg.norm(p)
+        if d <= R:
+            # We are on the surface of the sphere, or inside its volume.
+            return
+        n = p / d
         # TODO: use math instead of np for trig functions of scalars to speed things up
         # TODO: use np.float32() constructor where possible
+        # TODO: !!!!! consider the full 3D rotation here!!! Looking only at XY is incomplete and incorrect.
         phi = np.arctan2(n[1], n[0])
         rot_mat = np.array([
             [np.cos(phi), -np.sin(phi), 0.],
@@ -277,7 +323,7 @@ class Drawing:
         v = np.cross(n, u)
         t = np.linspace(0., 1., 100)
         k = np.pi  # semi-circle
-        c = (R**2 / d) * n
+        c = (R**2 / d) * n + center
         det = d**2 - R**2
         if det < 0.:
             # guard against negative arg of sqrt
@@ -293,7 +339,7 @@ class Drawing:
         return img
 
     @staticmethod
-    def _draw_points(img, cam, rvec, tvec, newcameramtx, dist):
+    def _draw_points(img, cam, rvec, tvec, newcameramtx, dist, center):
         r = cam.flightRadius
         rcos45 = cam.markRadius * 0.70710678
         marker_size_x = 0.20  # marker width, in m
@@ -332,6 +378,8 @@ class Drawing:
             [-rcos45 + 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
         ],
             dtype=np.float32)
+        # Adjust locations of the center marker points. Leave all other references as-is.
+        world_points[9:13, ] += center
 
         imgpts, _ = cv2.projectPoints(world_points, rvec, tvec, newcameramtx, dist)
         imgpts = np.int32(imgpts).reshape(-1, 2)
