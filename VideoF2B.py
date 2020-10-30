@@ -158,7 +158,8 @@ detector = Detection.Detector(MAX_TRACK_LEN, scale)
 artist = Drawing.Drawing(detector, cam=cam, R=FLIGHT_RADIUS,
                          marker_radius=MARKER_RADIUS,
                          center=SPHERE_OFFSET,
-                         axis=True)
+                         axis=False,
+                         logger=logger)
 # Speed meter
 fps = FPS().start()
 # Angle offset of current AR hemisphere wrt world coordinate system
@@ -419,18 +420,28 @@ while True:
             draw_fit = True
     elif LSB == ord('d'):
         # offset sphere right (+X)
+        logger.info(
+            f'User moves sphere center X by {SPHERE_DELTA} after frame {frame_idx} ({timedelta(seconds=frame_time)})')
         artist.MoveCenterX(SPHERE_DELTA)
     elif LSB == ord('a'):
         # offset sphere left (-X)
+        logger.info(
+            f'User moves sphere center X by {-SPHERE_DELTA} after frame {frame_idx} ({timedelta(seconds=frame_time)})')
         artist.MoveCenterX(-SPHERE_DELTA)
     elif LSB == ord('w'):
         # offset sphere away from cam (+Y)
+        logger.info(
+            f'User moves sphere center Y by {SPHERE_DELTA} after frame {frame_idx} ({timedelta(seconds=frame_time)})')
         artist.MoveCenterY(SPHERE_DELTA)
     elif LSB == ord('s'):
         # offset sphere toward cam (-Y)
+        logger.info(
+            f'User moves sphere center Y by {-SPHERE_DELTA} after frame {frame_idx} ({timedelta(seconds=frame_time)})')
         artist.MoveCenterY(-SPHERE_DELTA)
     elif LSB == ord('x'):
         # reset sphere offset to world origin
+        logger.info(
+            f'User resets sphere center after frame {frame_idx} ({timedelta(seconds=frame_time)})')
         artist.ResetCenter()
 
 fps.stop()
