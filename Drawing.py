@@ -17,6 +17,7 @@
 
 '''Module for drawing flight track and Augmented Reality in video.'''
 
+import logging
 import math
 from collections import defaultdict
 
@@ -70,6 +71,7 @@ class Drawing:
             FigureTypes.OVERHEAD_EIGHTS: Drawing.drawOverheadEight,
             FigureTypes.FOUR_LEAF_CLOVER: Drawing.drawFourLeafClover
         }
+        self.logger = kwargs.pop('logger', logging.getLogger(__name__))
         self._is_center_at_origin = False
         self._detector = detector
         self.axis = kwargs.pop('axis', False)
@@ -103,6 +105,7 @@ class Drawing:
     def _evaluate_center(self):
         self._center = self._center.round(1)
         self._is_center_at_origin = (abs(self._center) < 0.01).all()
+        self.logger.info(f'Sphere center: {self._center}')
 
     @staticmethod
     def PointsInCircum(r, n=100):
@@ -158,8 +161,12 @@ class Drawing:
         if not self._is_center_at_origin:
             cv2.putText(
                 img,
-                f'Center: ({center[0]:.1f}, {center[1]:.1f}, {center[2]:.1f})',
-                (10, img.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, .6, (0, 255, 0), 2)
+                f'C=({center[0]:.1f}, {center[1]:.1f}, {center[2]:.1f})',
+                (120, img.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+        cv2.putText(
+            img,
+            f'R={self.R:.2f}',
+            (30, img.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
         Drawing._draw_level(img, rvec, tvec, newcameramtx, distZero, center, r)
         Drawing._draw_all_merid(img, rvec, tvec, newcameramtx, distZero, center, r, azimuth_delta)
         if self.axis:
@@ -312,7 +319,6 @@ class Drawing:
         n = p / d
         # TODO: use math instead of np for trig functions of scalars to speed things up
         # TODO: use np.float32() constructor where possible
-        # TODO: !!!!! consider the full 3D rotation here!!! Looking only at XY is incomplete and incorrect.
         phi = np.arctan2(n[1], n[0])
         rot_mat = np.array([
             [np.cos(phi), -np.sin(phi), 0.],
