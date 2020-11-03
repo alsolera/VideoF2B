@@ -358,6 +358,7 @@ while True:
         get_out = False
         while is_paused:
             key = cv2.waitKeyEx(100)
+            LSB = key & 0xff
             if LSB == 27 or cv2.getWindowProperty(WINDOW_NAME, 1) < 0:  # ESC
                 get_out = True
                 break
