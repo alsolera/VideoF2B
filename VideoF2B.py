@@ -129,6 +129,7 @@ logger.info(f'FULL_FRAME_SIZE = {FULL_FRAME_SIZE}')
 logger.debug(f'input ratios w,h = {w_ratio:.4f}, {h_ratio:.4f}')
 if not live:
     if RESTORE_SIZE:
+        print(f'Output size: {FULL_FRAME_SIZE}')
         out = cv2.VideoWriter(OUT_VIDEO_PATH, fourcc, VIDEO_FPS, FULL_FRAME_SIZE)
         # The resized width if we resize height to full size
         w_final = int(FULL_FRAME_SIZE[1] / inp_height * inp_width)
