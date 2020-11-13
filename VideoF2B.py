@@ -275,7 +275,7 @@ while True:
             # try to track the aircraft in world coordinates
             if detector.pts_scaled[0] is not None:
                 act_pts = projection.projectImagePointToSphere(
-                    cam, detector.pts_scaled[0], frame_or, data_writer)
+                    cam, artist.center, detector.pts_scaled[0], frame_or, data_writer)
                 if act_pts is not None:  # and act_pts.shape[0] == 2:
                     # fig_tracker.add_actual_point(act_pts)
                     # Typically the first point is the "far" point on the sphere...Good enough for most figures that are on the far side of the camera.

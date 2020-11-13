@@ -82,7 +82,7 @@ class Drawing:
             center = kwargs.pop('center', Drawing.DEFAULT_CENTER.copy()
                                 ) or Drawing.DEFAULT_CENTER.copy()
             # Ensure it's a numpy array (allow tuple, list as input)
-            self._center = np.float32(center)
+            self.center = np.float32(center)
             self._evaluate_center()
             self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
 
@@ -90,22 +90,22 @@ class Drawing:
         self._cache = {}
 
     def MoveCenterX(self, delta):
-        self._center[0] += delta
+        self.center[0] += delta
         self._evaluate_center()
 
     def MoveCenterY(self, delta):
-        self._center[1] += delta
+        self.center[1] += delta
         self._evaluate_center()
 
     def ResetCenter(self):
         '''Reset sphere center to default.'''
-        self._center = Drawing.DEFAULT_CENTER.copy()
+        self.center = Drawing.DEFAULT_CENTER.copy()
         self._evaluate_center()
 
     def _evaluate_center(self):
-        self._center = self._center.round(1)
-        self._is_center_at_origin = (abs(self._center) < 0.01).all()
-        self.logger.info(f'Sphere center: {self._center}')
+        self.center = self.center.round(1)
+        self._is_center_at_origin = (abs(self.center) < 0.01).all()
+        self.logger.info(f'Sphere center: {self.center}')
 
     @staticmethod
     def PointsInCircum(r, n=100):
@@ -156,7 +156,7 @@ class Drawing:
         distZero = np.zeros_like(self._cam.dist)
         cam_pos = self._cam.cam_pos
         r = self._cam.flightRadius
-        center = self._center
+        center = self.center
         # Begin drawing
         if not self._is_center_at_origin:
             cv2.putText(
