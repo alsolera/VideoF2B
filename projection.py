@@ -32,7 +32,7 @@ def projectSpherePointsToImage(cam, world_pts, frame=None):
     return img_pts
 
 
-def projectImagePointToSphere(cam, imgPoint, frame_or, data_writer):
+def projectImagePointToSphere(cam, center, imgPoint, frame_or, data_writer):
     '''Project image point to world sphere given a calibrated camera and frame.'''
     logger.debug(f'imgPoint = {imgPoint}')
     # Augment point for transform. This is the {u v 1} vector.
@@ -42,17 +42,25 @@ def projectImagePointToSphere(cam, imgPoint, frame_or, data_writer):
     # logger.debug(f'avec =\n{avec}')
     a1, a2, a3 = avec[:, 0]
     t1, t2, t3 = cam.rtvec[:, 0]
+    cx, cy, cz = center
     # logger.debug(f'a1 = {a1}')
     # logger.debug(f'a2 = {a2}')
     # logger.debug(f'a3 = {a3}')
     # logger.debug(f't1 = {t1}')
     # logger.debug(f't2 = {t2}')
     # logger.debug(f't3 = {t3}')
+    logger.debug(f'cx = {cx}')
+    logger.debug(f'cy = {cy}')
+    logger.debug(f'cz = {cz}')
     coeffs = (
         -(a1**2) - (a2**2) - (a3**2),
-        2.*(a1*t1 + a2*t2 + a3*t3),
-        cam.flightRadius**2 - (t1**2 + t2**2 + t3**2)
+
+        2.*(a1*(t1+cx) + a2*(t2+cy) + a3*(t3+cz)),
+
+        cam.flightRadius**2 - 2.*(t1*cx + t2*cy + t3*cz) -
+        (t1**2 + t2**2 + t3**2 + cx**2 + cy**2 + cz**2)
     )
+    logger.debug(f'coeffs = {coeffs}')
     # logger.debug(f'coeffs = {coeffs}')
     # Value of determinant (b^2 - 4ac) determines type of solution (no intersection, tangent point, or two points)
     # determinant = coeffs[1]**2 - 4.*coeffs[0]*coeffs[2]
