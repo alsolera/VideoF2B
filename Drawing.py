@@ -142,10 +142,10 @@ class Drawing:
 
     def draw(self, img, azimuth_delta=0, figures=None):
         '''Draw all relevant geometry in the given image frame.'''
-        self._draw_track(img)
         if self._cam.Located:
             self._draw_all_geometry(img, azimuth_delta)
             self._draw_figures(img, azimuth_delta, figures)
+        self._draw_track(img)
 
     def _draw_all_geometry(self, img, azimuth_delta=0):
         '''Draw all AR geometry according to the current location and rotation of AR sphere.'''
@@ -409,7 +409,7 @@ class Drawing:
     @staticmethod
     def draw_loop(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
         # unit is m
-        n = 100
+        n = 50
         pi = math.pi
         YawAngle = angle * pi/180
         c = math.cos(YawAngle)
@@ -437,12 +437,35 @@ class Drawing:
         points = np.matmul(points, TiltMatrix)+center
         points = np.matmul(points, YawMatrix)
 
+        coords_in = coords * 0.99
+        points_in = np.c_[np.zeros(1+n), coords_in]
+        points_in = np.matmul(points_in, [[0, -1, 0], [1, 0, 0], [0, 0, 1]])
+        points_in = np.matmul(points_in, TiltMatrix)+center
+        points_in = np.matmul(points_in, YawMatrix)
+
+        coords_out = coords * 1.01
+        points_out = np.c_[np.zeros(1+n), coords_out]
+        points_out = np.matmul(points_out, [[0, -1, 0], [1, 0, 0], [0, 0, 1]])
+        points_out = np.matmul(points_out, TiltMatrix)+center
+        points_out = np.matmul(points_out, YawMatrix)
+
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
         twoDPoints = twoDPoints.astype(int)
 
+        twoDPoints_in, _ = cv2.projectPoints(points_in, rvec, tvec, cameramtx, dist)
+        twoDPoints_in = twoDPoints_in.astype(int)
+
+        twoDPoints_out, _ = cv2.projectPoints(points_out, rvec, tvec, cameramtx, dist)
+        twoDPoints_out = twoDPoints_out.astype(int)
+
+        border_color = (100, 100, 100)
         for i in range(np.shape(twoDPoints)[0] - 1):
             img = cv2.line(img, tuple(twoDPoints[i].ravel()),
-                           tuple(twoDPoints[i+1].ravel()), color, 1)
+                           tuple(twoDPoints[i+1].ravel()), color, 2)
+            img = cv2.line(img, tuple(twoDPoints_in[i].ravel()), tuple(
+                twoDPoints_in[i+1].ravel()), border_color, 1)
+            img = cv2.line(img, tuple(twoDPoints_out[i].ravel()), tuple(
+                twoDPoints_out[i+1].ravel()), border_color, 1)
         return img
 
     @staticmethod
