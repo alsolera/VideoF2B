@@ -23,6 +23,7 @@ import tkinter as Tkinter
 from tkinter import filedialog as tkFileDialog
 
 import cv2
+from imutils.video import FileVideoStream
 
 
 def LoadVideo(path=None):
@@ -58,7 +59,7 @@ def LoadVideo(path=None):
     CF.write(os.path.dirname(path))
     CF.close()
 
-    cap = cv2.VideoCapture(path)
+    cap = FileVideoStream(path).start()
     if not cap.isOpened():  # check if we succeeded
         print('Error loading video file')
         cap.release()
