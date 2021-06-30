@@ -56,12 +56,13 @@ def str_vec(u):
 
 
 def main():
-    R = 15.92  # F2D lines
-    # R = 63. * 0.3048  # 60ft lines C-C plus 3ft of arm
+    # R = 15.92  # F2D lines
+    # R = 62. * 0.3048  # 60ft lines C-C plus 2ft of arm
+    R = 66. * 0.3048    # 64ft lines C-C plus 2ft of arm
     # x coord is at intersection of equator and 45° tangent line
     # p0 = np.array([-R * np.sqrt(2) + 2, -1.])
     # p0 = np.array([-21.9, -1.])
-    p0 = np.array([-20.3, -1.])
+    p0 = np.array([-24.0, -0.5])
     # p0 = np.array([-25, -1.])
     # p0 = np.array([-100.*.3048, -1.])
     p1 = get_tangent_point(p0, R)
@@ -77,8 +78,10 @@ def main():
     print(f'   Elevation angle at tangent = {np.degrees(get_elevation_angle(p1)):.2f}°')
     print('=' * 80)
     print('''For reference:
-    A 10mm lens on APS-C 1.5x crop sensor with 16:9 crop in a 3:2 camera
-    results in 68.04° vertical angle of view.''')
+    * A 10mm lens on APS-C 1.5x crop sensor with 16:9 crop in a 3:2 camera
+      results in 68.04° vertical angle of view.
+    * A 14mm lens on full-frame sensor with 16:9 crop in a 3:2 camera
+      results in 71.75° vertical angle of view.''')
     print('=' * 80)
 
 
