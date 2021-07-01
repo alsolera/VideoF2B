@@ -42,15 +42,18 @@ from common import FigureTypes
 master = tkinter.Tk()
 loops_chk = tkinter.BooleanVar()
 chk1 = tkinter.Checkbutton(master, text="Loops", variable=loops_chk).grid(row=0, sticky='w')
+sq_loops_chk = tkinter.BooleanVar()
+chk2 = tkinter.Checkbutton(master, text="Square loops",
+                           variable=sq_loops_chk).grid(row=1, sticky='w')
 hor_eight_chk = tkinter.BooleanVar()
-chk2 = tkinter.Checkbutton(master, text="Horizontal eight",
-                           variable=hor_eight_chk).grid(row=1, sticky='w')
+chk3 = tkinter.Checkbutton(master, text="Horizontal eight",
+                           variable=hor_eight_chk).grid(row=2, sticky='w')
 ver_eight_chk = tkinter.BooleanVar()
-chk3 = tkinter.Checkbutton(master, text="Vertical eight",
-                           variable=ver_eight_chk).grid(row=2, sticky='w')
+chk4 = tkinter.Checkbutton(master, text="Vertical eight",
+                           variable=ver_eight_chk).grid(row=3, sticky='w')
 over_eight_chk = tkinter.BooleanVar()
-chk4 = tkinter.Checkbutton(master, text="Overhead eight",
-                           variable=over_eight_chk).grid(row=3, sticky='w')
+chk5 = tkinter.Checkbutton(master, text="Overhead eight",
+                           variable=over_eight_chk).grid(row=4, sticky='w')
 
 # Conversion constants
 FT_TO_M = 0.3048
@@ -264,8 +267,9 @@ while True:
 
     if cam.Located:
         artist.figure_state[FigureTypes.INSIDE_LOOPS] = loops_chk.get()
-        artist.figure_state[FigureTypes.VERTICAL_EIGHTS] = ver_eight_chk.get()
+        artist.figure_state[FigureTypes.INSIDE_SQUARE_LOOPS] = sq_loops_chk.get()
         artist.figure_state[FigureTypes.HORIZONTAL_EIGHTS] = hor_eight_chk.get()
+        artist.figure_state[FigureTypes.VERTICAL_EIGHTS] = ver_eight_chk.get()
         artist.figure_state[FigureTypes.OVERHEAD_EIGHTS] = over_eight_chk.get()
 
     artist.draw(frame_or, azimuth_delta)
