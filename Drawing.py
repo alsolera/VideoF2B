@@ -447,9 +447,9 @@ class Drawing:
         c = math.cos(YawAngle)
         s = math.sin(YawAngle)
 
-        center = [0,
-                  0.85356*r,    # cos(theta)*cos(theta)  where theta = 22.5 degrees
-                  0.35355*r]    # cos(theta)*sin(theta)
+        c_center = [0,
+                    0.85356*r,    # cos(theta)*cos(theta)  where theta = 22.5 degrees
+                    0.35355*r]    # cos(theta)*sin(theta)
 
         # Rotation around the world X-axis. CCW positive.
         TiltMatrix = [[1,       0,        0],
@@ -466,20 +466,20 @@ class Drawing:
         coords = np.asarray(Drawing.PointsInCircum(r=rLoop, n=n), np.float32)
         points = np.c_[np.zeros(1+n), coords]
         points = np.matmul(points, [[0, -1, 0], [1, 0, 0], [0, 0, 1]])
-        points = np.matmul(points, TiltMatrix)+center
-        points = np.matmul(points, YawMatrix)
+        points = np.matmul(points, TiltMatrix) + c_center
+        points = np.matmul(points, YawMatrix) + center
 
         coords_in = coords * 0.99
         points_in = np.c_[np.zeros(1+n), coords_in]
         points_in = np.matmul(points_in, [[0, -1, 0], [1, 0, 0], [0, 0, 1]])
-        points_in = np.matmul(points_in, TiltMatrix)+center
-        points_in = np.matmul(points_in, YawMatrix)
+        points_in = np.matmul(points_in, TiltMatrix) + c_center
+        points_in = np.matmul(points_in, YawMatrix) + center
 
         coords_out = coords * 1.01
         points_out = np.c_[np.zeros(1+n), coords_out]
         points_out = np.matmul(points_out, [[0, -1, 0], [1, 0, 0], [0, 0, 1]])
-        points_out = np.matmul(points_out, TiltMatrix)+center
-        points_out = np.matmul(points_out, YawMatrix)
+        points_out = np.matmul(points_out, TiltMatrix) + c_center
+        points_out = np.matmul(points_out, YawMatrix) + center
 
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
         twoDPoints = twoDPoints.astype(int).reshape(-1, 2)
@@ -509,9 +509,9 @@ class Drawing:
         c = math.cos(YawAngle)
         s = math.sin(YawAngle)
 
-        center = [0,
-                  0.35355*r,
-                  0.85356*r]
+        c_center = [0,
+                    0.35355*r,
+                    0.85356*r]
 
         TiltMatrix = [[1,       0,        0],
                       [0,  0.38268, 0.92388],
@@ -526,8 +526,8 @@ class Drawing:
         coords = np.asarray(Drawing.PointsInCircum(r=rLoop, n=n), np.float32)
         points = np.c_[np.zeros(1+n), coords]
         points = np.matmul(points, [[0, -1, 0], [1, 0, 0], [0, 0, 1]])
-        points = np.matmul(points, TiltMatrix)+center
-        points = np.matmul(points, YawMatrix)
+        points = np.matmul(points, TiltMatrix) + c_center
+        points = np.matmul(points, YawMatrix) + center
 
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
         twoDPoints = twoDPoints.astype(int).reshape(-1, 2)
@@ -553,7 +553,7 @@ class Drawing:
         return img
 
     @staticmethod
-    def drawOverheadEight(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
+    def drawOverheadEight(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
         Drawing.draw_top_loop(img, angle+90, rvec, tvec, cameramtx,
                               dist, center, r, color=(255, 255, 255))
         Drawing.draw_top_loop(img, angle-90, rvec, tvec, cameramtx,
