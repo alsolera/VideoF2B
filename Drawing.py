@@ -23,9 +23,12 @@ from collections import defaultdict
 
 import cv2
 import numpy as np
+import scipy.spatial.transform as xform
 
 import common
 from common import FigureTypes
+
+ROT = xform.Rotation
 
 
 class Scatter:
@@ -85,6 +88,7 @@ class Drawing:
             self.center = np.float32(center)
             self._evaluate_center()
             self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
+            Drawing.square_loop_pts = Drawing.calc_square_loop(self.R)
 
         # Cache of drawing point collections, keyed on the variables that affect a unique AR scene.
         self._cache = {}
@@ -108,14 +112,39 @@ class Drawing:
         self.logger.info(f'Sphere center: {self.center}')
 
     @staticmethod
+    def get_arc(r, alpha, rho=100):
+        '''Return 3D points for an arc of radius `r` and included angle `alpha`
+        with point density `rho`, where `rho` is number of points per 2*pi.
+        Arc center is (0, 0, 0).  The arc lies in the XY plane.
+        Arc starts at zero angle, i.e., at (r, 0, 0) coordinate, and ends at `alpha`.
+        Angle measurements are in radians.
+        Endpoint is always included.
+        '''
+        nom_step = 2 * math.pi / rho
+        num_pts = int(alpha / nom_step)
+        act_step = alpha / num_pts
+        if act_step > nom_step:
+            num_pts += 1
+            act_step = alpha / num_pts
+        pts = np.array(
+            [
+                (r*math.cos(act_step*t),
+                 r*math.sin(act_step*t),
+                 0.0)
+                for t in range(num_pts + 1)
+            ]
+        )
+        return pts
+
+    @staticmethod
     def PointsInCircum(r, n=100):
-        pi = math.pi
-        return [(math.cos(2*pi/n*x)*r, math.sin(2*pi/n*x)*r) for x in range(0, n+1)]
+        two_pi_over_n = 2 * math.pi / n
+        return [(math.cos(two_pi_over_n*x)*r, math.sin(two_pi_over_n*x)*r) for x in range(0, n+1)]
 
     @staticmethod
     def PointsInHalfCircum(r, n=100):
-        pi = math.pi
-        return [(math.cos(pi/n*x)*r, math.sin(pi/n*x)*r) for x in range(0, n+1)]
+        pi_over_n = math.pi / n
+        return [(math.cos(pi_over_n*x)*r, math.sin(pi_over_n*x)*r) for x in range(0, n+1)]
 
     @staticmethod
     def _get_track_color(x, x_max):
@@ -184,11 +213,12 @@ class Drawing:
             tvec = self._cam.tvec
             newcameramtx = self._cam.newcameramtx
             distZero = np.zeros_like(self._cam.dist)
+            center = self.center
             r = self._cam.flightRadius
             for ftype, fflag in self.figure_state.items():
                 if fflag:
                     self._figure_funcs[ftype](
-                        img, azimuth_delta, rvec, tvec, newcameramtx, distZero, r)
+                        img, azimuth_delta, rvec, tvec, newcameramtx, distZero, center, r)
 
     @staticmethod
     def _draw_level(img, rvec, tvec, cameramtx, dist, center, r):
@@ -407,7 +437,7 @@ class Drawing:
         return img
 
     @staticmethod
-    def draw_loop(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
+    def draw_loop(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
         # unit is m
         n = 50
         pi = math.pi
@@ -469,7 +499,7 @@ class Drawing:
         return img
 
     @staticmethod
-    def draw_top_loop(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
+    def draw_top_loop(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
         # unit is m
         n = 100
         pi = math.pi
@@ -506,44 +536,79 @@ class Drawing:
         return img
 
     @staticmethod
-    def drawHorEight(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
-        Drawing.draw_loop(img, angle+24.47, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255))
-        Drawing.draw_loop(img, angle-24.47, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255))
+    def drawHorEight(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
+        Drawing.draw_loop(img, angle+24.47, rvec, tvec, cameramtx,
+                          dist, center, r, color=(255, 255, 255))
+        Drawing.draw_loop(img, angle-24.47, rvec, tvec, cameramtx,
+                          dist, center, r, color=(255, 255, 255))
         return img
 
     @staticmethod
-    def drawVerEight(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
-        Drawing.draw_loop(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255))
-        Drawing.draw_top_loop(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255))
+    def drawVerEight(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
+        Drawing.draw_loop(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255))
+        Drawing.draw_top_loop(img, angle, rvec, tvec, cameramtx,
+                              dist, center, r, color=(255, 255, 255))
         return img
 
     @staticmethod
     def drawOverheadEight(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
-        Drawing.draw_top_loop(img, angle+90, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255))
-        Drawing.draw_top_loop(img, angle-90, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255))
+        Drawing.draw_top_loop(img, angle+90, rvec, tvec, cameramtx,
+                              dist, center, r, color=(255, 255, 255))
+        Drawing.draw_top_loop(img, angle-90, rvec, tvec, cameramtx,
+                              dist, center, r, color=(255, 255, 255))
         return img
 
     @staticmethod
-    def draw_square_loop(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
-        # TODO: draw square loop
-        pass
+    def calc_square_loop(r):
+        # Radius of minor arc at 45deg elevation. Also the height of the 45deg elevation arc.
+        r45 = r * 0.7071067811865476
+        # Helper arc for the bottom flat and both laterals
+        major_arc = Drawing.get_arc(r, 0.25*math.pi)
+        # Helper arc for the top flat
+        minor_arc = Drawing.get_arc(r45, 0.25*math.pi)
+        points = np.vstack((
+            # Arc 1: bottom flat
+            ROT.from_euler('z', 0.375*math.pi).apply(major_arc),
+            # Arc 2: left lateral
+            ROT.from_euler('xz', [0.5*math.pi, 0.625*math.pi]).apply(major_arc),
+            # Arc 3: top flat
+            ROT.from_euler('zy', [0.375*math.pi, math.pi]
+                           ).apply(minor_arc) + np.array((0., 0., r45)),
+            # Arc 4: right lateral
+            ROT.from_euler('xyz', [-0.5*math.pi, -0.25*math.pi, 0.375*math.pi]).apply(major_arc)
+        ))
+        return points
 
     @staticmethod
-    def draw_triangular_loop(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
+    def draw_square_loop(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
+        # World rotation of the whole figure
+        rot_yaw = ROT.from_euler('z', -math.radians(angle))
+        points = rot_yaw.apply(Drawing.square_loop_pts) + center
+
+        twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
+        twoDPoints = twoDPoints.astype(int)
+
+        for i in range(np.shape(twoDPoints)[0] - 1):
+            img = cv2.line(img, tuple(twoDPoints[i].ravel()),
+                           tuple(twoDPoints[i+1].ravel()), color, 3)
+        return img
+
+    @staticmethod
+    def draw_triangular_loop(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
         # TODO: draw triangular loop
         pass
 
     @staticmethod
-    def drawSquareEight(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
+    def drawSquareEight(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
         # TODO: draw square eight
         pass
 
     @staticmethod
-    def drawHourglass(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
+    def drawHourglass(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
         # TODO: draw hourglass
         pass
 
     @staticmethod
-    def drawFourLeafClover(img, angle, rvec, tvec, cameramtx, dist, r, color=(255, 255, 255)):
+    def drawFourLeafClover(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
         # TODO: draw four-leaf clover
         pass
