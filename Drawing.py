@@ -228,10 +228,10 @@ class Drawing:
         coords = np.asarray(Drawing.PointsInCircum(r, n), np.float32)
         points = np.c_[coords, np.zeros(1 + n)] + center
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
-        twoDPoints = twoDPoints.astype(int)
+        twoDPoints = twoDPoints.astype(int).reshape(-1, 2)
         for i in range(np.shape(twoDPoints)[0] - 1):
             img = cv2.line(
-                img, tuple(twoDPoints[i].ravel()), tuple(twoDPoints[i+1].ravel()), (255, 255, 255), 1)
+                img, tuple(twoDPoints[i]), tuple(twoDPoints[i+1]), (255, 255, 255), 1)
         return img
 
     @staticmethod
@@ -262,11 +262,11 @@ class Drawing:
 
         points = np.matmul(points, RotMatrix) + center
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
-        twoDPoints = twoDPoints.astype(int)
+        twoDPoints = twoDPoints.astype(int).reshape(-1, 2)
 
         for i in range(np.shape(twoDPoints)[0] - 1):
-            img = cv2.line(img, tuple(twoDPoints[i].ravel()),
-                           tuple(twoDPoints[i+1].ravel()), color, 1)
+            img = cv2.line(img, tuple(twoDPoints[i]),
+                           tuple(twoDPoints[i+1]), color, 1)
         return img
 
     @staticmethod
@@ -275,14 +275,14 @@ class Drawing:
         points = np.float32([[2, 0, 0], [0, 2, 0], [0, 0, 5], [0, 0, 0]]) + center
         axisPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
         img = cv2.line(img,
-                       tuple(axisPoints[3].ravel()),
-                       tuple(axisPoints[0].ravel()), (0, 0, 255), 1)
+                       tuple(axisPoints[3]),
+                       tuple(axisPoints[0]), (0, 0, 255), 1)
         img = cv2.line(img,
-                       tuple(axisPoints[3].ravel()),
-                       tuple(axisPoints[1].ravel()), (0, 255, 0), 1)
+                       tuple(axisPoints[3]),
+                       tuple(axisPoints[1]), (0, 255, 0), 1)
         img = cv2.line(img,
-                       tuple(axisPoints[3].ravel()),
-                       tuple(axisPoints[2].ravel()), (255, 0, 0), 1)
+                       tuple(axisPoints[3]),
+                       tuple(axisPoints[2]), (255, 0, 0), 1)
         return img
 
     @staticmethod
@@ -295,11 +295,11 @@ class Drawing:
         coords = np.asarray(Drawing.PointsInCircum(r=r45, n=n), np.float32)
         points = np.c_[coords, np.ones(1+n)*r45] + center
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
-        twoDPoints = twoDPoints.astype(int)
+        twoDPoints = twoDPoints.astype(int).reshape(-1, 2)
         for i in range(np.shape(twoDPoints)[0] - 1):
             img = cv2.line(img,
-                           tuple(twoDPoints[i].ravel()),
-                           tuple(twoDPoints[i+1].ravel()), color, 1)
+                           tuple(twoDPoints[i]),
+                           tuple(twoDPoints[i+1]), color, 1)
         return img
 
     @staticmethod
@@ -311,8 +311,10 @@ class Drawing:
         coords = np.asarray(Drawing.PointsInCircum(r, n))
         pts_lower = np.c_[coords, np.ones(1 + n) * (-tol)] + center
         pts_upper = np.c_[coords, np.ones(1 + n) * tol] + center
-        img_pts_lower = cv2.projectPoints(pts_lower, rvec, tvec, cameramtx, dist)[0].astype(int)
-        img_pts_upper = cv2.projectPoints(pts_upper, rvec, tvec, cameramtx, dist)[0].astype(int)
+        img_pts_lower = cv2.projectPoints(
+            pts_lower, rvec, tvec, cameramtx, dist)[0].astype(int).reshape(-1, 2)
+        img_pts_upper = cv2.projectPoints(
+            pts_upper, rvec, tvec, cameramtx, dist)[0].astype(int).reshape(-1, 2)
         color = (204, 204, 204)
         # Draw dashed lines
         num_on = 3
@@ -323,11 +325,11 @@ class Drawing:
             counter += 1
             if is_visible:
                 img = cv2.line(img,
-                               tuple(img_pts_lower[i].ravel()),
-                               tuple(img_pts_lower[i + 1].ravel()), color, 1)
+                               tuple(img_pts_lower[i]),
+                               tuple(img_pts_lower[i + 1]), color, 1)
                 img = cv2.line(img,
-                               tuple(img_pts_upper[i].ravel()),
-                               tuple(img_pts_upper[i + 1].ravel()), color, 1)
+                               tuple(img_pts_upper[i]),
+                               tuple(img_pts_upper[i + 1]), color, 1)
                 if counter == num_on:
                     counter = 0
                     is_visible = False
@@ -368,10 +370,10 @@ class Drawing:
             r = R / d * np.sqrt(det)
         world_pts = np.array([c + r * (np.cos(k * t_i) * u + np.sin(k * t_i) * v) for t_i in t])
         img_pts, _ = cv2.projectPoints(world_pts, rvec, tvec, cameramtx, dist)
-        img_pts = img_pts.astype(int)
+        img_pts = img_pts.astype(int).reshape(-1, 2)
         for i in range(img_pts.shape[0] - 1):
             img = cv2.line(
-                img, tuple(img_pts[i].ravel()), tuple(img_pts[i+1].ravel()), (255, 0, 255), 1)
+                img, tuple(img_pts[i]), tuple(img_pts[i+1]), (255, 0, 255), 1)
         return img
 
     @staticmethod
@@ -490,12 +492,12 @@ class Drawing:
 
         border_color = (100, 100, 100)
         for i in range(np.shape(twoDPoints)[0] - 1):
-            img = cv2.line(img, tuple(twoDPoints[i].ravel()),
-                           tuple(twoDPoints[i+1].ravel()), color, 2)
-            img = cv2.line(img, tuple(twoDPoints_in[i].ravel()), tuple(
-                twoDPoints_in[i+1].ravel()), border_color, 1)
-            img = cv2.line(img, tuple(twoDPoints_out[i].ravel()), tuple(
-                twoDPoints_out[i+1].ravel()), border_color, 1)
+            img = cv2.line(
+                img, tuple(twoDPoints[i]), tuple(twoDPoints[i+1]), color, 2)
+            img = cv2.line(
+                img, tuple(twoDPoints_in[i]), tuple(twoDPoints_in[i+1]), border_color, 1)
+            img = cv2.line(
+                img, tuple(twoDPoints_out[i]), tuple(twoDPoints_out[i+1]), border_color, 1)
         return img
 
     @staticmethod
@@ -528,11 +530,11 @@ class Drawing:
         points = np.matmul(points, YawMatrix)
 
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
-        twoDPoints = twoDPoints.astype(int)
+        twoDPoints = twoDPoints.astype(int).reshape(-1, 2)
 
         for i in range(np.shape(twoDPoints)[0] - 1):
-            img = cv2.line(img, tuple(twoDPoints[i].ravel()),
-                           tuple(twoDPoints[i+1].ravel()), color, 1)
+            img = cv2.line(
+                img, tuple(twoDPoints[i]), tuple(twoDPoints[i+1]), color, 1)
         return img
 
     @staticmethod
@@ -586,11 +588,11 @@ class Drawing:
         points = rot_yaw.apply(Drawing.square_loop_pts) + center
 
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
-        twoDPoints = twoDPoints.astype(int)
+        twoDPoints = twoDPoints.astype(int).reshape(-1, 2)
 
         for i in range(np.shape(twoDPoints)[0] - 1):
-            img = cv2.line(img, tuple(twoDPoints[i].ravel()),
-                           tuple(twoDPoints[i+1].ravel()), color, 3)
+            img = cv2.line(img, tuple(twoDPoints[i]),
+                           tuple(twoDPoints[i+1]), color, 3)
         return img
 
     @staticmethod
