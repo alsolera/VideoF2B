@@ -79,7 +79,11 @@ class Drawing:
         self._detector = detector
         self.axis = kwargs.pop('axis', False)
         self._cam = kwargs.pop('cam', None)
-        if self._cam is not None:
+        self.R = None
+        self.marker_radius = None
+        self.center = None
+        self._point_density = None
+        if self._cam is not None and self._cam.Calibrated:
             self.R = kwargs.pop('R', common.DEFAULT_FLIGHT_RADIUS)
             self.marker_radius = kwargs.pop('marker_radius', common.DEFAULT_MARKER_RADIUS)
             center = kwargs.pop('center', Drawing.DEFAULT_CENTER.copy()
