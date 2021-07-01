@@ -482,13 +482,13 @@ class Drawing:
         points_out = np.matmul(points_out, YawMatrix)
 
         twoDPoints, _ = cv2.projectPoints(points, rvec, tvec, cameramtx, dist)
-        twoDPoints = twoDPoints.astype(int)
+        twoDPoints = twoDPoints.astype(int).reshape(-1, 2)
 
         twoDPoints_in, _ = cv2.projectPoints(points_in, rvec, tvec, cameramtx, dist)
-        twoDPoints_in = twoDPoints_in.astype(int)
+        twoDPoints_in = twoDPoints_in.astype(int).reshape(-1, 2)
 
         twoDPoints_out, _ = cv2.projectPoints(points_out, rvec, tvec, cameramtx, dist)
-        twoDPoints_out = twoDPoints_out.astype(int)
+        twoDPoints_out = twoDPoints_out.astype(int).reshape(-1, 2)
 
         border_color = (100, 100, 100)
         for i in range(np.shape(twoDPoints)[0] - 1):
