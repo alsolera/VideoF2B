@@ -83,7 +83,7 @@ class Drawing:
         self.marker_radius = None
         self.center = None
         self._point_density = None
-        if self._cam is not None and self._cam.Calibrated:
+        if self._cam is not None and self._cam.Located:
             self.R = kwargs.pop('R', common.DEFAULT_FLIGHT_RADIUS)
             self.marker_radius = kwargs.pop('marker_radius', common.DEFAULT_MARKER_RADIUS)
             center = kwargs.pop('center', Drawing.DEFAULT_CENTER.copy()
