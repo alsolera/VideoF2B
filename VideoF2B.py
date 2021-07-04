@@ -159,15 +159,9 @@ MAX_TRACK_LEN = int(MAX_TRACK_TIME * VIDEO_FPS)
 # Detector
 detector = Detection.Detector(MAX_TRACK_LEN, scale)
 # Drawing artist
-artist = Drawing.Drawing(detector, cam=cam, R=FLIGHT_RADIUS,
-                         marker_radius=MARKER_RADIUS,
-                         center=SPHERE_OFFSET,
-                         axis=False,
-                         logger=logger)
-# Speed meter
-fps = FPS().start()
+artist = Drawing.Drawing(detector, cam=cam, center=SPHERE_OFFSET, axis=False)
 # Angle offset of current AR hemisphere wrt world coordinate system
-azimuth_delta = 0
+azimuth_delta = 0.0
 # Number of total empty frames in the input.
 num_empty_frames = 0
 # Number of consecutive empty frames at beginning of capture
@@ -192,14 +186,15 @@ MAX_DRAW_FIT_FRAMES = int(VIDEO_FPS * 2.)  # multiplier is the number of seconds
 fit_img_pts = []
 draw_fit = False
 num_draw_fit_frames = 0
-
-# misc
+# Misc
 frame_idx = 0
 frame_delta = 0
 num_input_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 MAX_FRAME_DELTA = int(num_input_frames / 100)
 is_paused = False
 cv2.namedWindow(WINDOW_NAME, WINDOW_FLAGS)
+# Speed meter
+fps = FPS().start()
 
 while True:
     ret, frame_or = cap.read()
@@ -230,6 +225,7 @@ while True:
         frame_or = cam.Undistort(frame_or)
         if not cam.Located and cam.AR:
             cam.Locate(frame_or)
+            artist.Locate(cam)
 
         '''
         # This section maps the entire image space to world, effectively meshing the sphere
@@ -379,9 +375,10 @@ while True:
         # Clear the current track
         detector.clear()
     elif key == 1113939 or key == 2555904 or key == 65363:  # Right Arrow
-        azimuth_delta += 0.5
-    elif key == 1113937 or key == 2424832 or key == 65361:  # Left Arrow
         azimuth_delta -= 0.5
+    elif key == 1113937 or key == 2424832 or key == 65361:  # Left Arrow
+        # Positive CCW around Z, per normal convention
+        azimuth_delta += 0.5
     elif LSB == 99 or key == 1048675:  # c
         # Relocate AR sphere
         cam.Located = False
