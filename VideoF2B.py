@@ -40,20 +40,34 @@ import Video
 from common import FigureTypes
 
 master = tkinter.Tk()
+
 loops_chk = tkinter.BooleanVar()
-chk1 = tkinter.Checkbutton(master, text="Loops", variable=loops_chk).grid(row=0, sticky='w')
+chk0 = tkinter.Checkbutton(master, text="Loops",
+                           variable=loops_chk).grid(row=0, sticky='w')
 sq_loops_chk = tkinter.BooleanVar()
-chk2 = tkinter.Checkbutton(master, text="Square loops",
+chk1 = tkinter.Checkbutton(master, text="Square loops",
                            variable=sq_loops_chk).grid(row=1, sticky='w')
+tri_loops_chk = tkinter.BooleanVar()
+chk2 = tkinter.Checkbutton(master, text="Triangular loops",
+                           variable=tri_loops_chk).grid(row=2, sticky='w')
 hor_eight_chk = tkinter.BooleanVar()
 chk3 = tkinter.Checkbutton(master, text="Horizontal eight",
-                           variable=hor_eight_chk).grid(row=2, sticky='w')
+                           variable=hor_eight_chk).grid(row=3, sticky='w')
+sq_hor_eight_chk = tkinter.BooleanVar()
+chk4 = tkinter.Checkbutton(master, text="Square horizontal eight",
+                           variable=sq_hor_eight_chk).grid(row=4, sticky='w')
 ver_eight_chk = tkinter.BooleanVar()
-chk4 = tkinter.Checkbutton(master, text="Vertical eight",
-                           variable=ver_eight_chk).grid(row=3, sticky='w')
+chk5 = tkinter.Checkbutton(master, text="Vertical eight",
+                           variable=ver_eight_chk).grid(row=5, sticky='w')
+hourglass_chk = tkinter.BooleanVar()
+chk6 = tkinter.Checkbutton(master, text="Hourglass",
+                           variable=hourglass_chk).grid(row=6, sticky='w')
 over_eight_chk = tkinter.BooleanVar()
-chk5 = tkinter.Checkbutton(master, text="Overhead eight",
-                           variable=over_eight_chk).grid(row=4, sticky='w')
+chk7 = tkinter.Checkbutton(master, text="Overhead eight",
+                           variable=over_eight_chk).grid(row=7, sticky='w')
+clover_chk = tkinter.BooleanVar()
+chk8 = tkinter.Checkbutton(master, text="Four-leaf clover",
+                           variable=clover_chk).grid(row=8, sticky='w')
 
 # Conversion constants
 FT_TO_M = 0.3048
@@ -226,6 +240,10 @@ while True:
         if not cam.Located and cam.AR:
             cam.Locate(frame_or)
             artist.Locate(cam)
+            # The above two calls, especially cam.Locate, take a long time.
+            # Restart FPS meter to be fair
+            fps.stop()
+            fps.start()
 
         '''
         # This section maps the entire image space to world, effectively meshing the sphere
@@ -264,9 +282,13 @@ while True:
     if cam.Located:
         artist.figure_state[FigureTypes.INSIDE_LOOPS] = loops_chk.get()
         artist.figure_state[FigureTypes.INSIDE_SQUARE_LOOPS] = sq_loops_chk.get()
+        artist.figure_state[FigureTypes.INSIDE_TRIANGULAR_LOOPS] = tri_loops_chk.get()
         artist.figure_state[FigureTypes.HORIZONTAL_EIGHTS] = hor_eight_chk.get()
+        artist.figure_state[FigureTypes.HORIZONTAL_SQUARE_EIGHTS] = sq_hor_eight_chk.get()
         artist.figure_state[FigureTypes.VERTICAL_EIGHTS] = ver_eight_chk.get()
+        artist.figure_state[FigureTypes.HOURGLASS] = hourglass_chk.get()
         artist.figure_state[FigureTypes.OVERHEAD_EIGHTS] = over_eight_chk.get()
+        artist.figure_state[FigureTypes.FOUR_LEAF_CLOVER] = clover_chk.get()
 
     artist.draw(frame_or, azimuth_delta)
 

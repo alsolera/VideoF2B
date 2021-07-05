@@ -20,7 +20,7 @@
 import logging
 import math
 from collections import defaultdict
-from math import cos, pi, sin, sqrt
+from math import atan2, cos, pi, sin, sqrt
 
 import cv2
 import numpy as np
@@ -43,6 +43,8 @@ class Colors:
     RED = (0, 0, 255)
     GREEN = (0, 255, 0)
     BLUE = (255, 0, 0)
+    CYAN = (255, 255, 0)
+    MAGENTA = (255, 0, 255)
 
 
 class Plot:
@@ -128,6 +130,87 @@ class Polyline(Plot):
                            tuple(self._img_pts[i-1]),
                            self._color, self._size)
         return img
+
+
+class DashedPolyline(Polyline):
+    '''Defines a polyline that is drawn dashed.'''
+
+    def __init__(self, obj_pts, **kwargs):
+        super().__init__(obj_pts, **kwargs)
+
+    def draw(self, img, key, **kwargs):
+        '''Draw this polyline using its attributes.'''
+        super().draw(img, key, **kwargs)
+        # Draw dashed lines
+        num_on = 3
+        num_off = 2
+        counter = 0
+        is_visible = True
+        for i in range(1, self._img_pts.shape[0]):
+            counter += 1
+            if is_visible:
+                img = cv2.line(img,
+                               tuple(self._img_pts[i]),
+                               tuple(self._img_pts[i-1]),
+                               self._color, self._size)
+                if counter == num_on:
+                    counter = 0
+                    is_visible = False
+            else:
+                if counter == num_off:
+                    counter = 0
+                    is_visible = True
+        return img
+
+
+class EdgePolyline(Polyline):
+    '''Defines a special polyline that represents the visible edge of the sphere.
+    This polyline is aware of the camera's position.'''
+
+    def __init__(self, R, cam_pos, **kwargs):
+        super().__init__(None, **kwargs)
+        self.R = R
+        self.cam_pos = cam_pos
+
+    def _calculate(self, key, rvec, tvec, cameraMatrix, distCoeffs):
+        '''This class must provide a custom `_calculate()` method
+        because the calculation is more complex than that for ordinary world points.'''
+        # The visible edge is independent of sphere rotation. Hence this calculation is keyed on translation only.
+        _, translation = key
+        key = translation
+        if key not in self._cache:
+            R = self.R
+            p = self.cam_pos.reshape((3,)) - translation
+            d = np.linalg.norm(p)
+            if d <= R:
+                # We are on the surface of the sphere, or inside its volume.
+                return
+            n = p / d
+            # TODO: optimize the creation of this arc using ROT or....?
+            phi = atan2(n[1], n[0])
+            rot_mat = np.array([
+                [cos(phi), -sin(phi), 0.],
+                [sin(phi), cos(phi), 0.],
+                [0., 0., 1.]])
+            u = np.array([0., 1., 0.])
+            u = rot_mat.dot(u)
+            v = np.cross(n, u)
+            t = np.linspace(0., 1., 100)
+            k = np.pi  # semi-circle
+            c = (R**2 / d) * n + translation
+            det = d**2 - R**2
+            if det < 0.:
+                # guard against negative arg of sqrt
+                r = 0.0
+            else:
+                r = R / d * np.sqrt(det)
+            obj_pts = np.array([c + r * (np.cos(k * t_i) * u + np.sin(k * t_i) * v) for t_i in t])
+            tmp, _ = cv2.projectPoints(obj_pts, rvec, tvec, cameraMatrix, distCoeffs)
+            self._cache[key] = tmp.astype(int).reshape(-1, 2)
+        self._img_pts = self._cache[key]
+
+    def draw(self, img, key, **kwargs):
+        return super().draw(img, key, **kwargs)
 
 
 class Scene:
@@ -239,11 +322,65 @@ class Drawing:
         elev_circle = Drawing.get_arc(r45, TWO_PI) + (0, 0, r45)
         sc_base.add(Polyline(elev_circle, size=1, color=Colors.GREEN))
         # --- The upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.
-
+        tol = 0.3
+        r_tol = sqrt(self.R**2 - tol**2)
+        tol_pts = Drawing.get_arc(r_tol, TWO_PI, 200)
+        pts_lower = tol_pts - [0., 0., tol]
+        pts_upper = tol_pts + [0., 0., tol]
+        color = (214, 214, 214)
+        sc_base.add(DashedPolyline(pts_lower, size=1, color=color))
+        sc_base.add(DashedPolyline(pts_upper, size=1, color=color))
         # --- The edge outline of the flight sphere as seen from camera's perspective.
-
+        sc_base.add(EdgePolyline(self.R, self._cam.cam_pos, size=1, color=Colors.MAGENTA))
         # --- Reference points and markers (fixed in world space)
-
+        r45 = self._cam.markRadius * cos(QUART_PI)
+        marker_size_x = 0.20  # marker width, in m
+        marker_size_z = 0.60  # marker height, in m
+        # Sphere reference points (fixed in object space)
+        pts_ref = Scatter(
+            np.array([
+                # Points on sphere centerline: sphere center, pilot's feet, top of sphere.
+                [0, 0, 0],
+                [0, 0, -self._cam.markHeight],
+                [0, 0, self.R],
+                # Points on equator: bottom of right & left marker, right & left antipodes, front & rear antipodes
+                [r45, r45, 0],
+                [-r45, r45, 0],
+                [self._cam.markRadius, 0, 0],
+                [-self._cam.markRadius, 0, 0],
+                [0, -self._cam.markRadius, 0],
+                [0, self._cam.markRadius, 0]]),
+            size=1, color=Colors.RED, is_fixed=True)
+        # Points on corners of an imaginary marker at center of sphere (optional)
+        mrk_center = Scatter(
+            np.array([[0.5 * marker_size_x, 0., 0.5 * marker_size_z],
+                      [-0.5 * marker_size_x, 0., 0.5 * marker_size_z],
+                      [-0.5 * marker_size_x, 0., -0.5 * marker_size_z],
+                      [0.5 * marker_size_x, 0., -0.5 * marker_size_z]]),
+            size=1, color=Colors.CYAN)
+        # Perimeter markers (fixed in object space)
+        mrk_perimeter = Scatter(
+            np.array([
+                # Points on corners of front marker
+                [0.5 * marker_size_x, self._cam.markRadius, 0.5 * marker_size_z],
+                [-0.5 * marker_size_x, self._cam.markRadius, 0.5 * marker_size_z],
+                [-0.5 * marker_size_x, self._cam.markRadius, -0.5 * marker_size_z],
+                [0.5 * marker_size_x, self._cam.markRadius, -0.5 * marker_size_z],
+                # Points on corners of right marker
+                [r45 + 0.5 * marker_size_x, r45, 0.5 * marker_size_z],
+                [r45 - 0.5 * marker_size_x, r45, 0.5 * marker_size_z],
+                [r45 - 0.5 * marker_size_x, r45, -0.5 * marker_size_z],
+                [r45 + 0.5 * marker_size_x, r45, -0.5 * marker_size_z],
+                # Points on corners of left marker
+                [-r45 + 0.5 * marker_size_x, r45, 0.5 * marker_size_z],
+                [-r45 - 0.5 * marker_size_x, r45, 0.5 * marker_size_z],
+                [-r45 - 0.5 * marker_size_x, r45, -0.5 * marker_size_z],
+                [-r45 + 0.5 * marker_size_x, r45, -0.5 * marker_size_z],
+            ]),
+            size=1, color=Colors.GREEN, is_fixed=True)
+        sc_base.add(pts_ref)
+        sc_base.add(mrk_center)
+        sc_base.add(mrk_perimeter)
         # =============== END OF base scene ===================================
 
         # =============== Figures =============================================
@@ -393,180 +530,6 @@ class Drawing:
                     distCoeffs=dist_zero
                 )
 
-    # def _draw_all_geometry(self, img, azimuth_delta=0):
-    #     '''Draw all AR geometry according to the current location and rotation of AR sphere.'''
-    #     # Local names to minimize dot-name lookups
-    #     rvec = self._cam.rvec
-    #     tvec = self._cam.tvec
-    #     newcameramtx = self._cam.newcameramtx
-    #     distZero = np.zeros_like(self._cam.dist)
-    #     cam_pos = self._cam.cam_pos
-    #     r = self.R
-    #     center = self.center
-    #     # Begin drawing
-    #     if not self._is_center_at_origin:
-    #         cv2.putText(
-    #             img,
-    #             f'C=({center[0]:.1f}, {center[1]:.1f}, {center[2]:.1f})',
-    #             (120, img.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-    #     cv2.putText(
-    #         img,
-    #         f'R={r:.2f}',
-    #         (30, img.shape[0] - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
-    #     Drawing._draw_level(img, rvec, tvec, newcameramtx, distZero, center, r)
-    #     Drawing._draw_all_merid(img, rvec, tvec, newcameramtx, distZero, center, r, azimuth_delta)
-    #     if self.axis:
-    #         Drawing._draw_axis(img, rvec, tvec, newcameramtx, distZero, center)
-    #     Drawing._draw_45(img, rvec, tvec, newcameramtx, distZero, center, r, color=(0, 255, 0))
-    #     Drawing._draw_base_tol(img, rvec, tvec, newcameramtx, distZero, center, r)
-    #     Drawing._draw_edge(img, cam_pos, rvec, tvec, newcameramtx, distZero, center, r)
-    #     Drawing._draw_points(img, self._cam, rvec, tvec, newcameramtx, distZero, center)
-    #     return img
-
-    @staticmethod
-    def _draw_base_tol(img, rvec, tvec, cameramtx, dist, center, R=21.):
-        '''Draw the upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.'''
-        n = 200
-        tol = 0.3
-        r = math.sqrt(R**2 - tol**2)
-        coords = np.asarray(Drawing.PointsInCircum(r, n))
-        pts_lower = np.c_[coords, np.ones(1 + n) * (-tol)] + center
-        pts_upper = np.c_[coords, np.ones(1 + n) * tol] + center
-        img_pts_lower = cv2.projectPoints(
-            pts_lower, rvec, tvec, cameramtx, dist)[0].astype(int).reshape(-1, 2)
-        img_pts_upper = cv2.projectPoints(
-            pts_upper, rvec, tvec, cameramtx, dist)[0].astype(int).reshape(-1, 2)
-        color = (204, 204, 204)
-        # Draw dashed lines
-        num_on = 3
-        num_off = 2
-        counter = 0
-        is_visible = True
-        for i in range(n):
-            counter += 1
-            if is_visible:
-                img = cv2.line(img,
-                               tuple(img_pts_lower[i]),
-                               tuple(img_pts_lower[i + 1]), color, 1)
-                img = cv2.line(img,
-                               tuple(img_pts_upper[i]),
-                               tuple(img_pts_upper[i + 1]), color, 1)
-                if counter == num_on:
-                    counter = 0
-                    is_visible = False
-            else:
-                if counter == num_off:
-                    counter = 0
-                    is_visible = True
-        return img
-
-    @staticmethod
-    def _draw_edge(img, cam_pos, rvec, tvec, cameramtx, dist, center, R):
-        '''Draw the edge outline of the flight sphere as seen from camera's perspective.'''
-        # normal vector of circle: points from sphere center to camera
-        p = cam_pos.reshape((3,)) - center
-        d = np.linalg.norm(p)
-        if d <= R:
-            # We are on the surface of the sphere, or inside its volume.
-            return
-        n = p / d
-        # TODO: use math instead of np for trig functions of scalars to speed things up
-        # TODO: use np.float32() constructor where possible
-        phi = np.arctan2(n[1], n[0])
-        rot_mat = np.array([
-            [np.cos(phi), -np.sin(phi), 0.],
-            [np.sin(phi), np.cos(phi), 0.],
-            [0., 0., 1.]])
-        u = np.array([0., 1., 0.])
-        u = rot_mat.dot(u)
-        v = np.cross(n, u)
-        t = np.linspace(0., 1., 100)
-        k = np.pi  # semi-circle
-        c = (R**2 / d) * n + center
-        det = d**2 - R**2
-        if det < 0.:
-            # guard against negative arg of sqrt
-            r = 0.0
-        else:
-            r = R / d * np.sqrt(det)
-        world_pts = np.array([c + r * (np.cos(k * t_i) * u + np.sin(k * t_i) * v) for t_i in t])
-        img_pts, _ = cv2.projectPoints(world_pts, rvec, tvec, cameramtx, dist)
-        img_pts = img_pts.astype(int).reshape(-1, 2)
-        for i in range(img_pts.shape[0] - 1):
-            img = cv2.line(
-                img, tuple(img_pts[i]), tuple(img_pts[i+1]), (255, 0, 255), 1)
-        return img
-
-    @staticmethod
-    def _draw_points(img, cam, rvec, tvec, newcameramtx, dist, center):
-        r = cam.flightRadius
-        rcos45 = cam.markRadius * 0.70710678
-        marker_size_x = 0.20  # marker width, in m
-        marker_size_z = 0.60  # marker height, in m
-        world_points = np.array([
-            # Points on sphere centerline: sphere center, pilot's feet, top of sphere.
-            [0, 0, 0],
-            [0, 0, -cam.markHeight],
-            [0, 0, r],
-            # Points on equator: bottom of right & left marker, right & left antipodes, front & rear antipodes
-            [rcos45, rcos45, 0],
-            [-rcos45, rcos45, 0],
-            [cam.markRadius, 0, 0],
-            [-cam.markRadius, 0, 0],
-            [0, -cam.markRadius, 0],
-            [0, cam.markRadius, 0],
-            # Points on corners of an imaginary marker at center of sphere (optional)
-            [0.5 * marker_size_x, 0., 0.5 * marker_size_z],
-            [-0.5 * marker_size_x, 0., 0.5 * marker_size_z],
-            [-0.5 * marker_size_x, 0., -0.5 * marker_size_z],
-            [0.5 * marker_size_x, 0., -0.5 * marker_size_z],
-            # Points on corners of front marker
-            [0.5 * marker_size_x, cam.markRadius, 0.5 * marker_size_z],
-            [-0.5 * marker_size_x, cam.markRadius, 0.5 * marker_size_z],
-            [-0.5 * marker_size_x, cam.markRadius, -0.5 * marker_size_z],
-            [0.5 * marker_size_x, cam.markRadius, -0.5 * marker_size_z],
-            # Points on corners of right marker
-            [rcos45 + 0.5 * marker_size_x, rcos45, 0.5 * marker_size_z],
-            [rcos45 - 0.5 * marker_size_x, rcos45, 0.5 * marker_size_z],
-            [rcos45 - 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
-            [rcos45 + 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
-            # Points on corners of left marker
-            [-rcos45 + 0.5 * marker_size_x, rcos45, 0.5 * marker_size_z],
-            [-rcos45 - 0.5 * marker_size_x, rcos45, 0.5 * marker_size_z],
-            [-rcos45 - 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
-            [-rcos45 + 0.5 * marker_size_x, rcos45, -0.5 * marker_size_z],
-        ],
-            dtype=np.float32)
-        # Adjust locations of the center marker points. Leave all other references as-is.
-        world_points[9:13, ] += center
-
-        imgpts, _ = cv2.projectPoints(world_points, rvec, tvec, newcameramtx, dist)
-        imgpts = np.int32(imgpts).reshape(-1, 2)
-
-        # Draw the world points in the video according to our color scheme
-        for i, img_pt in enumerate(imgpts):
-            if i < 9:
-                # RED: points on centerline and equator
-                pt_color = (0, 0, 255)
-            elif 8 < i < 13:
-                # CYAN: corners of imaginary marker at center of sphere
-                pt_color = (255, 255, 0)
-                # print(f'center marker: i={i}, img_pt={img_pt}')
-            else:
-                # GREEN: corners of the three outside markers
-                pt_color = (0, 255, 0)
-                # print(f'perimeter markers: i={i}, img_pt={img_pt}')
-            cv2.circle(img, (img_pt[0], img_pt[1]), 1, pt_color, -1)
-        return img
-
-    # @staticmethod
-    # def drawHorEight(img, angle, rvec, tvec, cameramtx, dist, center, r, color=(255, 255, 255)):
-    #     Drawing.draw_loop(img, angle+24.47, rvec, tvec, cameramtx,
-    #                       dist, center, r, color=(255, 255, 255))
-    #     Drawing.draw_loop(img, angle-24.47, rvec, tvec, cameramtx,
-    #                       dist, center, r, color=(255, 255, 255))
-    #     return img
-
     def _init_loop(self):
         points, n = self._get_loop_pts()
         border_color = (100, 100, 100)
@@ -597,6 +560,11 @@ class Drawing:
         return points, n
 
     def _init_square_loop(self):
+        points = self._get_square_loop_pts()
+        result = Scene(Polyline(points, size=3, color=Colors.WHITE))
+        return result
+
+    def _get_square_loop_pts(self):
         r = self.R
         # Radius of minor arc at 45deg elevation. Also the height of the 45deg elevation arc.
         r45 = r * 0.7071067811865476
@@ -604,7 +572,7 @@ class Drawing:
         major_arc = Drawing.get_arc(r, 0.25*math.pi)
         # Helper arc for the top flat
         minor_arc = Drawing.get_arc(r45, 0.25*math.pi)
-        result = Scene(Polyline(np.vstack([
+        points = np.vstack([
             # Arc 1: bottom flat
             ROT.from_euler(
                 'z', 0.375*math.pi).apply(major_arc),
@@ -617,8 +585,8 @@ class Drawing:
             # Arc 4: right lateral
             ROT.from_euler(
                 'xyz', [-0.5*math.pi, -0.25*math.pi, 0.375*math.pi]).apply(major_arc)
-        ]), size=3, color=Colors.WHITE))
-        return result
+        ])
+        return points
 
     def _init_tri_loop(self):
         # TODO
@@ -640,8 +608,12 @@ class Drawing:
         return result
 
     def _init_sq_eight(self):
-        # TODO
+        points = self._get_square_loop_pts()
+        points_right = ROT.from_euler('z', -EIGHTH_PI).apply(points)
+        points_left = ROT.from_euler('z', EIGHTH_PI).apply(points)
         result = Scene()
+        result.add(Polyline(points_right, size=3, color=Colors.WHITE))
+        result.add(Polyline(points_left, size=3, color=Colors.WHITE))
         return result
 
     def _init_ver_eight(self):
