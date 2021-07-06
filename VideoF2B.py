@@ -242,7 +242,6 @@ while True:
             artist.Locate(cam)
             # The above two calls, especially cam.Locate, take a long time.
             # Restart FPS meter to be fair
-            fps.stop()
             fps.start()
 
         '''
