@@ -216,13 +216,13 @@ while cap.more():
     if frame_or is None:
         num_empty_frames += 1
         num_consecutive_empty_frames += 1
-        logger.warning(
-            f'Failed to read frame from input! '
-            f'frame_idx={frame_idx}/{num_input_frames}, '
-            f'num_empty_frames={num_empty_frames}, '
-            f'num_consecutive_empty_frames={num_consecutive_empty_frames}, '
-        )
         if num_consecutive_empty_frames > MAX_CONSECUTIVE_EMPTY_FRAMES:  # GoPro videos show empty frames, quick fix
+            logger.warning(
+                f'Failed to read frame from input! '
+                f'frame_idx={frame_idx}/{num_input_frames}, '
+                f'num_empty_frames={num_empty_frames}, '
+                f'num_consecutive_empty_frames={num_consecutive_empty_frames}'
+            )
             break
         continue
     num_consecutive_empty_frames = 0
