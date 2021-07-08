@@ -533,7 +533,7 @@ class Drawing:
 
     def _init_loop(self):
         points, n = self._get_loop_pts()
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         # Wide white band with narrom gray outline
         result.add(Polyline(points[:n], size=3, color=Colors.WHITE))
@@ -642,7 +642,7 @@ class Drawing:
         points, n = self._get_loop_pts()
         points_right = ROT.from_euler('z', -24.47, degrees=True).apply(points)
         points_left = ROT.from_euler('z', 24.47, degrees=True).apply(points)
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         result.add(Polyline(points_right[:n], size=3, color=Colors.WHITE))
         result.add(Polyline(points_right[n:2*n], size=1, color=border_color))
@@ -664,7 +664,7 @@ class Drawing:
     def _init_ver_eight(self):
         points_bot, n = self._get_loop_pts()
         points_top = ROT.from_euler('x', QUART_PI).apply(points_bot)
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         result.add(Polyline(points_bot[:n], size=3, color=Colors.WHITE))
         result.add(Polyline(points_bot[n:2*n], size=1, color=border_color))
@@ -712,7 +712,7 @@ class Drawing:
         points, n = self._get_loop_pts()
         points_right = ROT.from_euler('xy', (HALF_PI-EIGHTH_PI, EIGHTH_PI)).apply(points)
         points_left = ROT.from_euler('y', -QUART_PI).apply(points_right)
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         result.add(Polyline(points_right[:n], size=3, color=Colors.WHITE))
         result.add(Polyline(points_right[n:2*n], size=1, color=border_color))
@@ -751,7 +751,7 @@ class Drawing:
         # arc that connects top and bottom halves
         arc_vert = ROT.from_euler('x', QUART_PI).apply(ROT.from_euler('y', HALF_PI).apply(arc))
         # Create the scene
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         for loop in loops:
             result.add(Polyline(loop[:n], size=3, color=Colors.WHITE))
