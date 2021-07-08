@@ -597,45 +597,74 @@ class Drawing:
         r = 1.5
         # central angle (length) of each arc
         # TODO: figure this out as a function of the triangle's height
-        a = radians(53.5)
+        s = radians(53.7)
         # angle between adjacent arcs: see https://www.av8n.com/physics/spherical-triangle.htm [Eq. 1]
-        alpha = acos(cos(a)/(cos(a)+1.))
+        alpha = acos(cos(s)/(cos(s)+1.))
+        # main arcs are actually this long to meet tangency
+        a = radians(40)  # TODO: figure this out
+        main_offset = 0.5*(s - a)
+        # distance from sphere center to corner centers
+        d_corner = sqrt(self.R**2 - r**2)
         # corner arc is short of 180 by this much to meet tangency
-        shortage = alpha
+        corner_short = alpha  # TODO: determine correct value
+        corner_offset = 0.5*a+0.0125    # TODO: determine the correct value
+        # template arc for corners
+        corner_points = Drawing.get_arc(r, pi-corner_short)
+        # first corner arc
+        corner1 = ROT.from_euler('z', corner_offset).apply(
+            ROT.from_euler('x', r/self.R).apply(
+                ROT.from_euler('x', HALF_PI).apply(
+                    ROT.from_euler('z', 1.5*pi).apply(
+                        ROT.from_euler('x', pi).apply(corner_points)
+                    )
+                ) + (0., d_corner, 0.)
+            )
+        )
         # top corner arc
         corner2 = ROT.from_euler('x', QUART_PI - r/self.R).apply(
             ROT.from_euler('x', HALF_PI).apply(
                 ROT.from_euler('y', pi).apply(
-                    ROT.from_euler('z', 0.5*shortage).apply(
-                        Drawing.get_arc(r, pi-shortage)
-                    )
+                    ROT.from_euler('z', 0.5*corner_short).apply(corner_points)
                 )
-            ) + (0., sqrt(self.R**2 - r**2), 0.)
+            ) + (0., d_corner, 0.)
+        )
+        # last corner arc
+        corner3 = ROT.from_euler('z', -corner_offset).apply(
+            ROT.from_euler('x', r/self.R).apply(
+                ROT.from_euler('x', HALF_PI).apply(
+                    ROT.from_euler('z', HALF_PI-corner_short).apply(
+                        ROT.from_euler('x', pi).apply(corner_points)
+                    )
+                ) + (0., d_corner, 0.)
+            )
         )
         # template arc
         points = Drawing.get_arc(self.R, a)
         course = np.vstack((
             # bottom leg
             ROT.from_euler('z', HALF_PI - 0.5*a).apply(points),
+            # first corner
+            corner1,
             # ascending leg
-            ROT.from_euler('z', HALF_PI + 0.5*a).apply(
-                ROT.from_euler('x', pi - alpha).apply(points)),
+            ROT.from_euler('z', HALF_PI + 0.5*s).apply(
+                ROT.from_euler('x', pi - alpha).apply(
+                    ROT.from_euler('z', main_offset).apply(points))),
             # top corner
-            # corner2, # TODO: include here when I determine all endpoints at connections
+            corner2,
             # descending leg
-            ROT.from_euler('z', HALF_PI - 0.5*a).apply(
+            ROT.from_euler('z', HALF_PI - 0.5*s).apply(
                 ROT.from_euler('x', alpha).apply(
-                    ROT.from_euler('z', a).apply(
+                    ROT.from_euler('z', a + main_offset).apply(
                         ROT.from_euler('x', pi).apply(points)
                     )
                 )
-            )
+            ),
+            # last corner
+            corner3
         ))
         result = Scene()
         result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
         result.add(Polyline(course, size=3, color=Colors.WHITE))
-        result.add(Polyline(corner2, size=7, color=Colors.GRAY20))
-        result.add(Polyline(corner2, size=3, color=Colors.WHITE))
         return result
 
     def _init_hor_eight(self):
