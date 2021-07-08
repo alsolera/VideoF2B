@@ -592,8 +592,46 @@ class Drawing:
         return points
 
     def _init_tri_loop(self):
-        # TODO
+        # corner radius
+        r = 1.5
+        # central angle (length) of each arc
+        a = radians(53.5)
+        # angle between adjacent arcs
+        alpha = radians(68)
+        # corner arc is short of 180 by twice this much to meet tangency
+        shortage = radians(20)
+        # top corner arc
+        corner2 = ROT.from_euler('x', QUART_PI - r/self.R).apply(
+            ROT.from_euler('x', HALF_PI).apply(
+                ROT.from_euler('y', pi).apply(
+                    ROT.from_euler('z', shortage).apply(
+                        Drawing.get_arc(r, pi-2*shortage)
+                    )
+                )
+            ) + (0., sqrt(self.R**2 - r**2), 0.)
+        )
+        # template arc
+        points = Drawing.get_arc(self.R, a)
+        course = np.vstack((
+            # bottom leg
+            ROT.from_euler('z', HALF_PI - 0.5*a).apply(points),
+            # ascending leg
+            ROT.from_euler('z', HALF_PI + 0.5*a).apply(
+                ROT.from_euler('x', pi - alpha).apply(points)),
+            # top corner
+            corner2,
+            # descending leg
+            ROT.from_euler('z', HALF_PI - 0.5*a).apply(
+                ROT.from_euler('x', alpha).apply(
+                    ROT.from_euler('z', a).apply(
+                        ROT.from_euler('x', pi).apply(points)
+                    )
+                )
+            )
+        ))
         result = Scene()
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        result.add(Polyline(corner2, size=3, color=Colors.WHITE))
         return result
 
     def _init_hor_eight(self):
