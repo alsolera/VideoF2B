@@ -20,7 +20,7 @@
 import logging
 import math
 from collections import defaultdict
-from math import atan, atan2, cos, degrees, pi, radians, sin, sqrt
+from math import acos, atan, atan2, cos, degrees, pi, radians, sin, sqrt
 
 import cv2
 import numpy as np
@@ -40,6 +40,7 @@ class Colors:
     '''Shortcuts for OpenCV-compatible colors.'''
     BLACK = (0, 0, 0)
     WHITE = (255, 255, 255)
+    GRAY20 = (50, 50, 50)
     RED = (0, 0, 255)
     GREEN = (0, 255, 0)
     BLUE = (255, 0, 0)
@@ -595,17 +596,18 @@ class Drawing:
         # corner radius
         r = 1.5
         # central angle (length) of each arc
+        # TODO: figure this out as a function of the triangle's height
         a = radians(53.5)
-        # angle between adjacent arcs
-        alpha = radians(68)
-        # corner arc is short of 180 by twice this much to meet tangency
-        shortage = radians(20)
+        # angle between adjacent arcs: see https://www.av8n.com/physics/spherical-triangle.htm [Eq. 1]
+        alpha = acos(cos(a)/(cos(a)+1.))
+        # corner arc is short of 180 by this much to meet tangency
+        shortage = alpha
         # top corner arc
         corner2 = ROT.from_euler('x', QUART_PI - r/self.R).apply(
             ROT.from_euler('x', HALF_PI).apply(
                 ROT.from_euler('y', pi).apply(
-                    ROT.from_euler('z', shortage).apply(
-                        Drawing.get_arc(r, pi-2*shortage)
+                    ROT.from_euler('z', 0.5*shortage).apply(
+                        Drawing.get_arc(r, pi-shortage)
                     )
                 )
             ) + (0., sqrt(self.R**2 - r**2), 0.)
@@ -619,7 +621,7 @@ class Drawing:
             ROT.from_euler('z', HALF_PI + 0.5*a).apply(
                 ROT.from_euler('x', pi - alpha).apply(points)),
             # top corner
-            corner2,
+            # corner2, # TODO: include here when I determine all endpoints at connections
             # descending leg
             ROT.from_euler('z', HALF_PI - 0.5*a).apply(
                 ROT.from_euler('x', alpha).apply(
@@ -630,7 +632,9 @@ class Drawing:
             )
         ))
         result = Scene()
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
         result.add(Polyline(course, size=3, color=Colors.WHITE))
+        result.add(Polyline(corner2, size=7, color=Colors.GRAY20))
         result.add(Polyline(corner2, size=3, color=Colors.WHITE))
         return result
 
