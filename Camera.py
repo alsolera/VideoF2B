@@ -35,13 +35,13 @@ class CalCamera:
                  logger=None):
 
         self.logger = logger or logging.getLogger(__name__)
+        initialdir = '../'
         try:
-            CF = open('cal.conf', 'r')
-            initialdir = CF.read()
-            print(initialdir)
-            CF.close()
-        except:
-            initialdir = '../'
+            with open('cal.conf', 'r') as CF:
+                initialdir = CF.read()
+                print(initialdir)
+        except Exception as readErr:
+            print(f'Error reading cal.conf: {readErr}')
 
         root = Tkinter.Tk()
         root.withdraw()  # use to hide tkinter window
@@ -71,9 +71,11 @@ class CalCamera:
         self.map2 = None
 
         if self.Calibrated:
-            CF = open('cal.conf', 'w')
-            CF.write(path.dirname(calibrationPath))
-            CF.close()
+            try:
+                with open('cal.conf', 'w') as CF:
+                    CF.write(path.dirname(calibrationPath))
+            except Exception as writeErr:
+                print(f'Error writing to cal.conf: {writeErr}')
             try:
                 npzfile = np.load(calibrationPath)
                 # is_fisheye: new in v0.6, default=False for compatibility with pre-v0.6 camera files.
@@ -126,7 +128,6 @@ class CalCamera:
                 self.Calibrated = False
                 input("Press <ENTER> to continue without calibration...")
 
-        CF.close()
         del root
         self.logger.info(f'flight radius = {self.flightRadius} m')
         self.logger.info(f'  mark radius = {self.markRadius} m')
