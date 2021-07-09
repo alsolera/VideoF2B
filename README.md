@@ -42,9 +42,4 @@ Authors: Alberto Solera, Andrey Vasilik
 
 * See **requirements.txt**, **requirements-dev.txt**, and **requirements_windows.txt**
 
-* **IMPORTANT:** at this time the `imutils` package used for development is a modified fork of the official package.
-To use, execute the following commands from the virtual environment:
-
-  * `pip uninstall imutils`
-
-  * `pip install -U git+https://github.com/basil96/imutils.git`
+* **IMPORTANT:** at this time the `imutils` package used for development is a modified fork of the official package.  The file `requirements.txt` in the `dev` branch reflects this.
