@@ -173,7 +173,7 @@ MAX_TRACK_LEN = int(MAX_TRACK_TIME * VIDEO_FPS)
 # Detector
 detector = Detection.Detector(MAX_TRACK_LEN, scale)
 # Drawing artist
-artist = Drawing.Drawing(detector, cam=cam, center=SPHERE_OFFSET, axis=False)
+artist = Drawing.Drawing(detector, cam=cam, axis=False)
 # Angle offset of current AR hemisphere wrt world coordinate system
 azimuth_delta = 0.0
 # Number of total empty frames in the input.
@@ -239,7 +239,7 @@ while cap.more():
         frame_or = cam.Undistort(frame_or)
         if not cam.Located and cam.AR:
             cam.Locate(frame_or)
-            artist.Locate(cam)
+            artist.Locate(cam, center=SPHERE_OFFSET)
             # The above two calls, especially cam.Locate, take a long time.
             # Restart FPS meter to be fair
             fps.start()
