@@ -23,6 +23,8 @@ import numpy as np
 import figures
 from common import FigureTypes
 
+logger = logging.getLogger(__name__)
+
 
 class UserError(Exception):
     '''Class for exception that occur during Figure tracking due to user errors.'''
@@ -57,7 +59,7 @@ class FigureTracker:
         0: FigureTypes.INSIDE_LOOPS,
     }
 
-    def __init__(self, logger=None, callback=lambda x: None, **kwargs):
+    def __init__(self, callback=lambda x: None, **kwargs):
         '''Create a new FigureTracker.'''
         self.enable_diags = kwargs.pop('enable_diags', False)
         self.actuals = []  # TODO: convert to dict
@@ -65,7 +67,6 @@ class FigureTracker:
         self.is_figure_in_progress = False
         self.figure_idx = 0
         self.figure_params = []
-        self.logger = logger or logging.getLogger(__name__)
         self.R = None
         self._callback = callback
         self._curr_figure_fitter = None
@@ -81,7 +82,7 @@ class FigureTracker:
         self.is_figure_in_progress = True
         self._figure_actuals = []
         self._figure_indexes = []
-        self.logger.debug(f'Started tracking Figure {self.figure_idx}')
+        logger.debug(f'Started tracking Figure {self.figure_idx}')
 
     def finish_figure(self):
         '''Finish trfig_type_constructorhe currently tracked figure.'''
@@ -91,10 +92,10 @@ class FigureTracker:
         self.is_figure_in_progress = False
         self.actuals.append(np.asarray(self._figure_actuals))
         self.indexes.append(self._figure_indexes)
-        self.logger.debug(
+        logger.debug(
             f'Finished tracking Figure {self.figure_idx} '
             f'({len(self._figure_actuals)} points)')
-        # self.logger.debug(
+        # logger.debug(
         #     f'Figure {self.figure_idx} points:\n{self.actuals[self.figure_idx]} shape = {self.actuals[self.figure_idx].shape}')
         self._figure_actuals = None
         self._figure_indexes = None
@@ -116,7 +117,7 @@ class FigureTracker:
         if not self.is_figure_in_progress:
             # no effect when we're not actively tracking any figure
             return False
-        self.logger.debug(f'add_actual_point: point = {point} {point.shape}')
+        logger.debug(f'add_actual_point: point = {point} {point.shape}')
         if self.R is None:
             self.R = np.linalg.norm(point)
         self._figure_actuals.append(point)
@@ -131,7 +132,7 @@ class FigureTracker:
             np.asarray([np.hstack(x) for x in zip(self.indexes[i], act)]) for i, act in enumerate(self.actuals)
         }
         np.savez(path, **d)
-        self.logger.debug(f'Exported {len(self.actuals)} figure(s) to "{path}".')
+        logger.debug(f'Exported {len(self.actuals)} figure(s) to "{path}".')
 
     def finish_all(self):
         '''Clean-up method. Finish current figure, if any figure is in progress.'''
