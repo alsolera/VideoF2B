@@ -32,6 +32,14 @@ QUART_PI = 0.25 * pi
 EIGHTH_PI = 0.125 * pi
 TWO_PI = 2.0 * pi
 
+# Good enough for everything we need to do
+TOL = 1.0e-15
+
+
+def tolerance(val, abs=TOL):
+    '''Apply an absolute tolerance to a value.'''
+    return pytest.approx(val, abs=abs)
+
 
 class TestGeometry:
     '''Unit tests of the geometry module.'''
@@ -82,17 +90,17 @@ class TestGeometry:
            x_p = 0.057148869332588434
            y_p = 0.08206099398622183
         '''
-        assert 1.0471975511965979 == sigma
-        assert 1.2309594173407747 == psi
+        assert 1.0471975511965979 == tolerance(sigma)
+        assert 1.2309594173407747 == tolerance(psi)
         assert 1.0 == f.R
         assert 0.1 == f.r
-        assert 0.1001674211615598 == f.alpha
-        assert 1.9249549697264348 == f.beta
-        assert 0.1740830106364804 == f.theta
-        assert 0.99498743710662 == f.d
+        assert 0.1001674211615598 == tolerance(f.alpha)
+        assert 1.9249549697264348 == tolerance(f.beta)
+        assert 0.1740830106364804 == tolerance(f.theta)
+        assert 0.99498743710662 == tolerance(f.d)
         assert f.psi == psi
-        assert 0.057148869332588434 == f.x_p
-        assert 0.082060993986221830 == f.y_p
+        assert 0.057148869332588434 == tolerance(f.x_p)
+        assert 0.082060993986221830 == tolerance(f.y_p)
 
     def test_45_tri_loop_fillet(self):
         '''Verify parameters of an empirical triangular loop where corner radii
@@ -129,17 +137,17 @@ class TestGeometry:
            x_p = 0.05569609656974007
            y_p = 0.08305386701950844
         '''
-        assert 0.9560241334844555 == sigma
-        assert 1.1963115345797664 == psi
+        assert 0.9560241334844555 == tolerance(sigma)
+        assert 1.1963115345797664 == tolerance(psi)
         assert 1.0 == f.R
         assert 0.1 == f.r
-        assert 0.1001674211615598 == f.alpha
-        assert 1.9601482955632028 == f.beta
-        assert 0.17852908633383857 == f.theta
-        assert 0.99498743710662 == f.d
+        assert 0.1001674211615598 == tolerance(f.alpha)
+        assert 1.9601482955632028 == tolerance(f.beta)
+        assert 0.17852908633383857 == tolerance(f.theta)
+        assert 0.99498743710662 == tolerance(f.d)
         assert f.psi == psi
-        assert 0.05569609656974007 == f.x_p
-        assert 0.08305386701950844 == f.y_p
+        assert 0.05569609656974007 == tolerance(f.x_p)
+        assert 0.08305386701950844 == tolerance(f.y_p)
 
     def test_f2b_tri_loop_fillet(self):
         '''Verify parameters of an empirical triangular loop where corner radii
@@ -176,17 +184,17 @@ class TestGeometry:
            x_p = 0.835158980817275
            y_p = 1.2459973823247987
         '''
-        assert 0.9337622920381917 == sigma
-        assert 1.1885910110968365 == psi
+        assert 0.9337622920381917 == tolerance(sigma)
+        assert 1.1885910110968365 == tolerance(psi)
         assert 21. == f.R
         assert 1.5 == f.r
-        assert 0.07148944988552053454 == f.alpha
-        assert 1.9606017302158762 == f.beta
-        assert 0.12791661970232607 == f.theta
-        assert 20.946360065653412 == f.d
+        assert 0.07148944988552053454 == tolerance(f.alpha)
+        assert 1.9606017302158762 == tolerance(f.beta)
+        assert 0.12791661970232607 == tolerance(f.theta)
+        assert 20.946360065653412 == tolerance(f.d)
         assert f.psi == psi
-        assert 0.835158980817275 == f.x_p
-        assert 1.2459973823247987 == f.y_p
+        assert 0.835158980817275 == tolerance(f.x_p)
+        assert 1.2459973823247987 == tolerance(f.y_p)
 
     def test_real_triangular_loop(self):
         '''Create a real-world triangular loop and verify its basic parameters,
@@ -265,7 +273,7 @@ class TestGeometry:
         assert np.allclose(exp_c3_pts[0], corner3[0])
         assert np.allclose(exp_c3_pts[-1], corner3[-1])
         # Verify angles of leg segments
-        assert np.allclose(exp_leg_sigma, leg_sigmas, rtol=1e-16, atol=1e-15)
+        assert np.allclose(exp_leg_sigma, leg_sigmas, rtol=1e-16, atol=TOL)
         # assert False  # uncomment this to dump print() outputs for debugging
 
     def test_equilateral_height_and_sigma(self):
@@ -281,5 +289,5 @@ class TestGeometry:
             h = geom.get_equilateral_height(sigma)
             calc_sigma = geom.calc_equilateral_sigma(height=h)
             calc_h = geom.get_equilateral_height(calc_sigma)
-            assert h == pytest.approx(calc_h, abs=1e-15)
-            assert sigma == pytest.approx(calc_sigma, abs=1e-15)
+            assert h == tolerance(calc_h)
+            assert sigma == tolerance(calc_sigma)
