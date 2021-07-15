@@ -109,7 +109,7 @@ if cap is None or videoPath is None:
     logger.error(err_msg)
     # TODO: fix this main program flow
     sys.exit(1)
-logger.info(f'Loaded video file "{VIDEO_PATH}".')
+logger.info(f'Loaded video file "{videoPath}".')
 FULL_FRAME_SIZE = (
     int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
     int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -474,7 +474,7 @@ fps.stop()
 final_progress_str = f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%'
 elapsed_time_str = f'Elapsed time: {fps.elapsed():.1f}'
 mean_fps_str = f'Approx. FPS: {fps.fps():.1f}'
-logger.info(f'Finished processing {VIDEO_PATH}')
+logger.info(f'Finished processing {videoPath}')
 logger.info(f'Result video written to {OUT_VIDEO_PATH}')
 logger.info(final_progress_str)
 logger.info(elapsed_time_str)
