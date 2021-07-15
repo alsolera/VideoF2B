@@ -19,6 +19,8 @@
 
 from math import acos, asin, atan, cos, degrees, pi, radians, sqrt
 
+import numpy as np
+import numpy.linalg as LA
 from scipy.optimize import fsolve
 
 QUART_PI = 0.25 * pi
@@ -99,13 +101,47 @@ class Fillet:
         return theta
 
 
+def get_equilateral_phi(sigma):
+    '''Angle between sides of an equilateral spherical triangle
+    as a function of side angle `sigma`.
+    See https://www.av8n.com/physics/spherical-triangle.htm'''
+    phi = acos(cos(sigma) / (cos(sigma)+1))
+    return phi
+
+
+def get_equilateral_height(sigma):
+    '''Height of an equilateral spherical triangle
+    as a function of side angle `sigma`.
+    See https://math.stackexchange.com/a/3139032/10521'''
+    h = acos(cos(sigma) / cos(0.5*sigma))
+    return h
+
+
+def get_cone_alpha(R, r):
+    '''Half-angle of the apex of a cone with slant height `R` and base radius `r`.'''
+    alpha = asin(r / R)
+    return alpha
+
+
+def calc_equilateral_sigma(height=QUART_PI):
+    '''Calculate the side of an equilateral triangle whose target height is given, in radians.
+    This is essentially the inverse of the `get_equilateral_height` function.
+    Returns
+        sigma (in radians).'''
+    def root_finder(sigma):
+        return get_equilateral_height(sigma) - height
+    ret = fsolve(root_finder, QUART_PI)
+    sigma = ret[0]
+    return sigma
+
+
 def calc_tri_loop_params(R, r, target_elev=QUART_PI):
     '''Calculate the basic parameters of a triangular loop on a sphere of radius `R`.
     Loop has corner turns of radius `r`, and the tops of those turns are tangent
     to an imaginary circle at `target_elev` on the sphere.
 
         Returns
-            sigma, phi (in radians)
+            sigma, phi (all in radians)
     '''
 
     phi = 0.0
@@ -118,28 +154,41 @@ def calc_tri_loop_params(R, r, target_elev=QUART_PI):
             * The angle `phi` between adjacent sides of the triangle.
         '''
         nonlocal phi
-        # angle between adjacent sides of the triangle: see https://www.av8n.com/physics/spherical-triangle.htm
-        phi = acos(cos(sigma) / (cos(sigma)+1))
-        # angle between axis of corner cone and intersection line of the two planes where the cone falls
+        # Angle between adjacent sides of the triangle
+        phi = get_equilateral_phi(sigma)
+        # Angle between axis of corner cone and intersection line of the two planes where the cone falls
         theta = Fillet.get_fillet_theta(R, r, phi)
-        # half-angle of corner cone
-        alpha = asin(r / R)
-        # height of the triangle as a function of sigma: see https://math.stackexchange.com/a/3139032/10521
-        h = acos(cos(sigma) / cos(0.5*sigma))
-        result = target_elev + theta - alpha - h
-        print('===== calc_tri_loop_params: root_finder ====================')
-        print(f'     R = {R}')
-        print(f'     r = {r}')
-        print(f'  elev = {target_elev} [{degrees(target_elev)} deg]')
-        print(f' sigma = {sigma} [{degrees(sigma)} deg]')
-        print(f'   phi = {phi} [{degrees(phi)} deg]')
-        print(f' theta = {theta} [{degrees(theta)} deg]')
-        print(f' alpha = {alpha} [{degrees(alpha)} deg]')
-        print(f'     h = {h} [{degrees(h)} deg]')
-        print(f'result = {result}')
-        print('=' * 40)
+        # Half-angle of corner cone
+        alpha = get_cone_alpha(R, r)
+        # Height of the triangle as a function of sigma
+        h = get_equilateral_height(sigma)
+        # Finally, the objective function:
+        # We want `sigma` such that `target_elev - alpha + theta = h`
+        result = target_elev - alpha + theta - h
+        # print('===== calc_tri_loop_params: root_finder ====================')
+        # print(f'     R = {R}')
+        # print(f'     r = {r}')
+        # print(f'  elev = {target_elev} [{degrees(target_elev)} deg]')
+        # print(f' sigma = {sigma} [{degrees(sigma)} deg]')
+        # print(f'   phi = {phi} [{degrees(phi)} deg]')
+        # print(f' theta = {theta} [{degrees(theta)} deg]')
+        # print(f' alpha = {alpha} [{degrees(alpha)} deg]')
+        # print(f'     h = {h} [{degrees(h)} deg]')
+        # print(f'result = {result}')
+        # print('=' * 40)
         return result
 
     ret = fsolve(root_finder, QUART_PI)
     sigma = ret[0]
     return sigma, phi
+
+
+def angle(a, b):
+    '''Angle between two vectors.'''
+    inner_prod = np.inner(a, b)
+    norms_prod = LA.norm(a) * LA.norm(b)
+    if abs(norms_prod) < 1e-16:
+        return np.NaN
+    cos_theta = inner_prod / norms_prod
+    theta = acos(np.clip(cos_theta, -1., 1.))
+    return theta

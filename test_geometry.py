@@ -18,11 +18,19 @@
 
 '''Unit tests for video_f2b.geometry'''
 
-from math import degrees, pi, radians
+from math import acos, atan, atan2, cos, degrees, pi, radians, sin, sqrt
+
+import numpy as np
+import pytest
+from scipy.spatial.transform import Rotation as ROT
 
 import geometry as geom
+from Drawing import Drawing
 
+HALF_PI = 0.5 * pi
 QUART_PI = 0.25 * pi
+EIGHTH_PI = 0.125 * pi
+TWO_PI = 2.0 * pi
 
 
 class TestGeometry:
@@ -179,3 +187,99 @@ class TestGeometry:
         assert f.psi == psi
         assert 0.835158980817275 == f.x_p
         assert 1.2459973823247987 == f.y_p
+
+    def test_real_triangular_loop(self):
+        '''Create a real-world triangular loop and verify its basic parameters,
+        such as location and orientation of all its pieces in world space.'''
+        R = 21.0
+        r = 1.5
+        sigma, phi = geom.calc_tri_loop_params(R, r)
+        h = geom.get_equilateral_height(sigma)
+        f = geom.Fillet(R, r, phi)
+        # Raw template points
+        pts = Drawing.get_arc(r, f.beta, rho=27)
+        pts_ctr = np.zeros((3,))
+        # Starting template arc in the middle of the bottom leg
+        pts = ROT.from_euler('zxy', [0.5*(pi - f.beta), -HALF_PI, HALF_PI]
+                             ).apply(pts) + [0, f.d, 0]
+        # 1st corner turn
+        corner1 = ROT.from_rotvec(-0.5*phi*np.array([-sin(0.5*sigma), cos(0.5*sigma), 0.])).apply(
+            ROT.from_euler('z', 0.5*sigma-f.theta).apply(pts)
+        )
+        corner1_norms = np.linalg.norm(corner1, axis=1)
+        # 2nd corner turn
+        corner2 = ROT.from_euler('x', h - f.theta).apply(
+            ROT.from_euler('y', HALF_PI).apply(pts)
+        )
+        corner2_norms = np.linalg.norm(corner2, axis=1)
+        # 3rd corner turn
+        corner3 = ROT.from_rotvec(0.5*phi*np.array([sin(0.5*sigma), cos(0.5*sigma), 0.])).apply(
+            ROT.from_euler('yz', [pi, -(0.5*sigma-f.theta)]).apply(pts)
+        )
+        corner3_norms = np.linalg.norm(corner3, axis=1)
+        # Leg angles between the tangencies
+        leg_sigmas = (
+            geom.angle(corner1[-1], corner2[0]),
+            geom.angle(corner2[-1], corner3[0]),
+            geom.angle(corner3[-1], corner1[0]),
+        )
+        # --- Expected data
+        # Expected first and last points of the each corner arc wrt world
+        exp_c1_pts = np.array([
+            [-7.4118195040371475, 19.648535101619522, 0.0],
+            [-8.6578168863619480, 19.020492013929108, 2.064725238448216]
+        ])
+        exp_c2_pts = np.array([
+            [-1.2459973823247994, 15.28457565266493, 14.34675007244506],
+            [+1.2459973823247994, 15.28457565266493, 14.34675007244506]
+        ])
+        exp_c3_pts = np.array([
+            [8.657816886361946, 19.020492013929108, 2.0647252384482173],
+            [7.4118195040371484, 19.648535101619522, 0.]
+        ])
+        # Expected angles of all leg arcs between tangencies
+        exp_leg_sigma = 0.721431018560276
+        # Output stuff if we fail
+        np.set_printoptions(precision=16)
+        print(f'  beta = {f.beta} [{degrees(f.beta)} deg]')
+        print(f'Corner 1: tangency point 1 = {corner1[0]}')
+        print(f'          tangency point 2 = {corner1[-1]}')
+        print(f'Corner 2: tangency point 1 = {corner2[0]}')
+        print(f'          tangency point 2 = {corner2[-1]}')
+        print(f'Corner 3: tangency point 1 = {corner3[0]}')
+        print(f'          tangency point 2 = {corner3[-1]}')
+        print(f'exp_leg_sigma =  {exp_leg_sigma}')
+        print(f'   leg_sigmas = {leg_sigmas}')
+        # --- Verifications
+        # Verify the number of points in the template arc
+        assert (10, 3) == pts.shape
+        # Verify that all corner arcs indeed lie on the sphere
+        assert np.allclose(R, corner1_norms)
+        assert np.allclose(R, corner2_norms)
+        assert np.allclose(R, corner3_norms)
+        # Verify coords of first & last points of corner arc wrt World
+        assert np.allclose(exp_c1_pts[0], corner1[0])
+        assert np.allclose(exp_c1_pts[-1], corner1[-1])
+        assert np.allclose(exp_c2_pts[0], corner2[0])
+        assert np.allclose(exp_c2_pts[-1], corner2[-1])
+        assert np.allclose(exp_c3_pts[0], corner3[0])
+        assert np.allclose(exp_c3_pts[-1], corner3[-1])
+        # Verify angles of leg segments
+        assert np.allclose(exp_leg_sigma, leg_sigmas, rtol=1e-16, atol=1e-15)
+        assert False  # uncomment this to dump print() outputs for debugging
+
+    def test_equilateral_height_and_sigma(self):
+        '''Test the relationship between sigma and height angles in equilateral spherical triangles.'''
+        sigmas = (
+            EIGHTH_PI,
+            QUART_PI,
+            HALF_PI,
+            radians(48.23303868),
+            radians(100.)
+        )
+        for sigma in sigmas:
+            h = geom.get_equilateral_height(sigma)
+            calc_sigma = geom.calc_equilateral_sigma(height=h)
+            calc_h = geom.get_equilateral_height(calc_sigma)
+            assert h == pytest.approx(calc_h, abs=1e-15)
+            assert sigma == pytest.approx(calc_sigma, abs=1e-15)
