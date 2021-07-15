@@ -1,4 +1,4 @@
 # Current fork of imutils
 git+https://github.com/basil96/imutils.git
 # imutils>=0.5.3
-numpy>=1.19.0
+numpy>=1.19.1

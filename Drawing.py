@@ -20,13 +20,14 @@
 import logging
 import math
 from collections import defaultdict
-from math import atan, atan2, cos, degrees, pi, radians, sin, sqrt
+from math import acos, atan, atan2, cos, degrees, pi, radians, sin, sqrt
 
 import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation as ROT
 
 import common
+import geometry as geom
 from common import FigureTypes
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,7 @@ class Colors:
     '''Shortcuts for OpenCV-compatible colors.'''
     BLACK = (0, 0, 0)
     WHITE = (255, 255, 255)
+    GRAY20 = (50, 50, 50)
     RED = (0, 0, 255)
     GREEN = (0, 255, 0)
     BLUE = (255, 0, 0)
@@ -532,7 +534,7 @@ class Drawing:
 
     def _init_loop(self):
         points, n = self._get_loop_pts()
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         # Wide white band with narrom gray outline
         result.add(Polyline(points[:n], size=3, color=Colors.WHITE))
@@ -592,15 +594,74 @@ class Drawing:
         return points
 
     def _init_tri_loop(self):
-        # TODO
+        # Corner radius
+        r = 1.5
+        # Central angle of each arc and angle between adjacent arcs
+        sigma, phi = geom.calc_tri_loop_params(self.R, r)
+        # Height of the full equilateral triangle (without the radii in corners)
+        h = geom.get_equilateral_height(sigma)
+        # The fillet that represents each corner with radius `r`
+        f = geom.Fillet(self.R, r, phi)
+        # Template arc for corners
+        corner_pts = Drawing.get_arc(r, f.beta, rho=27)
+        # Corners: template arc in the middle of the bottom leg
+        corner_pts = ROT.from_euler('zxy', [0.5*(pi - f.beta), -HALF_PI, HALF_PI]
+                                    ).apply(corner_pts) + [0, f.d, 0]
+        # 1st corner arc
+        corner1 = ROT.from_rotvec(-0.5*phi*np.array([-sin(0.5*sigma), cos(0.5*sigma), 0.])).apply(
+            ROT.from_euler('z', 0.5*sigma-f.theta).apply(corner_pts)
+        )
+        # Top corner arc
+        corner2 = ROT.from_euler('x', h - f.theta).apply(
+            ROT.from_euler('y', HALF_PI).apply(corner_pts)
+        )
+        # Last corner arc
+        corner3 = ROT.from_rotvec(0.5*phi*np.array([sin(0.5*sigma), cos(0.5*sigma), 0.])).apply(
+            ROT.from_euler('yz', [pi, -(0.5*sigma-f.theta)]).apply(corner_pts)
+        )
+        # Main arcs are actually this long to meet tangency
+        leg_sigma = geom.angle(corner3[-1], corner1[0])
+        # Legs: template arc
+        leg_points = Drawing.get_arc(self.R, leg_sigma)
+        leg_points = ROT.from_euler('z', 0.5*(pi - leg_sigma)).apply(leg_points)
+        # Helper values for construction of the corner axes
+        caxis_s = sin(0.5*sigma)
+        caxis_c = cos(0.5*sigma)
+        course = np.vstack((
+            # first corner
+            corner1,
+            # ascending leg
+            ROT.from_rotvec(-phi*np.array([-caxis_s, caxis_c, 0.])).apply(
+                ROT.from_euler('y', pi).apply(leg_points)
+            ),
+            # top corner
+            corner2,
+            # descending leg
+            ROT.from_rotvec(phi*np.array([caxis_s, caxis_c, 0.])).apply(
+                ROT.from_euler('y', pi).apply(leg_points)
+            ),
+            # last corner
+            corner3,
+            # bottom leg
+            leg_points
+        ))
+        # Points of tangency, just for internal diagnostics
+        # tangencies = (
+        #     corner1[0], corner1[-1],
+        #     corner2[0], corner2[-1],
+        #     corner3[0], corner3[-1],
+        # )
         result = Scene()
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # result.add(Scatter(tangencies, size=3, color=Colors.RED))
         return result
 
     def _init_hor_eight(self):
         points, n = self._get_loop_pts()
         points_right = ROT.from_euler('z', -24.47, degrees=True).apply(points)
         points_left = ROT.from_euler('z', 24.47, degrees=True).apply(points)
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         result.add(Polyline(points_right[:n], size=3, color=Colors.WHITE))
         result.add(Polyline(points_right[n:2*n], size=1, color=border_color))
@@ -622,7 +683,7 @@ class Drawing:
     def _init_ver_eight(self):
         points_bot, n = self._get_loop_pts()
         points_top = ROT.from_euler('x', QUART_PI).apply(points_bot)
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         result.add(Polyline(points_bot[:n], size=3, color=Colors.WHITE))
         result.add(Polyline(points_bot[n:2*n], size=1, color=border_color))
@@ -670,7 +731,7 @@ class Drawing:
         points, n = self._get_loop_pts()
         points_right = ROT.from_euler('xy', (HALF_PI-EIGHTH_PI, EIGHTH_PI)).apply(points)
         points_left = ROT.from_euler('y', -QUART_PI).apply(points_right)
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         result.add(Polyline(points_right[:n], size=3, color=Colors.WHITE))
         result.add(Polyline(points_right[n:2*n], size=1, color=border_color))
@@ -709,7 +770,7 @@ class Drawing:
         # arc that connects top and bottom halves
         arc_vert = ROT.from_euler('x', QUART_PI).apply(ROT.from_euler('y', HALF_PI).apply(arc))
         # Create the scene
-        border_color = (100, 100, 100)
+        border_color = Colors.GRAY20
         result = Scene()
         for loop in loops:
             result.add(Polyline(loop[:n], size=3, color=Colors.WHITE))
