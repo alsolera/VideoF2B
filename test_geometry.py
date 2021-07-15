@@ -266,7 +266,7 @@ class TestGeometry:
         assert np.allclose(exp_c3_pts[-1], corner3[-1])
         # Verify angles of leg segments
         assert np.allclose(exp_leg_sigma, leg_sigmas, rtol=1e-16, atol=1e-15)
-        assert False  # uncomment this to dump print() outputs for debugging
+        # assert False  # uncomment this to dump print() outputs for debugging
 
     def test_equilateral_height_and_sigma(self):
         '''Test the relationship between sigma and height angles in equilateral spherical triangles.'''
