@@ -26,22 +26,21 @@ import numpy as np
 
 import common
 
+logger = logging.getLogger(__name__)
 
 class CalCamera:
 
     def __init__(self, frame_size, calibrationPath=None,
                  flight_radius=None, marker_radius=None, marker_height=None,
-                 marker_points=None,
-                 logger=None):
+                 marker_points=None):
 
-        self.logger = logger or logging.getLogger(__name__)
+        initialdir = '../'
         try:
-            CF = open('cal.conf', 'r')
-            initialdir = CF.read()
-            print(initialdir)
-            CF.close()
-        except:
-            initialdir = '../'
+            with open('cal.conf', 'r') as CF:
+                initialdir = CF.read()
+                print(initialdir)
+        except Exception as readErr:
+            print(f'Error reading cal.conf: {readErr}')
 
         root = Tkinter.Tk()
         root.withdraw()  # use to hide tkinter window
@@ -50,7 +49,7 @@ class CalCamera:
                 parent=root, initialdir=initialdir,
                 title='Select camera calibration .npz file or cancel to ignore')
         cal_path_str = f'calibrationPath: {calibrationPath}'
-        self.logger.info(cal_path_str)
+        logger.info(cal_path_str)
         print(cal_path_str)
         self.Calibrated = len(calibrationPath) > 1
         self.Located = False
@@ -64,15 +63,18 @@ class CalCamera:
         self.is_fisheye = None
         self.mtx = None
         self.dist = None
+        self.dist_zero = None
         self.roi = None
         self.newcameramtx = None
         self.map1 = None
         self.map2 = None
 
         if self.Calibrated:
-            CF = open('cal.conf', 'w')
-            CF.write(path.dirname(calibrationPath))
-            CF.close()
+            try:
+                with open('cal.conf', 'w') as CF:
+                    CF.write(path.dirname(calibrationPath))
+            except Exception as writeErr:
+                print(f'Error writing to cal.conf: {writeErr}')
             try:
                 npzfile = np.load(calibrationPath)
                 # is_fisheye: new in v0.6, default=False for compatibility with pre-v0.6 camera files.
@@ -81,6 +83,7 @@ class CalCamera:
                 self.dist = npzfile['dist']
                 self.roi = npzfile['roi']
                 self.newcameramtx = npzfile['newcameramtx']
+                self.dist_zero = np.zeros_like(self.dist)
 
                 # Recalculate matrix and roi in case video from this camera was scaled after recording.
                 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
@@ -119,18 +122,17 @@ class CalCamera:
                     self.markHeight = common.DEFAULT_MARKER_HEIGHT
             except:
                 cal_err_str = 'Error loading calibration file'
-                self.logger.error(cal_err_str)
+                logger.error(cal_err_str)
                 print(cal_err_str)
                 self.Calibrated = False
                 input("Press <ENTER> to continue without calibration...")
 
-        CF.close()
         del root
-        self.logger.info(f'flight radius = {self.flightRadius} m')
-        self.logger.info(f'  mark radius = {self.markRadius} m')
-        self.logger.info(f'  mark height = {self.markHeight} m')
+        logger.info(f'flight radius = {self.flightRadius} m')
+        logger.info(f'  mark radius = {self.markRadius} m')
+        logger.info(f'  mark height = {self.markHeight} m')
         using_cal_str = f'Using calibration: {"YES" if self.Calibrated else "NO"}'
-        self.logger.info(using_cal_str)
+        logger.info(using_cal_str)
         print(using_cal_str)
 
     def Undistort(self, img):
@@ -205,7 +207,7 @@ class CalCamera:
             if self.imagePoints[NumRefPoints-1, 1] > 0:
                 _ret, self.rvec, self.tvec = cv2.solvePnP(objectPoints, self.imagePoints,
                                                           self.newcameramtx,
-                                                          np.zeros_like(self.dist),
+                                                          self.dist_zero,
                                                           cv2.SOLVEPNP_ITERATIVE)
                 # precalculate all pieces necessary for line/sphere intersections
                 self.rmat = None
@@ -218,19 +220,19 @@ class CalCamera:
                 self.cam_pos = -self.rtvec
                 cam_d = np.linalg.norm(self.cam_pos)
 
-                self.logger.info(f'imagePoints =\n{self.imagePoints}')
-                self.logger.debug('Matrices and vectors for 3D tracking: =====================')
-                self.logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
-                self.logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
-                self.logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
-                self.logger.debug(f'rmat = {type(self.rmat)}\n{self.rmat}')
-                self.logger.debug(f'rmat_inv = {type(rmat_inv)}\n{rmat_inv}')
-                self.logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
-                self.logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
-                self.logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
-                self.logger.debug('End of matrices and vectors for 3D tracking ===============')
-                self.logger.info(f'world cam location =\n{self.cam_pos}')
-                self.logger.info(f'world cam straight distance from sphere center = {cam_d:.3f}')
+                logger.info(f'imagePoints =\n{self.imagePoints}')
+                logger.debug('Matrices and vectors for 3D tracking: =====================')
+                logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
+                logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
+                logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
+                logger.debug(f'rmat = {type(self.rmat)}\n{self.rmat}')
+                logger.debug(f'rmat_inv = {type(rmat_inv)}\n{rmat_inv}')
+                logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
+                logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
+                logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
+                logger.debug('End of matrices and vectors for 3D tracking ===============')
+                logger.info(f'world cam location =\n{self.cam_pos}')
+                logger.info(f'world cam straight distance from sphere center = {cam_d:.3f}')
 
                 self.Located = True
                 cv2.destroyWindow(self.calWindowName)
@@ -250,7 +252,7 @@ class CalCamera:
             self.imagePoints[self.point, 0], self.imagePoints[self.point, 1] = x, y
             self.point += 1
             # curr_pts_str = f'Point {self.point} entered. Points =\n{self.imagePoints}'
-            # self.logger.info(curr_pts_str)
+            # logger.info(curr_pts_str)
             # print(curr_pts_str)
             if param is not None:
                 cv2.circle(param, (x, y), 6, (0, 255, 0))

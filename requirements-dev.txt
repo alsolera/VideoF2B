@@ -18,6 +18,9 @@ six>=1.15.0
 PySide2>=5.15.0
 shiboken2>=5.15.0
 
+# pytest
+pytest>=6.2.4
+
 # scipy & friends
 numpy>=1.19.1
 scipy>=1.5.2

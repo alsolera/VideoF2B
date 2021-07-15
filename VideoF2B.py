@@ -40,17 +40,34 @@ import Video
 from common import FigureTypes
 
 master = tkinter.Tk()
+
 loops_chk = tkinter.BooleanVar()
-chk1 = tkinter.Checkbutton(master, text="Loops", variable=loops_chk).grid(row=0, sticky='w')
+chk0 = tkinter.Checkbutton(master, text="Loops",
+                           variable=loops_chk).grid(row=0, sticky='w')
+sq_loops_chk = tkinter.BooleanVar()
+chk1 = tkinter.Checkbutton(master, text="Square loops",
+                           variable=sq_loops_chk).grid(row=1, sticky='w')
+tri_loops_chk = tkinter.BooleanVar()
+chk2 = tkinter.Checkbutton(master, text="Triangular loops",
+                           variable=tri_loops_chk).grid(row=2, sticky='w')
 hor_eight_chk = tkinter.BooleanVar()
-chk2 = tkinter.Checkbutton(master, text="Horizontal eight",
-                           variable=hor_eight_chk).grid(row=1, sticky='w')
+chk3 = tkinter.Checkbutton(master, text="Horizontal eight",
+                           variable=hor_eight_chk).grid(row=3, sticky='w')
+sq_hor_eight_chk = tkinter.BooleanVar()
+chk4 = tkinter.Checkbutton(master, text="Square horizontal eight",
+                           variable=sq_hor_eight_chk).grid(row=4, sticky='w')
 ver_eight_chk = tkinter.BooleanVar()
-chk3 = tkinter.Checkbutton(master, text="Vertical eight",
-                           variable=ver_eight_chk).grid(row=2, sticky='w')
+chk5 = tkinter.Checkbutton(master, text="Vertical eight",
+                           variable=ver_eight_chk).grid(row=5, sticky='w')
+hourglass_chk = tkinter.BooleanVar()
+chk6 = tkinter.Checkbutton(master, text="Hourglass",
+                           variable=hourglass_chk).grid(row=6, sticky='w')
 over_eight_chk = tkinter.BooleanVar()
-chk4 = tkinter.Checkbutton(master, text="Overhead eight",
-                           variable=over_eight_chk).grid(row=3, sticky='w')
+chk7 = tkinter.Checkbutton(master, text="Overhead eight",
+                           variable=over_eight_chk).grid(row=7, sticky='w')
+clover_chk = tkinter.BooleanVar()
+chk8 = tkinter.Checkbutton(master, text="Four-leaf clover",
+                           variable=clover_chk).grid(row=8, sticky='w')
 
 # Conversion constants
 FT_TO_M = 0.3048
@@ -71,7 +88,7 @@ MARKER_HEIGHT = None  # Default: ask
 SPHERE_OFFSET = None  # Default: world origin
 SPHERE_DELTA = 0.1  # offset delta in m
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 logger.setLevel(logging.DEBUG)
 handler = logging.handlers.RotatingFileHandler(LOG_PATH, maxBytes=10485760,
@@ -87,9 +104,12 @@ liveVideos = '../VideoF2B_videos'
 # Load input video
 cap, videoPath, live = Video.LoadVideo(path=VIDEO_PATH)
 if cap is None or videoPath is None:
-    print('ERROR: no input specified.')
+    err_msg = 'no input specified.'
+    print(f'ERROR: {err_msg}')
+    logger.error(err_msg)
+    # TODO: fix this main program flow
     sys.exit(1)
-logger.info(f'Loaded video file "{VIDEO_PATH}".')
+logger.info(f'Loaded video file "{videoPath}".')
 FULL_FRAME_SIZE = (
     int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
     int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -98,7 +118,7 @@ FULL_FRAME_SIZE = (
 # Load camera calibration
 cam = Camera.CalCamera(
     frame_size=FULL_FRAME_SIZE,
-    calibrationPath=CALIBRATION_PATH, logger=logger,
+    calibrationPath=CALIBRATION_PATH,
     flight_radius=FLIGHT_RADIUS,
     marker_radius=MARKER_RADIUS,
     marker_height=MARKER_HEIGHT)
@@ -156,15 +176,9 @@ MAX_TRACK_LEN = int(MAX_TRACK_TIME * VIDEO_FPS)
 # Detector
 detector = Detection.Detector(MAX_TRACK_LEN, scale)
 # Drawing artist
-artist = Drawing.Drawing(detector, cam=cam, R=FLIGHT_RADIUS,
-                         marker_radius=MARKER_RADIUS,
-                         center=SPHERE_OFFSET,
-                         axis=False,
-                         logger=logger)
-# Speed meter
-fps = FPS().start()
+artist = Drawing.Drawing(detector, cam=cam, axis=False)
 # Angle offset of current AR hemisphere wrt world coordinate system
-azimuth_delta = 0
+azimuth_delta = 0.0
 # Number of total empty frames in the input.
 num_empty_frames = 0
 # Number of consecutive empty frames at beginning of capture
@@ -178,8 +192,7 @@ if cam.Calibrated and PERFORM_3D_TRACKING:
     data_path = f'{input_base_name}_out_data.csv'
     data_writer = open(data_path, 'w', encoding='utf8')
     # data_writer.write('frame_idx,p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
-    fig_tracker = figtrack.FigureTracker(
-        logger=logger, callback=sys.stdout.write, enable_diags=True)
+    fig_tracker = figtrack.FigureTracker(callback=sys.stdout.write, enable_diags=True)
 
 # aids for drawing figure start/end points over track
 is_fig_in_progress = False
@@ -189,28 +202,29 @@ MAX_DRAW_FIT_FRAMES = int(VIDEO_FPS * 2.)  # multiplier is the number of seconds
 fit_img_pts = []
 draw_fit = False
 num_draw_fit_frames = 0
-
-# misc
+# Misc
 frame_idx = 0
 frame_delta = 0
 num_input_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
 MAX_FRAME_DELTA = int(num_input_frames / 100)
 is_paused = False
 cv2.namedWindow(WINDOW_NAME, WINDOW_FLAGS)
+# Speed meter
+fps = FPS().start()
 
-while True:
-    ret, frame_or = cap.read()
+while cap.more():
+    frame_or = cap.read()
 
-    if not ret or frame_or is None:
+    if frame_or is None:
         num_empty_frames += 1
         num_consecutive_empty_frames += 1
-        logger.warning(
-            f'Failed to read frame from input! '
-            f'frame_idx={frame_idx}/{num_input_frames}, '
-            f'num_empty_frames={num_empty_frames}, '
-            f'num_consecutive_empty_frames={num_consecutive_empty_frames}, '
-            f'ret={ret}')
         if num_consecutive_empty_frames > MAX_CONSECUTIVE_EMPTY_FRAMES:  # GoPro videos show empty frames, quick fix
+            logger.warning(
+                f'Failed to read frame from input! '
+                f'frame_idx={frame_idx}/{num_input_frames}, '
+                f'num_empty_frames={num_empty_frames}, '
+                f'num_consecutive_empty_frames={num_consecutive_empty_frames}'
+            )
             break
         continue
     num_consecutive_empty_frames = 0
@@ -227,6 +241,10 @@ while True:
         frame_or = cam.Undistort(frame_or)
         if not cam.Located and cam.AR:
             cam.Locate(frame_or)
+            artist.Locate(cam, center=SPHERE_OFFSET)
+            # The above two calls, especially cam.Locate, take a long time.
+            # Restart FPS meter to be fair
+            fps.start()
 
         '''
         # This section maps the entire image space to world, effectively meshing the sphere
@@ -264,9 +282,14 @@ while True:
 
     if cam.Located:
         artist.figure_state[FigureTypes.INSIDE_LOOPS] = loops_chk.get()
-        artist.figure_state[FigureTypes.VERTICAL_EIGHTS] = ver_eight_chk.get()
+        artist.figure_state[FigureTypes.INSIDE_SQUARE_LOOPS] = sq_loops_chk.get()
+        artist.figure_state[FigureTypes.INSIDE_TRIANGULAR_LOOPS] = tri_loops_chk.get()
         artist.figure_state[FigureTypes.HORIZONTAL_EIGHTS] = hor_eight_chk.get()
+        artist.figure_state[FigureTypes.HORIZONTAL_SQUARE_EIGHTS] = sq_hor_eight_chk.get()
+        artist.figure_state[FigureTypes.VERTICAL_EIGHTS] = ver_eight_chk.get()
+        artist.figure_state[FigureTypes.HOURGLASS] = hourglass_chk.get()
         artist.figure_state[FigureTypes.OVERHEAD_EIGHTS] = over_eight_chk.get()
+        artist.figure_state[FigureTypes.FOUR_LEAF_CLOVER] = clover_chk.get()
 
     artist.draw(frame_or, azimuth_delta)
 
@@ -375,9 +398,10 @@ while True:
         # Clear the current track
         detector.clear()
     elif key == 1113939 or key == 2555904 or key == 65363:  # Right Arrow
-        azimuth_delta += 0.5
-    elif key == 1113937 or key == 2424832 or key == 65361:  # Left Arrow
         azimuth_delta -= 0.5
+    elif key == 1113937 or key == 2424832 or key == 65361:  # Left Arrow
+        # Positive CCW around Z, per normal convention
+        azimuth_delta += 0.5
     elif LSB == 99 or key == 1048675:  # c
         # Relocate AR sphere
         cam.Located = False
@@ -450,7 +474,7 @@ fps.stop()
 final_progress_str = f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%'
 elapsed_time_str = f'Elapsed time: {fps.elapsed():.1f}'
 mean_fps_str = f'Approx. FPS: {fps.fps():.1f}'
-logger.info(f'Finished processing {VIDEO_PATH}')
+logger.info(f'Finished processing {videoPath}')
 logger.info(f'Result video written to {OUT_VIDEO_PATH}')
 logger.info(final_progress_str)
 logger.info(elapsed_time_str)
@@ -465,7 +489,6 @@ if fig_tracker is not None:
     fig_tracker.export(f'{input_base_name}_out_figures.npz')
 
 # Clean
-cap.release()
 out.release()
 cv2.destroyAllWindows()
 if cam.Located and PERFORM_3D_TRACKING:

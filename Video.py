@@ -23,6 +23,7 @@ import tkinter as Tkinter
 from tkinter import filedialog as tkFileDialog
 
 import cv2
+from imutils.video import FileVideoStream
 
 
 def LoadVideo(path=None):
@@ -30,13 +31,13 @@ def LoadVideo(path=None):
     root.withdraw()  # use to hide tkinter window
     live = False
 
+    initialdir = '../'
     try:
-        CF = open('vid.conf', 'r')
-        initialdir = CF.read()
-        print(initialdir)
-        CF.close()
-    except:
-        initialdir = '../'
+        with open('vid.conf', 'r') as CF:
+            initialdir = CF.read()
+            print(initialdir)
+    except Exception as readErr:
+        print(f'Error reading vid.conf: {readErr}')
 
     if path is None:
         path = tkFileDialog.askopenfilename(parent=root, initialdir=initialdir,
@@ -46,19 +47,17 @@ def LoadVideo(path=None):
         if path:
             live = True
     else:
-        CF = open('vid.conf', 'w')
-        CF.write(os.path.dirname(path))
-        CF.close()
+        with open('vid.conf', 'w') as CF:
+            CF.write(os.path.dirname(path))
 
     print(f'Video path: {path}')
     if not path:
         return None, None, live
 
-    CF = open('vid.conf', 'w')
-    CF.write(os.path.dirname(path))
-    CF.close()
+    with open('vid.conf', 'w') as CF:
+        CF.write(os.path.dirname(path))
 
-    cap = cv2.VideoCapture(path)
+    cap = FileVideoStream(path).start()
     if not cap.isOpened():  # check if we succeeded
         print('Error loading video file')
         cap.release()
