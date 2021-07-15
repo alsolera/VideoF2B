@@ -27,6 +27,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as ROT
 
 import common
+import geometry as geom
 from common import FigureTypes
 
 logger = logging.getLogger(__name__)
@@ -593,78 +594,67 @@ class Drawing:
         return points
 
     def _init_tri_loop(self):
-        # corner radius
+        # Corner radius
         r = 1.5
-        # central angle (length) of each arc
-        # TODO: figure this out as a function of the triangle's height
-        s = radians(53.7)
-        # angle between adjacent arcs: see https://www.av8n.com/physics/spherical-triangle.htm [Eq. 1]
-        alpha = acos(cos(s)/(cos(s)+1.))
-        # main arcs are actually this long to meet tangency
-        a = radians(40)  # TODO: figure this out
-        main_offset = 0.5*(s - a)
-        # distance from sphere center to corner centers
-        d_corner = sqrt(self.R**2 - r**2)
-        # corner arc is short of 180 by this much to meet tangency
-        corner_short = alpha  # TODO: determine correct value
-        corner_offset = 0.5*a+0.0125    # TODO: determine the correct value
-        # template arc for corners
-        corner_points = Drawing.get_arc(r, pi-corner_short)
-        # first corner arc
-        corner1 = ROT.from_euler('z', corner_offset).apply(
-            ROT.from_euler('x', r/self.R).apply(
-                ROT.from_euler('x', HALF_PI).apply(
-                    ROT.from_euler('z', 1.5*pi).apply(
-                        ROT.from_euler('x', pi).apply(corner_points)
-                    )
-                ) + (0., d_corner, 0.)
-            )
+        # Central angle of each arc and angle between adjacent arcs
+        sigma, phi = geom.calc_tri_loop_params(self.R, r)
+        # Height of the full equilateral triangle (without the radii in corners)
+        h = geom.get_equilateral_height(sigma)
+        # The fillet that represents each corner with radius `r`
+        f = geom.Fillet(self.R, r, phi)
+        # Template arc for corners
+        corner_pts = Drawing.get_arc(r, f.beta, rho=27)
+        # Corners: template arc in the middle of the bottom leg
+        corner_pts = ROT.from_euler('zxy', [0.5*(pi - f.beta), -HALF_PI, HALF_PI]
+                                    ).apply(corner_pts) + [0, f.d, 0]
+        # 1st corner arc
+        corner1 = ROT.from_rotvec(-0.5*phi*np.array([-sin(0.5*sigma), cos(0.5*sigma), 0.])).apply(
+            ROT.from_euler('z', 0.5*sigma-f.theta).apply(corner_pts)
         )
-        # top corner arc
-        corner2 = ROT.from_euler('x', QUART_PI - r/self.R).apply(
-            ROT.from_euler('x', HALF_PI).apply(
-                ROT.from_euler('y', pi).apply(
-                    ROT.from_euler('z', 0.5*corner_short).apply(corner_points)
-                )
-            ) + (0., d_corner, 0.)
+        # Top corner arc
+        corner2 = ROT.from_euler('x', h - f.theta).apply(
+            ROT.from_euler('y', HALF_PI).apply(corner_pts)
         )
-        # last corner arc
-        corner3 = ROT.from_euler('z', -corner_offset).apply(
-            ROT.from_euler('x', r/self.R).apply(
-                ROT.from_euler('x', HALF_PI).apply(
-                    ROT.from_euler('z', HALF_PI-corner_short).apply(
-                        ROT.from_euler('x', pi).apply(corner_points)
-                    )
-                ) + (0., d_corner, 0.)
-            )
+        # Last corner arc
+        corner3 = ROT.from_rotvec(0.5*phi*np.array([sin(0.5*sigma), cos(0.5*sigma), 0.])).apply(
+            ROT.from_euler('yz', [pi, -(0.5*sigma-f.theta)]).apply(corner_pts)
         )
-        # template arc
-        points = Drawing.get_arc(self.R, a)
+        # Main arcs are actually this long to meet tangency
+        leg_sigma = geom.angle(corner3[-1], corner1[0])
+        # Legs: template arc
+        leg_points = Drawing.get_arc(self.R, leg_sigma)
+        leg_points = ROT.from_euler('z', 0.5*(pi - leg_sigma)).apply(leg_points)
+        # Helper values for construction of the corner axes
+        caxis_s = sin(0.5*sigma)
+        caxis_c = cos(0.5*sigma)
         course = np.vstack((
-            # bottom leg
-            ROT.from_euler('z', HALF_PI - 0.5*a).apply(points),
             # first corner
             corner1,
             # ascending leg
-            ROT.from_euler('z', HALF_PI + 0.5*s).apply(
-                ROT.from_euler('x', pi - alpha).apply(
-                    ROT.from_euler('z', main_offset).apply(points))),
+            ROT.from_rotvec(-phi*np.array([-caxis_s, caxis_c, 0.])).apply(
+                ROT.from_euler('y', pi).apply(leg_points)
+            ),
             # top corner
             corner2,
             # descending leg
-            ROT.from_euler('z', HALF_PI - 0.5*s).apply(
-                ROT.from_euler('x', alpha).apply(
-                    ROT.from_euler('z', a + main_offset).apply(
-                        ROT.from_euler('x', pi).apply(points)
-                    )
-                )
+            ROT.from_rotvec(phi*np.array([caxis_s, caxis_c, 0.])).apply(
+                ROT.from_euler('y', pi).apply(leg_points)
             ),
             # last corner
-            corner3
+            corner3,
+            # bottom leg
+            leg_points
         ))
+        # Points of tangency, just for internal diagnostics
+        # tangencies = (
+        #     corner1[0], corner1[-1],
+        #     corner2[0], corner2[-1],
+        #     corner3[0], corner3[-1],
+        # )
         result = Scene()
         result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
         result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # result.add(Scatter(tangencies, size=3, color=Colors.RED))
         return result
 
     def _init_hor_eight(self):
