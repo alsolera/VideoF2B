@@ -1,6 +1,6 @@
 # VideoF2B - Draw F2B figures from video
 # Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
-# Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2020 -2021  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -449,6 +449,9 @@ class Drawing:
         '''
         nom_step = 2 * math.pi / rho
         num_pts = int(alpha / nom_step)
+        if num_pts < 3:
+            # Prevent degenerate arcs
+            num_pts = 3
         act_step = alpha / num_pts
         if act_step > nom_step:
             num_pts += 1
@@ -694,37 +697,103 @@ class Drawing:
         return result
 
     def _init_hourglass(self):
-        result = Scene()
-        # Rough first attempt based on empirical drawing in CAD.
-        # TODO: Improve this after I figure out the actual formulas.
+        '''Initialize the geometry of the hourglass.
+
+        The hourglass is just two identical equilateral spherical triangles mirroring
+        each other above/below the 45-degree latitude.  Therefore the angle subtended
+        by the ascending & descending arcs is twice the angle subtended by the top and
+        bottom arcs of the figure.  After constructing the above, we add the corner
+        radii at the bottom and top turns.
+        '''
+        # Radius of corner turns
+        r = 1.5
         # Angle subtended by one leg of the equilateral spherical triangle
-        alpha = radians(50.165)
-        # Angle by which the tilted arcs are rotated from "flat" around the 45-degree axis through the crossover point
-        beta = radians(56.5)
-        # First rotations of template arcs to get them centered on the crossover later
-        rotA = ROT.from_euler('z', 0.5*(pi-alpha))
-        rotB = ROT.from_euler('z', 0.5*(pi-2*alpha))
-        # Second rotation for the climb/descend arcs: 45deg around world X
-        rot2 = ROT.from_euler('x', QUART_PI)
-        # Template arcs
-        # Defines top & bottom traversals
-        arc1 = rotA.apply(Drawing.get_arc(self.R, alpha))
-        # Defines the climb & descend arcs
-        arc2 = rotB.apply(Drawing.get_arc(self.R, 2*alpha))
-        # Pieces of the final hourglass
-        arc_bottom = arc1
-        arc_climb = rot2.apply(ROT.from_euler('y', -(pi+beta)).apply(arc2))
-        arc_top = ROT.from_euler('x', HALF_PI).apply(arc1)
-        arc_descend = rot2.apply(ROT.from_euler('y', pi+beta).apply(arc2))
+        sigma = geom.calc_equilateral_sigma()
+        # Angle between legs of the triangle
+        phi = geom.get_equilateral_phi(sigma)
+        # The fillet that represents all four corners of the hourglass
+        f = geom.Fillet(self.R, r, phi)
+        # Template arc for corners
+        corner_pts = Drawing.get_arc(r, f.beta, rho=27)
+        # Bottom corners (1 & 4, CW): template arc in the middle of the bottom leg
+        corner_pts_bot = ROT.from_euler('zxy', [0.5*(pi-f.beta), -HALF_PI, HALF_PI]
+                                        ).apply(corner_pts) + [0, f.d, 0]
+        # Top corners (2 & 3, CCW): template arc in the middle of the top leg
+        corner_pts_top = ROT.from_euler('zx', [-HALF_PI+0.5*(pi-f.beta), pi]
+                                        ).apply(corner_pts) + [0, 0, f.d]
+        half_sigma = 0.5*sigma
+        # Corner arc 1
+        corner1 = ROT.from_rotvec(-0.5*phi*np.array([-sin(half_sigma), cos(half_sigma), 0.])).apply(
+            ROT.from_euler('z', half_sigma-f.theta).apply(corner_pts_bot)
+        )
+        # Corner arc 2
+        corner2 = ROT.from_rotvec(-0.5*phi*np.array([sin(half_sigma), 0., cos(half_sigma)])).apply(
+            ROT.from_euler('y', half_sigma-f.theta).apply(corner_pts_top)
+        )
+        # Corner arc 3
+        corner3 = ROT.from_rotvec(0.5*phi*np.array([-sin(half_sigma), 0., cos(half_sigma)])).apply(
+            ROT.from_euler('zy', [pi, -(half_sigma-f.theta)]).apply(corner_pts_top)
+        )
+        # Corner arc 4
+        corner4 = ROT.from_rotvec(0.5*phi*np.array([sin(half_sigma), cos(half_sigma), 0.])).apply(
+            ROT.from_euler('yz', [pi, -(half_sigma-f.theta)]).apply(corner_pts_bot)
+        )
+        # Angle of a diagonal arc between tangency points
+        diag_sigma = geom.angle(corner1[-1], corner2[0])
+        # Template arc for the diagonal arcs
+        diag_pts = ROT.from_euler('z', 0.5*(pi-diag_sigma)).apply(
+            Drawing.get_arc(self.R, diag_sigma)
+        )
+        # Ascending arc
+        arc_ascend = ROT.from_rotvec((pi-phi)*np.array([-sin(half_sigma), cos(half_sigma), 0])).apply(
+            ROT.from_euler('z', 1.5*sigma).apply(diag_pts)
+        )
+        # Angle of top/bottom arcs between tangency points
+        hor_sigma = geom.angle(corner2[-1], corner3[0])
+        # Bottom arc
+        arc_bot = ROT.from_euler('z', 0.5*(pi-hor_sigma)).apply(Drawing.get_arc(self.R, hor_sigma))
+        # Top arc
+        arc_top = ROT.from_euler('x', HALF_PI).apply(arc_bot)
+        # Descending arc
+        arc_descend = ROT.from_rotvec(phi*np.array([sin(half_sigma), cos(half_sigma), 0])).apply(
+            ROT.from_euler('yz', [pi, 0.5*sigma]).apply(diag_pts)
+        )
         # The full course
-        course = Polyline(
-            np.vstack((
-                arc_bottom,
-                arc_climb,
-                arc_top,
-                arc_descend
-            )), size=3, color=Colors.WHITE)
-        result.add(course)
+        course = np.vstack((
+            corner1,
+            arc_ascend,
+            corner2,
+            arc_top,
+            corner3,
+            arc_descend,
+            corner4,
+            arc_bot
+        ))
+        result = Scene()
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # ==== INTERNAL DIAGNOSTICS ONLY ===============================================
+        # Uncomment this section to draw tangency points.
+        # This results in "donuts" of green/red color at each tangency.
+        # traversal_conns = np.vstack((
+        #     arc_ascend[0], arc_ascend[-1],
+        #     arc_top[0], arc_top[-1],
+        #     arc_descend[0], arc_descend[-1],
+        #     arc_bot[0], arc_bot[-1]
+        # ))
+        # corner_conns = np.vstack((
+        #     corner1[0], corner1[-1],
+        #     corner2[0], corner2[-1],
+        #     corner3[0], corner3[-1],
+        #     corner4[0], corner4[-1],
+        # ))
+        # # Connection points at traversals: direction is red -> green
+        # result.add(Scatter(traversal_conns[0::2], size=7, color=Colors.RED))
+        # result.add(Scatter(traversal_conns[1::2], size=7, color=Colors.GREEN))
+        # # Connection points at corners: direction is red -> green
+        # result.add(Scatter(corner_conns[0::2], size=3, color=Colors.RED))
+        # result.add(Scatter(corner_conns[1::2], size=3, color=Colors.GREEN))
+        # ==== END OF INTERNAL DIAGNOSTICS =============================================
         return result
 
     def _init_ovr_eight(self):
