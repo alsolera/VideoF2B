@@ -28,6 +28,7 @@ import common
 
 logger = logging.getLogger(__name__)
 
+
 class CalCamera:
 
     def __init__(self, frame_size, calibrationPath=None,
