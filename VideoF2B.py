@@ -94,7 +94,7 @@ logger.setLevel(logging.DEBUG)
 handler = logging.handlers.RotatingFileHandler(LOG_PATH, maxBytes=10485760,
                                                backupCount=5, encoding='utf8')
 handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)7s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(name)10s - %(levelname)7s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.info('Logger started.')
