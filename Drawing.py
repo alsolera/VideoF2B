@@ -1,6 +1,6 @@
 # VideoF2B - Draw F2B figures from video
 # Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
-# Copyright (C) 2020 -2021  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2020 - 2021  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
