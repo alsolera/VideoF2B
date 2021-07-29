@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import argparse as ap
-from math import cos, degrees, pi, radians, sin, tan, sqrt
+from math import cos, degrees, pi, radians, sin, sqrt, tan
 
 import numpy as np
 
