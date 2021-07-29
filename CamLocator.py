@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # CamLocator - calculate the best location for a camera.
-# Copyright (C) 2020 -2021  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2020 - 2021  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import argparse as ap
-from math import cos, degrees, pi, radians, sin, tan, sqrt
+from math import cos, degrees, pi, radians, sin, sqrt, tan
 
 import numpy as np
 
