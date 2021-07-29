@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # calibration_fisheye - Calibrate a camera using the fisheye model.
 # Copyright (C) 2020 - 2021  Andrey Vasilik - basil96@users.noreply.github.com
 #

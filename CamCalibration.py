@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # CamCalibration - Calibrate a camera for use with VideoF2B.
 # Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
 # Copyright (C) 2020 - 2021  Andrey Vasilik - basil96@users.noreply.github.com
