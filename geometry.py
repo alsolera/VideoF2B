@@ -17,7 +17,7 @@
 
 '''General geometry related to F2B figures.'''
 
-from math import acos, asin, atan, cos, degrees, pi, radians, sqrt
+from math import acos, asin, atan, cos, degrees, pi, radians, sin, sqrt
 
 import numpy as np
 import numpy.linalg as LA
@@ -47,6 +47,7 @@ class Fillet:
         self.y_p = None
         self.d = None
         self.beta = None
+        self.is_valid = False
         self.calculate()
 
     def calculate(self):
@@ -75,18 +76,19 @@ class Fillet:
             * Find `x_p`, `y_p`, and `d`
             * Find angle `beta`.
         '''
-        self.alpha = asin(self.r / self.R)
+        self.alpha = get_cone_alpha(self.R, self.r)
         if self.psi < 2. * self.alpha or self.psi > pi:
             # Tangency is not possible
-            return False
+            self.is_valid = False
+            return
         self.theta = Fillet.get_fillet_theta(self.R, self.r, self.psi)
-        self.d = sqrt(self.R**2 - self.r**2)
+        self.d = get_cone_d(self.R, self.r)
         self.x_p = self.r / self.d * sqrt(
             (self.d**2 - self.r**2 + self.R**2 * cos(pi - self.psi)) / 2.0
         )
         self.y_p = sqrt(self.r**2 - self.x_p**2)
         self.beta = 2.0 * acos(self.x_p / self.r)
-        return True
+        self.is_valid = True
 
     @staticmethod
     def get_fillet_theta(R, r, psi):
@@ -121,6 +123,12 @@ def get_cone_alpha(R, r):
     '''Half-angle of the apex of a cone with slant height `R` and base radius `r`.'''
     alpha = asin(r / R)
     return alpha
+
+
+def get_cone_d(R, r):
+    '''Perpendicular height of a cone with slant height `R` and base radius `r`.'''
+    d = sqrt(R**2 - r**2)
+    return d
 
 
 def calc_equilateral_sigma(height=QUART_PI):
@@ -184,7 +192,7 @@ def calc_tri_loop_params(R, r, target_elev=QUART_PI):
 
 
 def angle(a, b):
-    '''Angle between two vectors.'''
+    '''Angle between two vectors in radians.'''
     inner_prod = np.inner(a, b)
     norms_prod = LA.norm(a) * LA.norm(b)
     if abs(norms_prod) < 1e-16:
@@ -192,3 +200,33 @@ def angle(a, b):
     cos_theta = inner_prod / norms_prod
     theta = acos(np.clip(cos_theta, -1., 1.))
     return theta
+
+
+def spherical_to_cartesian(p):
+    '''Convert a given point p from elevation-based spherical coordinates
+    to Cartesian coordinates.
+    Input must be an array or sequence like (`r`, `theta`, `phi`).
+    Returns an array like (`x`, `y`, `z`).
+    All angles are in radians.
+    '''
+    r, theta, phi = p[0], p[1], p[2]
+    x = r * cos(theta) * cos(phi)
+    y = r * cos(theta) * sin(phi)
+    z = r * sin(theta)
+    return np.array([x, y, z])
+
+
+def cartesian_to_spherical(p):
+    '''Convert a given XYZ point `p` from Cartesian coordinates to
+    elevation-based spherical coordinates.
+    Returns an array like (`r`, `theta`, `phi`) where
+        `r` = radius,
+        `theta` = elevation angle,
+        `phi` = azimuth angle.
+    All angles are in radians.
+    '''
+    x, y, z = p[0], p[1], p[2]
+    r = sqrt(x*x + y*y + z*z)
+    theta = atan(z / sqrt(x*x + y*y))
+    phi = atan(y/x)
+    return np.array([r, theta, phi])
