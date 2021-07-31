@@ -33,6 +33,7 @@ import geometry as geom
 from common import FigureTypes
 
 logger = logging.getLogger(__name__)
+# TODO: move these to `common`
 HALF_PI = 0.5 * pi
 QUART_PI = 0.25 * pi
 EIGHTH_PI = 0.125 * pi
@@ -250,6 +251,7 @@ class Drawing:
     DEFAULT_CENTER = np.float32([0., 0., 0.])
     # Default point density per pi (180 degrees) of arc.
     DEFAULT_N = 100
+    # TODO: corner radius should be a shared attribute here
 
     def __init__(self, detector, **kwargs):
         '''Initialize the Drawing artist instance.
@@ -264,6 +266,7 @@ class Drawing:
                 `point_density`: number of arc points per full circle.
                                  Default is Drawing.DEFAULT_N, which is 100.
         '''
+        # TODO: add instance attribute (diag_level?) to control display of diagnostics
         # Defines the visibility state of all drawn figures.
         self.figure_state = defaultdict(bool)
         self._is_center_at_origin = False
@@ -295,6 +298,7 @@ class Drawing:
             self._scenes = {}
             return
         # When the cam is located, we define lots of reference geometry.
+        # TODO: factor this out to a method for brevity in this method
         # =============== Base scene: main hemisphere and markers =============
         sc_base = Scene()
         # --- The base level (aka the equator) of flight hemisphere.
@@ -440,6 +444,8 @@ class Drawing:
         self._is_center_at_origin = (abs(self.center) < 0.01).all()
         logger.info(f'Sphere center: {self.center}')
 
+    # TODO: move this method to `geometry` module.
+    # TODO: change meaning of `rho` from angular density to circumferential (linear) density for more consistent point spacing on arcs of different radius.
     @staticmethod
     def get_arc(r, alpha, rho=100):
         '''Return 3D points for an arc of radius `r` and included angle `alpha`
@@ -515,6 +521,7 @@ class Drawing:
         tvec = self._cam.tvec
         newcameramtx = self._cam.newcameramtx
         dist_zero = self._cam.dist_zero
+        # TODO: consolidate base scene into self.figure_state to avoid this repetition below:
         # Draw the base scene
         self._scenes.get('base', DEFAULT_SCENE).draw(
             img,
@@ -559,12 +566,14 @@ class Drawing:
         n = points.shape[0]
         # Rotate template to XZ plane plus loop's tilt
         rot = ROT.from_euler('x', HALF_PI+half_angle)
+        # TODO: simplify this to return just one loop. Let the drawing `_init_*` functions handle the cosmetics of outline drawing.
         points = rot.apply(np.vstack([
             points,             # main body of loop
             points * 0.99,      # inner border
             points * 1.01       # outer border
         ]))
         # Translate template to sphere surface
+        # TODO: call `geom.get_cone_d`
         d = sqrt(self.R**2 - r_loop**2)
         points += [0., d*cos(half_angle), d*sin(half_angle)]
         return points, n
@@ -680,6 +689,7 @@ class Drawing:
         )
         return points
 
+    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_tri_loop(self):
         # Corner radius
         r = 1.5
@@ -744,8 +754,10 @@ class Drawing:
         # result.add(Scatter(tangencies, size=3, color=Colors.RED))
         return result
 
+    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_hor_eight(self):
         points, n = self._get_loop_pts()
+        # TODO: calculate the actual Z rotation angle. I took this for face value and deferred its calculation until now.
         points_right = ROT.from_euler('z', -24.47, degrees=True).apply(points)
         points_left = ROT.from_euler('z', 24.47, degrees=True).apply(points)
         border_color = Colors.GRAY20
@@ -758,6 +770,7 @@ class Drawing:
         result.add(Polyline(points_left[2*n:], size=1, color=border_color))
         return result
 
+    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_sq_eight(self):
         points = self._get_square_loop_pts()
         course = np.vstack(points)
@@ -770,6 +783,7 @@ class Drawing:
         result.add(Polyline(points_left, size=3, color=Colors.WHITE))
         return result
 
+    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_ver_eight(self):
         points_bot, n = self._get_loop_pts()
         points_top = ROT.from_euler('x', QUART_PI).apply(points_bot)
@@ -783,6 +797,7 @@ class Drawing:
         result.add(Polyline(points_top[2*n:], size=1, color=border_color))
         return result
 
+    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_hourglass(self):
         '''Initialize the geometry of the hourglass.
 
@@ -883,6 +898,7 @@ class Drawing:
         # ==== END OF INTERNAL DIAGNOSTICS =============================================
         return result
 
+    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_ovr_eight(self):
         points, n = self._get_loop_pts()
         points_right = ROT.from_euler('xy', (HALF_PI-EIGHTH_PI, EIGHTH_PI)).apply(points)
@@ -897,6 +913,7 @@ class Drawing:
         result.add(Polyline(points_left[2*n:], size=1, color=border_color))
         return result
 
+    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_clover(self):
         cone_half_angle = atan(sin(EIGHTH_PI))
         tilt_angle_top = EIGHTH_PI + QUART_PI
