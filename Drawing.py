@@ -21,7 +21,8 @@
 import logging
 import math
 from collections import defaultdict
-from math import acos, atan, atan2, cos, degrees, pi, radians, sin, sqrt
+from math import (acos, asin, atan, atan2, cos, degrees, pi, radians, sin,
+                  sqrt, tan)
 
 import cv2
 import numpy as np
@@ -569,32 +570,114 @@ class Drawing:
         return points, n
 
     def _init_square_loop(self):
-        points = self._get_square_loop_pts()
-        result = Scene(Polyline(points, size=3, color=Colors.WHITE))
+        '''Initialize the geometry of the square loop.'''
+        pieces = self._get_square_loop_pts()
+        course = np.vstack(pieces)
+        result = Scene()
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
         return result
 
     def _get_square_loop_pts(self):
-        r = self.R
-        # Radius of minor arc at 45deg elevation. Also the height of the 45deg elevation arc.
-        r45 = r * 0.7071067811865476
-        # Helper arc for the bottom flat and both laterals
-        major_arc = Drawing.get_arc(r, 0.25*math.pi)
-        # Helper arc for the top flat
-        minor_arc = Drawing.get_arc(r45, 0.25*math.pi)
-        points = np.vstack([
-            # Arc 1: bottom flat
+        '''Helper method for square loop and square eight.'''
+        # This is the most complicated of all F2B figures due to lack of overall symmetry.
+        # There is only symmetry about the vertical plane.
+        #
+        # Corner radius in m
+        r = 1.5
+        # Half-angle of apex of all corner cones
+        alpha = geom.get_cone_alpha(self.R, r)
+        # Distance from sphere center to centers of all corners
+        d = geom.get_cone_d(self.R, r)
+        # ---- Parameters of bottom corners
+        # Fillet representing the bottom corners
+        f = geom.Fillet(self.R, r, HALF_PI)
+        # Template arc for bottom corners
+        bot_corner_arc = Drawing.get_arc(r, f.beta, rho=27)
+        bot_corner = ROT.from_euler('zxy', [0.5*(pi - f.beta), -HALF_PI, HALF_PI]
+                                    ).apply(bot_corner_arc) + [0, f.d, 0]
+        # ---- Parameters of top corners
+        # Elevation of centers of the top corners
+        theta = QUART_PI - alpha
+        # Rotation of corner base cone from equator around y-axis by `omega` such that elevation of C_r = theta
+        omega = asin(sin(theta)/cos(alpha))
+        # Azimuth of C_r when corner cone is at final elevation
+        phi_cr = atan(tan(alpha)/cos(omega))
+        # Components of C_r unit vector
+        ux = cos(phi_cr) * cos(theta)
+        uy = sin(phi_cr) * cos(theta)
+        uz = sin(theta)
+        # Helper angle for determining the included angle of top corners
+        delta = acos((sin(omega)*ux*uz + cos(omega)*(ux**2+uy**2)) / sqrt(ux**2+uy**2))
+        # Included angle of top corners
+        beta = HALF_PI - delta
+        # Template arc for top corners
+        top_corner_arc = Drawing.get_arc(r, beta, rho=27)
+        # Center it on y-axis at the equator as a start
+        top_corner = ROT.from_euler('xz', [HALF_PI, pi]).apply(top_corner_arc) + [0., d, 0.]
+        # Radius of minor arc at 45deg elevation. Also the height of same arc above equator.
+        R45 = self.R * 0.5 * sqrt(2.0)
+        # ---- Corners
+        corner1 = ROT.from_rotvec(-QUART_PI*np.array([-sin(EIGHTH_PI), cos(EIGHTH_PI), 0.])).apply(
+            ROT.from_euler('z', EIGHTH_PI-f.theta).apply(bot_corner)
+        )
+        corner2 = ROT.from_euler('xz', [omega, EIGHTH_PI]).apply(
+            ROT.from_euler('z', -alpha).apply(top_corner)
+        )
+        # Corner 3: mirror of Corner 2 about YZ plane, but still CW direction
+        corner3 = ROT.from_euler('xz', [omega, -EIGHTH_PI]).apply(
+            ROT.from_euler('yz', [HALF_PI+delta, alpha]).apply(top_corner)
+        )
+        # Corner 4
+        corner4 = ROT.from_rotvec(QUART_PI*np.array([sin(EIGHTH_PI), cos(EIGHTH_PI), 0.])).apply(
+            ROT.from_euler('yz', [pi, -(EIGHTH_PI-f.theta)]).apply(bot_corner)
+        )
+        # ---- Parameters of connecting arcs
+        # Helper points to determine the central angle of each connecting arc
+        p0 = [0., 0., R45]
+        p1 = corner2[-1]
+        p2 = corner3[0]
+        # Central angle of top arc (arc 2)
+        arc2_angle = geom.angle(p1-p0, p2-p0)
+        p0 = [0., 0., 0.]
+        p1 = corner1[-1]
+        p2 = corner2[0]
+        # While we're here: calculate elevation of the lower tangency point of the laterals
+        lateral_elev = geom.cartesian_to_spherical(p1)[1]
+        # Central angle of ascending & descending laterals (arcs 1 & 3)
+        arc13_angle = geom.angle(p1-p0, p2-p0)
+        p1 = corner4[-1]
+        p2 = corner1[0]
+        # Central angle of bottom arc (arc 4)
+        arc4_angle = geom.angle(p1-p0, p2-p0)
+        # Template arc for the top flat
+        top_arc = Drawing.get_arc(R45, arc2_angle)
+        # Template arc for the bottom flat
+        arc4 = Drawing.get_arc(self.R, arc4_angle)
+        # Template arc for the laterals
+        arc13 = Drawing.get_arc(self.R, arc13_angle)
+        # ---- All the points
+        points = (
+            # Corner 1
+            corner1,
+            # Arc 1: ascending (left) lateral
+            ROT.from_euler('xz', [HALF_PI, 0.625*pi]).apply(
+                ROT.from_euler('z', lateral_elev).apply(arc13)
+            ),
+            # Corner 2
+            corner2,
+            # Arc2: top flat
+            ROT.from_euler('zy', [0.5*(pi-arc2_angle), pi]).apply(top_arc) + [0., 0., R45],
+            # Corner 3
+            corner3,
+            # Arc 3: descending (right) lateral
             ROT.from_euler(
-                'z', 0.375*math.pi).apply(major_arc),
-            # Arc 2: left lateral
-            ROT.from_euler(
-                'xz', [0.5*math.pi, 0.625*math.pi]).apply(major_arc),
-            # Arc 3: top flat
-            ROT.from_euler(
-                'zy', [0.375*math.pi, math.pi]).apply(minor_arc) + np.array((0., 0., r45)),
-            # Arc 4: right lateral
-            ROT.from_euler(
-                'xyz', [-0.5*math.pi, -0.25*math.pi, 0.375*math.pi]).apply(major_arc)
-        ])
+                'xyz', [-HALF_PI, -(arc13_angle+lateral_elev), 0.375*math.pi]).apply(arc13),
+            # Corner 4
+            corner4,
+            # Arc4: bottom flat
+            ROT.from_euler('z', 0.5*(pi - arc4_angle)).apply(arc4)
+        )
         return points
 
     def _init_tri_loop(self):
@@ -677,9 +760,12 @@ class Drawing:
 
     def _init_sq_eight(self):
         points = self._get_square_loop_pts()
-        points_right = ROT.from_euler('z', -EIGHTH_PI).apply(points)
-        points_left = ROT.from_euler('z', EIGHTH_PI).apply(points)
+        course = np.vstack(points)
+        points_right = ROT.from_euler('z', -EIGHTH_PI).apply(course)
+        points_left = ROT.from_euler('z', EIGHTH_PI).apply(course)
         result = Scene()
+        result.add(Polyline(points_right, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(points_left, size=7, color=Colors.GRAY20))  # outline border
         result.add(Polyline(points_right, size=3, color=Colors.WHITE))
         result.add(Polyline(points_left, size=3, color=Colors.WHITE))
         return result
