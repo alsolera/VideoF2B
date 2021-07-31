@@ -68,6 +68,7 @@ class TestGeometry:
         sigma, psi = geom.calc_tri_loop_params(R, r, target_elev=target)
         f = geom.Fillet(R, r, psi)
         TestGeometry.print_fillet_data(sigma, psi, f)
+        assert f.is_valid
         # assert False  # uncomment this to dump print() outputs for debugging
         '''
         ===== calc_tri_loop_params: root_finder ====================
@@ -115,6 +116,7 @@ class TestGeometry:
         sigma, psi = geom.calc_tri_loop_params(R, r, target_elev=target)
         f = geom.Fillet(R, r, psi)
         TestGeometry.print_fillet_data(sigma, psi, f)
+        assert f.is_valid
         # assert False  # uncomment this to dump print() outputs for debugging
         '''
         ===== calc_tri_loop_params: root_finder ====================
@@ -162,6 +164,7 @@ class TestGeometry:
         sigma, psi = geom.calc_tri_loop_params(R, r, target_elev=target)
         f = geom.Fillet(R, r, psi)
         TestGeometry.print_fillet_data(sigma, psi, f)
+        assert f.is_valid
         # assert False  # uncomment this to dump print() outputs for debugging
         '''
         ===== calc_tri_loop_params: root_finder ====================
@@ -203,6 +206,7 @@ class TestGeometry:
         sigma, phi = geom.calc_tri_loop_params(R, r)
         h = geom.get_equilateral_height(sigma)
         f = geom.Fillet(R, r, phi)
+        assert f.is_valid
         # Raw template points
         pts = Drawing.get_arc(r, f.beta, rho=27)
         pts_ctr = np.zeros((3,))
@@ -290,3 +294,12 @@ class TestGeometry:
             calc_h = geom.get_equilateral_height(calc_sigma)
             assert h == tolerance(calc_h)
             assert sigma == tolerance(calc_sigma)
+
+    def test_90deg_fillet(self):
+        '''Test the parameters of a fillet between two perpendicular planes, such as the bottom corners of a square loop.'''
+        f = geom.Fillet(21, 1.5, HALF_PI)
+        assert f.is_valid
+        print(f' beta = {f.beta} [{degrees(f.beta)} deg]')
+        print(f'theta = {f.theta} [{degrees(f.theta)} deg]')
+        assert radians(90.29382579819546) == f.beta
+        assert radians(5.7976363295306275) == f.theta
