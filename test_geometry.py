@@ -24,12 +24,8 @@ import pytest
 from scipy.spatial.transform import Rotation as ROT
 
 import geometry as geom
+from common import EIGHTH_PI, HALF_PI, QUART_PI, TWO_PI
 from Drawing import Drawing
-
-HALF_PI = 0.5 * pi
-QUART_PI = 0.25 * pi
-EIGHTH_PI = 0.125 * pi
-TWO_PI = 2.0 * pi
 
 # Good enough for everything we need to do
 TOL = 1.0e-15

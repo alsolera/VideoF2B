@@ -30,14 +30,9 @@ from scipy.spatial.transform import Rotation as ROT
 
 import common
 import geometry as geom
-from common import FigureTypes
+from common import EIGHTH_PI, HALF_PI, QUART_PI, TWO_PI, FigureTypes
 
 logger = logging.getLogger(__name__)
-# TODO: move these to `common`
-HALF_PI = 0.5 * pi
-QUART_PI = 0.25 * pi
-EIGHTH_PI = 0.125 * pi
-TWO_PI = 2.0 * pi
 
 
 class Colors:
