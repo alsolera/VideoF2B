@@ -297,12 +297,48 @@ class Drawing:
         if not self._cam.Located:
             self._scenes = {}
             return
-        # When the cam is located, we define lots of reference geometry.
-        # TODO: factor this out to a method for brevity in this method
-        # =============== Base scene: main hemisphere and markers =============
-        sc_base = Scene()
+        # When the cam is located, we define lots of reference geometry:
+        # ============ Base scene: main hemisphere and markers ==========
+        sc_base = self._get_base_scene()
+        # =============== Figures =======================================
+        # Loop
+        sc_loop = self._init_loop()
+        # Square loop
+        sc_sq_loop = self._init_square_loop()
+        # Triangular loop
+        sc_tri_loop = self._init_tri_loop()
+        # Horizontal eight
+        sc_hor_eight = self._init_hor_eight()
+        # Horizontal square eight
+        sc_sq_eight = self._init_sq_eight()
+        # Vertical eight
+        sc_ver_eight = self._init_ver_eight()
+        # Hourglass
+        sc_hourglass = self._init_hourglass()
+        # Overhead eight
+        sc_ovr_eight = self._init_ovr_eight()
+        # Clover
+        sc_clover = self._init_clover()
+        # =============== END OF Figures ================================
+        # Put them all together
+        self._scenes = {
+            'base': sc_base,
+            FigureTypes.INSIDE_LOOPS: sc_loop,
+            FigureTypes.INSIDE_SQUARE_LOOPS: sc_sq_loop,
+            FigureTypes.INSIDE_TRIANGULAR_LOOPS: sc_tri_loop,
+            FigureTypes.HORIZONTAL_EIGHTS: sc_hor_eight,
+            FigureTypes.HORIZONTAL_SQUARE_EIGHTS: sc_sq_eight,
+            FigureTypes.VERTICAL_EIGHTS: sc_ver_eight,
+            FigureTypes.HOURGLASS: sc_hourglass,
+            FigureTypes.OVERHEAD_EIGHTS: sc_ovr_eight,
+            FigureTypes.FOUR_LEAF_CLOVER: sc_clover
+        }
+
+    def _get_base_scene(self):
+        '''Base scene: main hemisphere and markers.'''
+        result = Scene()
         # --- The base level (aka the equator) of flight hemisphere.
-        sc_base.add(Polyline(Drawing.get_arc(self.R, TWO_PI), size=1, color=Colors.WHITE))
+        result.add(Polyline(Drawing.get_arc(self.R, TWO_PI), size=1, color=Colors.WHITE))
         # --- All the meridians of the flight hemisphere.
         # rot for initial meridian in YZ plane
         rot0 = ROT.from_euler('xz', [HALF_PI, HALF_PI])
@@ -312,7 +348,7 @@ class Drawing:
             # rot for orienting each meridian
             rot1 = ROT.from_euler('z', angle, degrees=True)
             pts = rot1.apply(rot0.apply(self.get_arc(self.R, pi)))
-            sc_base.add(Polyline(pts, size=1, color=color))
+            result.add(Polyline(pts, size=1, color=color))
         # --- The coordinate axis reference at sphere center
         if self.axis:
             # XYZ sphere axes
@@ -322,13 +358,13 @@ class Drawing:
                 [0, 2, 0],
                 [0, 0, 5]
             ])
-            sc_base.add(Polyline((p[0], p[1]), size=1, color=Colors.RED))
-            sc_base.add(Polyline((p[0], p[2]), size=1, color=Colors.GREEN))
-            sc_base.add(Polyline((p[0], p[3]), size=1, color=Colors.BLUE))
+            result.add(Polyline((p[0], p[1]), size=1, color=Colors.RED))
+            result.add(Polyline((p[0], p[2]), size=1, color=Colors.GREEN))
+            result.add(Polyline((p[0], p[3]), size=1, color=Colors.BLUE))
         # --- 45-degree elevation circle
         r45 = self.R * cos(QUART_PI)
         elev_circle = Drawing.get_arc(r45, TWO_PI) + (0, 0, r45)
-        sc_base.add(Polyline(elev_circle, size=1, color=Colors.GREEN))
+        result.add(Polyline(elev_circle, size=1, color=Colors.GREEN))
         # --- The upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.
         tol = 0.3
         # Radius of the tolerance circles is equivalent to the axis height of a cone whose radius is `tol`.
@@ -337,10 +373,10 @@ class Drawing:
         pts_lower = tol_pts - [0., 0., tol]
         pts_upper = tol_pts + [0., 0., tol]
         color = (214, 214, 214)
-        sc_base.add(DashedPolyline(pts_lower, size=1, color=color))
-        sc_base.add(DashedPolyline(pts_upper, size=1, color=color))
+        result.add(DashedPolyline(pts_lower, size=1, color=color))
+        result.add(DashedPolyline(pts_upper, size=1, color=color))
         # --- The edge outline of the flight sphere as seen from camera's perspective.
-        sc_base.add(EdgePolyline(self.R, self._cam.cam_pos, size=1, color=Colors.MAGENTA))
+        result.add(EdgePolyline(self.R, self._cam.cam_pos, size=1, color=Colors.MAGENTA))
         # --- Reference points and markers (fixed in world space)
         r45 = self._cam.markRadius * cos(QUART_PI)
         marker_size_x = 0.20  # marker width, in m
@@ -387,45 +423,10 @@ class Drawing:
                 [-r45 + 0.5 * marker_size_x, r45, -0.5 * marker_size_z],
             ]),
             size=1, color=Colors.GREEN, is_fixed=True)
-        sc_base.add(pts_ref)
-        sc_base.add(mrk_center)
-        sc_base.add(mrk_perimeter)
-        # =============== END OF base scene ===================================
-
-        # =============== Figures =============================================
-        # Loop
-        sc_loop = self._init_loop()
-        # Square loop
-        sc_sq_loop = self._init_square_loop()
-        # Triangular loop
-        sc_tri_loop = self._init_tri_loop()
-        # Horizontal eight
-        sc_hor_eight = self._init_hor_eight()
-        # Horizontal square eight
-        sc_sq_eight = self._init_sq_eight()
-        # Vertical eight
-        sc_ver_eight = self._init_ver_eight()
-        # Hourglass
-        sc_hourglass = self._init_hourglass()
-        # Overhead eight
-        sc_ovr_eight = self._init_ovr_eight()
-        # Clover
-        sc_clover = self._init_clover()
-        # =============== END OF Figures ======================================
-
-        # Put them all together
-        self._scenes = {
-            'base': sc_base,
-            FigureTypes.INSIDE_LOOPS: sc_loop,
-            FigureTypes.INSIDE_SQUARE_LOOPS: sc_sq_loop,
-            FigureTypes.INSIDE_TRIANGULAR_LOOPS: sc_tri_loop,
-            FigureTypes.HORIZONTAL_EIGHTS: sc_hor_eight,
-            FigureTypes.HORIZONTAL_SQUARE_EIGHTS: sc_sq_eight,
-            FigureTypes.VERTICAL_EIGHTS: sc_ver_eight,
-            FigureTypes.HOURGLASS: sc_hourglass,
-            FigureTypes.OVERHEAD_EIGHTS: sc_ovr_eight,
-            FigureTypes.FOUR_LEAF_CLOVER: sc_clover
-        }
+        result.add(pts_ref)
+        result.add(mrk_center)
+        result.add(mrk_perimeter)
+        return result
 
     def MoveCenterX(self, delta):
         self.center[0] += delta
