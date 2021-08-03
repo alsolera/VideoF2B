@@ -204,7 +204,7 @@ class TestGeometry:
         f = geom.Fillet(R, r, phi)
         assert f.is_valid
         # Raw template points
-        pts = Drawing.get_arc(r, f.beta, rho=27)
+        pts = geom.get_arc(r, f.beta, rho=27)
         pts_ctr = np.zeros((3,))
         # Starting template arc in the middle of the bottom leg
         pts = ROT.from_euler('zxy', [0.5*(pi - f.beta), -HALF_PI, HALF_PI]
