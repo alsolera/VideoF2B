@@ -608,7 +608,7 @@ class Drawing:
         # ---- Parameters of top corners
         # Elevation of centers of the top corners
         theta = QUART_PI - alpha
-        # Rotation of corner base cone from equator around y-axis by `omega` such that elevation of C_r = theta
+        # Rotation of corner base cone from equator around x-axis by `omega` such that elevation of C_r = theta
         omega = asin(sin(theta)/cos(alpha))
         # Azimuth of C_r when corner cone is at final elevation
         phi_cr = atan(tan(alpha)/cos(omega))
