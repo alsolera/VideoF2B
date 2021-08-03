@@ -272,12 +272,13 @@ class Drawing:
         self.center = None
         self.axis = kwargs.pop('axis', False)
         self._point_density = None
+        self._scenes = {}
         self.Locate(self._cam, **kwargs)
-        self._init_scenes()
 
     def Locate(self, cam, **kwargs):
         '''Locate a new camera or relocate an existing one.'''
         self._cam = cam
+        self.figure_state['base'] = False
         if self._cam is not None and self._cam.Located:
             self.R = self._cam.flightRadius
             self.marker_radius = self._cam.markRadius
@@ -286,12 +287,10 @@ class Drawing:
             self.center = np.float32(center)
             self._evaluate_center()
             self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
+            self.figure_state['base'] = True
             self._init_scenes()
 
     def _init_scenes(self):
-        if not self._cam.Located:
-            self._scenes = {}
-            return
         # When the cam is located, we define lots of reference geometry:
         # ============ Base scene: main hemisphere and markers ==========
         sc_base = self._get_base_scene()
@@ -488,16 +487,6 @@ class Drawing:
         tvec = self._cam.tvec
         newcameramtx = self._cam.newcameramtx
         dist_zero = self._cam.dist_zero
-        # TODO: consolidate base scene into self.figure_state to avoid this repetition below:
-        # Draw the base scene
-        self._scenes.get('base', DEFAULT_SCENE).draw(
-            img,
-            (azimuth_delta, center),
-            rvec=rvec,
-            tvec=tvec,
-            cameraMatrix=newcameramtx,
-            distCoeffs=dist_zero
-        )
         # Draw selected figures
         for ftype, fflag in self.figure_state.items():
             if fflag:
