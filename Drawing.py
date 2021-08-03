@@ -757,9 +757,15 @@ class Drawing:
     # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_hor_eight(self):
         points, n = self._get_loop_pts()
-        # TODO: calculate the actual Z rotation angle. I took this for face value and deferred its calculation until now.
-        points_right = ROT.from_euler('z', -24.47, degrees=True).apply(points)
-        points_left = ROT.from_euler('z', 24.47, degrees=True).apply(points)
+        # The Z rotation angle of each loop to satisfy tangency for a horizontal eight.
+        # NOTE:
+        # Technically, this should be the `phi_cr` calculation like in `_get_square_loop_pts`,
+        # but the formulas for `omega` and `phi_cr` are identical when `theta` == `alpha`.
+        # Such is the case with simple loops.
+        # Hence, we use the simpler of the two calculations (omega).
+        phi = asin(tan(EIGHTH_PI))
+        points_right = ROT.from_euler('z', -phi).apply(points)
+        points_left = ROT.from_euler('z', phi).apply(points)
         border_color = Colors.GRAY20
         result = Scene()
         result.add(Polyline(points_right[:n], size=3, color=Colors.WHITE))
