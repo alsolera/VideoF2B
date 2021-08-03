@@ -333,7 +333,7 @@ class Drawing:
         '''Base scene: main hemisphere and markers.'''
         result = Scene()
         # --- The base level (aka the equator) of flight hemisphere.
-        result.add(Polyline(Drawing.get_arc(self.R, TWO_PI), size=1, color=Colors.WHITE))
+        result.add(Polyline(geom.get_arc(self.R, TWO_PI), size=1, color=Colors.WHITE))
         # --- All the meridians of the flight hemisphere.
         # rot for initial meridian in YZ plane
         rot0 = ROT.from_euler('xz', [HALF_PI, HALF_PI])
@@ -342,7 +342,7 @@ class Drawing:
             color = (gray, gray, gray)
             # rot for orienting each meridian
             rot1 = ROT.from_euler('z', angle, degrees=True)
-            pts = rot1.apply(rot0.apply(self.get_arc(self.R, pi)))
+            pts = rot1.apply(rot0.apply(geom.get_arc(self.R, pi)))
             result.add(Polyline(pts, size=1, color=color))
         # --- The coordinate axis reference at sphere center
         if self.axis:
@@ -358,13 +358,13 @@ class Drawing:
             result.add(Polyline((p[0], p[3]), size=1, color=Colors.BLUE))
         # --- 45-degree elevation circle
         r45 = self.R * cos(QUART_PI)
-        elev_circle = Drawing.get_arc(r45, TWO_PI) + (0, 0, r45)
+        elev_circle = geom.get_arc(r45, TWO_PI) + (0, 0, r45)
         result.add(Polyline(elev_circle, size=1, color=Colors.GREEN))
         # --- The upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.
         tol = 0.3
         # Radius of the tolerance circles is equivalent to the axis height of a cone whose radius is `tol`.
         r_tol = geom.get_cone_d(self.R, tol)
-        tol_pts = Drawing.get_arc(r_tol, TWO_PI, 200)
+        tol_pts = geom.get_arc(r_tol, TWO_PI, 200)
         pts_lower = tol_pts - [0., 0., tol]
         pts_upper = tol_pts + [0., 0., tol]
         color = (214, 214, 214)
@@ -440,36 +440,6 @@ class Drawing:
         self.center = self.center.round(1)
         self._is_center_at_origin = (abs(self.center) < 0.01).all()
         logger.info(f'Sphere center: {self.center}')
-
-    # TODO: move this method to `geometry` module.
-    # TODO: change meaning of `rho` from angular density to circumferential (linear) density for more consistent point spacing on arcs of different radius.
-    @staticmethod
-    def get_arc(r, alpha, rho=100):
-        '''Return 3D points for an arc of radius `r` and included angle `alpha`
-        with point density `rho`, where `rho` is number of points per 2*pi.
-        Arc center is (0, 0, 0).  The arc lies in the XY plane.
-        Arc starts at zero angle, i.e., at (r, 0, 0) coordinate, and ends CCW at `alpha`.
-        Angle measurements are in radians.
-        Endpoint is always included.
-        '''
-        nom_step = 2 * math.pi / rho
-        num_pts = int(alpha / nom_step)
-        if num_pts < 3:
-            # Prevent degenerate arcs
-            num_pts = 3
-        act_step = alpha / num_pts
-        if act_step > nom_step:
-            num_pts += 1
-            act_step = alpha / num_pts
-        pts = np.array(
-            [
-                (r*cos(act_step*t),
-                 r*sin(act_step*t),
-                 0.0)
-                for t in range(num_pts + 1)
-            ]
-        )
-        return pts
 
     @staticmethod
     def _get_track_color(x, x_max):
@@ -559,7 +529,7 @@ class Drawing:
             half_angle = EIGHTH_PI
         r_loop = self.R * sin(half_angle)
         # Loop template
-        points = self.get_arc(r_loop, TWO_PI)
+        points = geom.get_arc(r_loop, TWO_PI)
         n = points.shape[0]
         # Rotate template to XZ plane plus loop's tilt
         rot = ROT.from_euler('x', HALF_PI+half_angle)
@@ -598,7 +568,7 @@ class Drawing:
         # Fillet representing the bottom corners
         f = geom.Fillet(self.R, r, HALF_PI)
         # Template arc for bottom corners
-        bot_corner_arc = Drawing.get_arc(r, f.beta, rho=27)
+        bot_corner_arc = geom.get_arc(r, f.beta, rho=27)
         bot_corner = ROT.from_euler('zxy', [0.5*(pi - f.beta), -HALF_PI, HALF_PI]
                                     ).apply(bot_corner_arc) + [0, f.d, 0]
         # ---- Parameters of top corners
@@ -616,7 +586,7 @@ class Drawing:
         # Included angle of top corners
         beta = HALF_PI - delta
         # Template arc for top corners
-        top_corner_arc = Drawing.get_arc(r, beta, rho=27)
+        top_corner_arc = geom.get_arc(r, beta, rho=27)
         # Center it on y-axis at the equator as a start
         top_corner = ROT.from_euler('xz', [HALF_PI, pi]).apply(top_corner_arc) + [0., d, 0.]
         # Radius of minor arc at 45deg elevation. Also the height of same arc above equator.
@@ -655,11 +625,11 @@ class Drawing:
         # Central angle of bottom arc (arc 4)
         arc4_angle = geom.angle(p1-p0, p2-p0)
         # Template arc for the top flat
-        top_arc = Drawing.get_arc(R45, arc2_angle)
+        top_arc = geom.get_arc(R45, arc2_angle)
         # Template arc for the bottom flat
-        arc4 = Drawing.get_arc(self.R, arc4_angle)
+        arc4 = geom.get_arc(self.R, arc4_angle)
         # Template arc for the laterals
-        arc13 = Drawing.get_arc(self.R, arc13_angle)
+        arc13 = geom.get_arc(self.R, arc13_angle)
         # ---- All the points
         points = (
             # Corner 1
@@ -695,7 +665,7 @@ class Drawing:
         # The fillet that represents each corner with radius `r`
         f = geom.Fillet(self.R, r, phi)
         # Template arc for corners
-        corner_pts = Drawing.get_arc(r, f.beta, rho=27)
+        corner_pts = geom.get_arc(r, f.beta, rho=27)
         # Corners: template arc in the middle of the bottom leg
         corner_pts = ROT.from_euler('zxy', [0.5*(pi - f.beta), -HALF_PI, HALF_PI]
                                     ).apply(corner_pts) + [0, f.d, 0]
@@ -714,7 +684,7 @@ class Drawing:
         # Main arcs are actually this long to meet tangency
         leg_sigma = geom.angle(corner3[-1], corner1[0])
         # Legs: template arc
-        leg_points = Drawing.get_arc(self.R, leg_sigma)
+        leg_points = geom.get_arc(self.R, leg_sigma)
         leg_points = ROT.from_euler('z', 0.5*(pi - leg_sigma)).apply(leg_points)
         # Helper values for construction of the corner axes
         caxis_s = sin(0.5*sigma)
@@ -817,7 +787,7 @@ class Drawing:
         # The fillet that represents all four corners of the hourglass
         f = geom.Fillet(self.R, r, phi)
         # Template arc for corners
-        corner_pts = Drawing.get_arc(r, f.beta, rho=27)
+        corner_pts = geom.get_arc(r, f.beta, rho=27)
         # Bottom corners (1 & 4, CW): template arc in the middle of the bottom leg
         corner_pts_bot = ROT.from_euler('zxy', [0.5*(pi-f.beta), -HALF_PI, HALF_PI]
                                         ).apply(corner_pts) + [0, f.d, 0]
@@ -845,7 +815,7 @@ class Drawing:
         diag_sigma = geom.angle(corner1[-1], corner2[0])
         # Template arc for the diagonal arcs
         diag_pts = ROT.from_euler('z', 0.5*(pi-diag_sigma)).apply(
-            Drawing.get_arc(self.R, diag_sigma)
+            geom.get_arc(self.R, diag_sigma)
         )
         # Ascending arc
         arc_ascend = ROT.from_rotvec((pi-phi)*np.array([-sin(half_sigma), cos(half_sigma), 0])).apply(
@@ -854,7 +824,7 @@ class Drawing:
         # Angle of top/bottom arcs between tangency points
         hor_sigma = geom.angle(corner2[-1], corner3[0])
         # Bottom arc
-        arc_bot = ROT.from_euler('z', 0.5*(pi-hor_sigma)).apply(Drawing.get_arc(self.R, hor_sigma))
+        arc_bot = ROT.from_euler('z', 0.5*(pi-hor_sigma)).apply(geom.get_arc(self.R, hor_sigma))
         # Top arc
         arc_top = ROT.from_euler('x', HALF_PI).apply(arc_bot)
         # Descending arc
@@ -938,7 +908,7 @@ class Drawing:
                 ROT.from_euler('z', -cone_half_angle).apply(points))
         )
         # template arc for the connecting paths: centered azimuthally, lying in the XY plane
-        arc = ROT.from_euler('z', QUART_PI+EIGHTH_PI).apply(Drawing.get_arc(self.R, QUART_PI))
+        arc = ROT.from_euler('z', QUART_PI+EIGHTH_PI).apply(geom.get_arc(self.R, QUART_PI))
         # arc that connects left and right halves
         arc_horz = ROT.from_euler('x', QUART_PI).apply(arc)
         # arc that connects top and bottom halves

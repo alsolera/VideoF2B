@@ -23,7 +23,7 @@ import numpy as np
 import numpy.linalg as LA
 from scipy.optimize import fsolve
 
-QUART_PI = 0.25 * pi
+from common import QUART_PI, TWO_PI
 
 
 class Fillet:
@@ -101,6 +101,35 @@ class Fillet:
             )
         )
         return theta
+
+
+def get_arc(r, alpha, rho=100):
+    # TODO: change meaning of `rho` from angular density to circumferential (linear) density for more consistent point spacing on arcs of different radius.
+    '''Return 3D points for an arc of radius `r` and included angle `alpha`
+    with point density `rho`, where `rho` is number of points per 2*pi.
+    Arc center is (0, 0, 0).  The arc lies in the XY plane.
+    Arc starts at zero angle, i.e., at (r, 0, 0) coordinate, and ends CCW at `alpha`.
+    Angle measurements are in radians.
+    Endpoint is always included.
+    '''
+    nom_step = TWO_PI / rho
+    num_pts = int(alpha / nom_step)
+    if num_pts < 3:
+        # Prevent degenerate arcs
+        num_pts = 3
+    act_step = alpha / num_pts
+    if act_step > nom_step:
+        num_pts += 1
+        act_step = alpha / num_pts
+    pts = np.array(
+        [
+            (r*cos(act_step*t),
+                r*sin(act_step*t),
+                0.0)
+            for t in range(num_pts + 1)
+        ]
+    )
+    return pts
 
 
 def get_equilateral_phi(sigma):
