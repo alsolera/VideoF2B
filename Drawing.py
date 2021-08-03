@@ -331,7 +331,8 @@ class Drawing:
         sc_base.add(Polyline(elev_circle, size=1, color=Colors.GREEN))
         # --- The upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.
         tol = 0.3
-        r_tol = sqrt(self.R**2 - tol**2)
+        # Radius of the tolerance circles is equivalent to the axis height of a cone whose radius is `tol`.
+        r_tol = geom.get_cone_d(self.R, tol)
         tol_pts = Drawing.get_arc(r_tol, TWO_PI, 200)
         pts_lower = tol_pts - [0., 0., tol]
         pts_upper = tol_pts + [0., 0., tol]
@@ -573,8 +574,7 @@ class Drawing:
             points * 1.01       # outer border
         ]))
         # Translate template to sphere surface
-        # TODO: call `geom.get_cone_d`
-        d = sqrt(self.R**2 - r_loop**2)
+        d = geom.get_cone_d(self.R, r_loop)
         points += [0., d*cos(half_angle), d*sin(half_angle)]
         return points, n
 
@@ -612,12 +612,11 @@ class Drawing:
         omega = asin(sin(theta)/cos(alpha))
         # Azimuth of C_r when corner cone is at final elevation
         phi_cr = atan(tan(alpha)/cos(omega))
-        # Components of C_r unit vector
-        ux = cos(phi_cr) * cos(theta)
-        uy = sin(phi_cr) * cos(theta)
-        uz = sin(theta)
+        # Components of C_r unit vector in Cartesian coords
+        ux, uy, uz = geom.spherical_to_cartesian((1.0, theta, phi_cr))
+        uxx_uyy = ux**2+uy**2
         # Helper angle for determining the included angle of top corners
-        delta = acos((sin(omega)*ux*uz + cos(omega)*(ux**2+uy**2)) / sqrt(ux**2+uy**2))
+        delta = acos((sin(omega)*ux*uz + cos(omega)*uxx_uyy) / sqrt(uxx_uyy))
         # Included angle of top corners
         beta = HALF_PI - delta
         # Template arc for top corners
