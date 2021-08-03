@@ -512,13 +512,11 @@ class Drawing:
                 )
 
     def _init_loop(self):
-        points, n = self._get_loop_pts()
-        border_color = Colors.GRAY20
+        points = self._get_loop_pts()
         result = Scene()
         # Wide white band with narrom gray outline
-        result.add(Polyline(points[:n], size=3, color=Colors.WHITE))
-        result.add(Polyline(points[n:2*n], size=1, color=border_color))
-        result.add(Polyline(points[2*n:], size=1, color=border_color))
+        result.add(Polyline(points, size=7, color=Colors.GRAY20))
+        result.add(Polyline(points, size=3, color=Colors.WHITE))
         return result
 
     def _get_loop_pts(self, half_angle=None):
@@ -530,19 +528,13 @@ class Drawing:
         r_loop = self.R * sin(half_angle)
         # Loop template
         points = geom.get_arc(r_loop, TWO_PI)
-        n = points.shape[0]
         # Rotate template to XZ plane plus loop's tilt
         rot = ROT.from_euler('x', HALF_PI+half_angle)
-        # TODO: simplify this to return just one loop. Let the drawing `_init_*` functions handle the cosmetics of outline drawing.
-        points = rot.apply(np.vstack([
-            points,             # main body of loop
-            points * 0.99,      # inner border
-            points * 1.01       # outer border
-        ]))
+        points = rot.apply(points)
         # Translate template to sphere surface
         d = geom.get_cone_d(self.R, r_loop)
         points += [0., d*cos(half_angle), d*sin(half_angle)]
-        return points, n
+        return points
 
     def _init_square_loop(self):
         '''Initialize the geometry of the square loop.'''
@@ -721,7 +713,7 @@ class Drawing:
 
     # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_hor_eight(self):
-        points, n = self._get_loop_pts()
+        points = self._get_loop_pts()
         # The Z rotation angle of each loop to satisfy tangency for a horizontal eight.
         # NOTE:
         # Technically, this should be the `phi_cr` calculation like in `_get_square_loop_pts`,
@@ -731,14 +723,11 @@ class Drawing:
         phi = asin(tan(EIGHTH_PI))
         points_right = ROT.from_euler('z', -phi).apply(points)
         points_left = ROT.from_euler('z', phi).apply(points)
-        border_color = Colors.GRAY20
         result = Scene()
-        result.add(Polyline(points_right[:n], size=3, color=Colors.WHITE))
-        result.add(Polyline(points_right[n:2*n], size=1, color=border_color))
-        result.add(Polyline(points_right[2*n:], size=1, color=border_color))
-        result.add(Polyline(points_left[:n], size=3, color=Colors.WHITE))
-        result.add(Polyline(points_left[n:2*n], size=1, color=border_color))
-        result.add(Polyline(points_left[2*n:], size=1, color=border_color))
+        result.add(Polyline(points_right, size=7, color=Colors.GRAY20))
+        result.add(Polyline(points_left, size=7, color=Colors.GRAY20))
+        result.add(Polyline(points_right, size=3, color=Colors.WHITE))
+        result.add(Polyline(points_left, size=3, color=Colors.WHITE))
         return result
 
     # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
@@ -756,16 +745,13 @@ class Drawing:
 
     # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_ver_eight(self):
-        points_bot, n = self._get_loop_pts()
+        points_bot = self._get_loop_pts()
         points_top = ROT.from_euler('x', QUART_PI).apply(points_bot)
-        border_color = Colors.GRAY20
         result = Scene()
-        result.add(Polyline(points_bot[:n], size=3, color=Colors.WHITE))
-        result.add(Polyline(points_bot[n:2*n], size=1, color=border_color))
-        result.add(Polyline(points_bot[2*n:], size=1, color=border_color))
-        result.add(Polyline(points_top[:n], size=3, color=Colors.WHITE))
-        result.add(Polyline(points_top[n:2*n], size=1, color=border_color))
-        result.add(Polyline(points_top[2*n:], size=1, color=border_color))
+        result.add(Polyline(points_bot, size=7, color=Colors.GRAY20))
+        result.add(Polyline(points_top, size=7, color=Colors.GRAY20))
+        result.add(Polyline(points_bot, size=3, color=Colors.WHITE))
+        result.add(Polyline(points_top, size=3, color=Colors.WHITE))
         return result
 
     # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
@@ -871,17 +857,14 @@ class Drawing:
 
     # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_ovr_eight(self):
-        points, n = self._get_loop_pts()
+        points = self._get_loop_pts()
         points_right = ROT.from_euler('xy', (HALF_PI-EIGHTH_PI, EIGHTH_PI)).apply(points)
         points_left = ROT.from_euler('y', -QUART_PI).apply(points_right)
-        border_color = Colors.GRAY20
         result = Scene()
-        result.add(Polyline(points_right[:n], size=3, color=Colors.WHITE))
-        result.add(Polyline(points_right[n:2*n], size=1, color=border_color))
-        result.add(Polyline(points_right[2*n:], size=1, color=border_color))
-        result.add(Polyline(points_left[:n], size=3, color=Colors.WHITE))
-        result.add(Polyline(points_left[n:2*n], size=1, color=border_color))
-        result.add(Polyline(points_left[2*n:], size=1, color=border_color))
+        result.add(Polyline(points_right, size=7, color=Colors.GRAY20))
+        result.add(Polyline(points_left, size=7, color=Colors.GRAY20))
+        result.add(Polyline(points_right, size=3, color=Colors.WHITE))
+        result.add(Polyline(points_left, size=3, color=Colors.WHITE))
         return result
 
     # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
@@ -894,7 +877,7 @@ class Drawing:
         # distance from sphere center to center of each loop
         d = self.R * cos(cone_half_angle)
         # template loop with center at equator
-        points, n = self._get_loop_pts(cone_half_angle)
+        points = self._get_loop_pts(cone_half_angle)
         points = ROT.from_euler('x', -cone_half_angle).apply(points)
         # clover loops in the order they are performed
         loops = (
@@ -916,10 +899,13 @@ class Drawing:
         # Create the scene
         border_color = Colors.GRAY20
         result = Scene()
-        for loop in loops:
-            result.add(Polyline(loop[:n], size=3, color=Colors.WHITE))
-            result.add(Polyline(loop[n:2*n], size=1, color=border_color))
-            result.add(Polyline(loop[2*n:], size=1, color=border_color))
+        # Draw connectors behind the loops
+        result.add(Polyline(arc_horz, size=7, color=Colors.GRAY20))
+        result.add(Polyline(arc_vert, size=7, color=Colors.GRAY20))
         result.add(Polyline(arc_horz, size=3, color=Colors.WHITE))
         result.add(Polyline(arc_vert, size=3, color=Colors.WHITE))
+        # Draw the loops on top
+        for loop in loops:
+            result.add(Polyline(loop, size=7, color=Colors.GRAY20))
+            result.add(Polyline(loop, size=3, color=Colors.WHITE))
         return result
