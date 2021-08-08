@@ -218,15 +218,33 @@ class Scene:
 
     def __init__(self, *items):
         self._items = list(items)
+        self._diags = []
+        self._diags_on = False
+
+    @property
+    def DiagsOn(self):
+        '''Boolean flag that controls drawing of diagnostics.'''
+        return self._diags_on
+
+    @DiagsOn.setter
+    def DiagsOn(self, value):
+        self._diags_on = value
 
     def add(self, item):
         '''Add an item to this scene.'''
         self._items.append(item)
 
+    def add_diag(self, item):
+        '''Add a diagnostic item to this scene.'''
+        self._diags.append(item)
+
     def draw(self, img, key, **kwargs):
         '''Draw this scene in the given image.'''
         for item in self._items:
             img = item.draw(img, key, **kwargs)
+        if self._diags_on:
+            for diag in self._diags:
+                img = diag.draw(img, key, **kwargs)
         return img
 
 
@@ -261,7 +279,6 @@ class Drawing:
                 `point_density`: number of arc points per full circle.
                                  Default is Drawing.DEFAULT_N, which is 100.
         '''
-        # TODO: add instance attribute (diag_level?) to control display of diagnostics
         # Defines the visibility state of all drawn figures.
         self.figure_state = defaultdict(bool)
         self._is_center_at_origin = False
@@ -272,8 +289,21 @@ class Drawing:
         self.center = None
         self.axis = kwargs.pop('axis', False)
         self._point_density = None
+        self._draw_diags = False
         self._scenes = {}
         self.Locate(self._cam, **kwargs)
+
+    @property
+    def DrawDiags(self):
+        return self._draw_diags
+
+    @DrawDiags.setter
+    def DrawDiags(self, val):
+        if val == self._draw_diags:
+            # Don't waste our time
+            return
+        self._draw_diags = val
+        self._sync_scene_diags()
 
     def Locate(self, cam, **kwargs):
         '''Locate a new camera or relocate an existing one.'''
@@ -327,6 +357,12 @@ class Drawing:
             FigureTypes.OVERHEAD_EIGHTS: sc_ovr_eight,
             FigureTypes.FOUR_LEAF_CLOVER: sc_clover
         }
+        self._sync_scene_diags()
+
+    def _sync_scene_diags(self):
+        '''Sync the scene diagnostics flag with our flag.'''
+        for scene in self._scenes.values():
+            scene.DiagsOn = self._draw_diags
 
     def _get_base_scene(self):
         '''Base scene: main hemisphere and markers.'''
@@ -500,42 +536,74 @@ class Drawing:
                     distCoeffs=dist_zero
                 )
 
-    def _init_loop(self):
-        points = self._get_loop_pts()
-        result = Scene()
-        # Wide white band with narrom gray outline
-        result.add(Polyline(points, size=7, color=Colors.GRAY20))
-        result.add(Polyline(points, size=3, color=Colors.WHITE))
-        return result
-
-    def _get_loop_pts(self, half_angle=None):
-        '''Helper method. Returns the points for a loop of specified cone half-angle on the sphere.
-        If the angle is not specified, a basic 45-degree loop is generated.'''
+    def _get_base_loop_pts(self, half_angle=None, cw=False):
+        '''Helper method for generating a basic loop of specified cone half-angle on the sphere.
+        If the angle is not specified, a basic 45-degree loop is generated.
+        Start & end points are at the bottom.
+        If `cw` is True, generate a clockwise loop. Default is counterclockwise.'''
         # Loop radius: default is a basic 45-deg loop
         if half_angle is None:
             half_angle = EIGHTH_PI
         r_loop = self.R * sin(half_angle)
         # Loop template
         points = geom.get_arc(r_loop, TWO_PI)
-        # Rotate template to XZ plane plus loop's tilt
-        rot = ROT.from_euler('x', HALF_PI+half_angle)
-        points = rot.apply(points)
+        if cw:
+            points = ROT.from_euler('x', pi).apply(points)
+        # Rotate template to XZ plane
+        points = ROT.from_euler('zx', [-HALF_PI, HALF_PI]).apply(points)
         # Translate template to sphere surface
         d = geom.get_cone_d(self.R, r_loop)
-        points += [0., d*cos(half_angle), d*sin(half_angle)]
+        points += [0., d, 0.]
         return points
 
+    def _add_diag_connections(self, scene, pieces):
+        '''This results in "donuts" of green/red color at each connection.
+        If points at a connection do not meet, then that donut's ID/OD
+        will not appear concentric. Use for visual diagnostics.'''
+        # Grab first and last point of each piece
+        conns = np.vstack([(egg[0], egg[-1]) for egg in pieces])
+        if len(pieces) == 1:
+            scene.add_diag(Scatter(conns[1], size=7, color=Colors.GREEN))
+            scene.add_diag(Scatter(conns[0], size=3, color=Colors.RED))
+        else:
+            # Connection points at traversals: direction is red -> green
+            scene.add_diag(Scatter(conns[2::4], size=7, color=Colors.RED))
+            scene.add_diag(Scatter(conns[3::4], size=7, color=Colors.GREEN))
+            # Connection points at corners: direction is red -> green
+            scene.add_diag(Scatter(conns[0::4], size=3, color=Colors.RED))
+        if len(pieces) > 2:
+            scene.add_diag(Scatter(conns[1::4], size=3, color=Colors.GREEN))
+        return
+
+    def _init_loop(self):
+        '''Initialize the scene of the basic loop.'''
+        pieces = self._get_loop_pts()
+        course = np.vstack(pieces)
+        result = Scene()
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
+        return result
+
+    def _get_loop_pts(self):
+        '''Helper method for generating the basic loop.'''
+        points = ROT.from_euler('x', EIGHTH_PI).apply(self._get_base_loop_pts())
+        return (points,)
+
     def _init_square_loop(self):
-        '''Initialize the geometry of the square loop.'''
+        '''Initialize the scene of the square loop.'''
         pieces = self._get_square_loop_pts()
         course = np.vstack(pieces)
         result = Scene()
         result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
         result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
         return result
 
     def _get_square_loop_pts(self):
-        '''Helper method for square loop and square eight.'''
+        '''Helper method for generating the square loop and square eight.'''
         # This is the most complicated of all F2B figures due to lack of overall symmetry.
         # There is only symmetry about the vertical plane.
         #
@@ -555,15 +623,9 @@ class Drawing:
         # ---- Parameters of top corners
         # Elevation of centers of the top corners
         theta = QUART_PI - alpha
-        # Rotation of corner base cone from equator around x-axis by `omega` such that elevation of C_r = theta
-        omega = asin(sin(theta)/cos(alpha))
-        # Azimuth of C_r when corner cone is at final elevation
-        phi_cr = atan(tan(alpha)/cos(omega))
-        # Components of C_r unit vector in Cartesian coords
-        ux, uy, uz = geom.spherical_to_cartesian((1.0, theta, phi_cr))
-        uxx_uyy = ux**2+uy**2
-        # Helper angle for determining the included angle of top corners
-        delta = acos((sin(omega)*ux*uz + cos(omega)*uxx_uyy) / sqrt(uxx_uyy))
+        # `delta`: Helper angle for determining the included angle of top corners
+        # `omega`: Rotation of corner base cone from equator around x-axis by `omega` such that elevation of C_r = theta
+        delta, omega = geom.get_cone_delta(alpha, theta=theta)
         # Included angle of top corners
         beta = HALF_PI - delta
         # Template arc for top corners
@@ -635,8 +697,19 @@ class Drawing:
         )
         return points
 
-    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_tri_loop(self):
+        '''Initialize the scene of the triangular loop.'''
+        pieces = self._get_tri_loop_pts()
+        course = np.vstack(pieces)
+        result = Scene()
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
+        return result
+
+    def _get_tri_loop_pts(self):
+        '''Helper method for generating the triangular loop.'''
         # Corner radius
         r = 1.5
         # Central angle of each arc and angle between adjacent arcs
@@ -670,7 +743,7 @@ class Drawing:
         # Helper values for construction of the corner axes
         caxis_s = sin(0.5*sigma)
         caxis_c = cos(0.5*sigma)
-        course = np.vstack((
+        points = (
             # first corner
             corner1,
             # ascending leg
@@ -687,66 +760,98 @@ class Drawing:
             corner3,
             # bottom leg
             leg_points
-        ))
-        # Points of tangency, just for internal diagnostics
-        # tangencies = (
-        #     corner1[0], corner1[-1],
-        #     corner2[0], corner2[-1],
-        #     corner3[0], corner3[-1],
-        # )
+        )
+        return points
+
+    def _init_hor_eight(self):
+        '''Initialize the scene of the horizontal eight.'''
+        pieces = self._get_hor_eight_pts()
+        # TODO: move this chunk to a test case when we are ready for drawing tests. Verify all connections between the pieces.
+        # right_loop, left_loop = points
+        # print(np.linalg.norm(right_loop[0] - right_loop[-1]))
+        # print(np.linalg.norm(right_loop[-1] - left_loop[0]))
+        # print(np.linalg.norm(left_loop[0] - left_loop[-1]))
+        course = np.vstack(pieces)
         result = Scene()
         result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
         result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # result.add(Scatter(tangencies, size=3, color=Colors.RED))
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
         return result
 
-    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
-    def _init_hor_eight(self):
-        points = self._get_loop_pts()
-        # The Z rotation angle of each loop to satisfy tangency for a horizontal eight.
-        # NOTE:
-        # Technically, this should be the `phi_cr` calculation like in `_get_square_loop_pts`,
-        # but the formulas for `omega` and `phi_cr` are identical when `theta` == `alpha`.
-        # Such is the case with simple loops.
-        # Hence, we use the simpler of the two calculations (omega).
-        phi = asin(tan(EIGHTH_PI))
-        points_right = ROT.from_euler('z', -phi).apply(points)
-        points_left = ROT.from_euler('z', phi).apply(points)
-        result = Scene()
-        result.add(Polyline(points_right, size=7, color=Colors.GRAY20))
-        result.add(Polyline(points_left, size=7, color=Colors.GRAY20))
-        result.add(Polyline(points_right, size=3, color=Colors.WHITE))
-        result.add(Polyline(points_left, size=3, color=Colors.WHITE))
-        return result
+    def _get_hor_eight_pts(self):
+        '''Helper method for generating the horizontal eight.'''
+        # Start with a 45-deg loop whose axis is the y-axis, start/end at left
+        loop_pts = ROT.from_euler('y', HALF_PI).apply(self._get_base_loop_pts())
+        # Loop radius and distance
+        r_loop = self.R * sin(EIGHTH_PI)
+        d = geom.get_cone_d(self.R, r_loop)
+        # The elevation angle of each loop to satisfy tangency for a horizontal eight.
+        theta = asin(tan(EIGHTH_PI))
+        points = (
+            # Right loop (CCW, starts & ends at tangency point between loops).
+            # Should be CW but let's not bother just for drawing.
+            ROT.from_euler('zx', [-EIGHTH_PI, theta]).apply(loop_pts),
+            # Left loop (CCW, also starts & ends at tangency point between loops)
+            ROT.from_euler('yzx', [pi, EIGHTH_PI, theta]).apply(loop_pts)
+        )
+        return points
 
-    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_sq_eight(self):
+        '''Initialize the scene of the horizontal square eight.'''
+        pieces = self._get_sq_eight_pts()
+        course = np.vstack(pieces)
+        result = Scene()
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
+        return result
+
+    def _get_sq_eight_pts(self):
+        '''Helper method for generating the horizontal square eight.'''
         points = self._get_square_loop_pts()
-        course = np.vstack(points)
-        points_right = ROT.from_euler('z', -EIGHTH_PI).apply(course)
-        points_left = ROT.from_euler('z', EIGHTH_PI).apply(course)
-        result = Scene()
-        result.add(Polyline(points_right, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(points_left, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(points_right, size=3, color=Colors.WHITE))
-        result.add(Polyline(points_left, size=3, color=Colors.WHITE))
-        return result
+        # For this figure, rearrange the order of the paths a bit:
+        # start at center vertical and finish at the bottom left corner.
+        points = (*points[1:], points[0])
+        points_right = [ROT.from_euler('z', -EIGHTH_PI).apply(arr) for arr in points]
+        # Left side is a mirror about the YZ plane
+        points_left = [arr*[-1, 1, 1] for arr in points_right]
+        return tuple((*points_right, *points_left))
 
-    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_ver_eight(self):
-        points_bot = self._get_loop_pts()
-        points_top = ROT.from_euler('x', QUART_PI).apply(points_bot)
+        '''Initialize the scene of the vertical eight.'''
+        pieces = self._get_ver_eight_pts()
+        course = np.vstack(pieces)
         result = Scene()
-        result.add(Polyline(points_bot, size=7, color=Colors.GRAY20))
-        result.add(Polyline(points_top, size=7, color=Colors.GRAY20))
-        result.add(Polyline(points_bot, size=3, color=Colors.WHITE))
-        result.add(Polyline(points_top, size=3, color=Colors.WHITE))
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
         return result
 
-    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
-    def _init_hourglass(self):
-        '''Initialize the geometry of the hourglass.
+    def _get_ver_eight_pts(self):
+        '''Helper method for generating the vertical eight.'''
+        # Base loop: axis on equator, start/end on bottom of loop
+        base_pts = self._get_base_loop_pts()
+        # Direction of bottom loop here is opposite (ccw), but let's not force it for drawing
+        points_bot = ROT.from_euler('yx', [pi, EIGHTH_PI]).apply(base_pts)
+        points_top = ROT.from_euler('x', 1.5*QUART_PI).apply(base_pts)
+        return (points_bot, points_top)
 
+    def _init_hourglass(self):
+        '''Initialize the scene of the hourglass.'''
+        pieces = self._get_hourglass_pts()
+        course = np.vstack(pieces)
+        result = Scene()
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
+        return result
+
+    def _get_hourglass_pts(self):
+        '''Helper method for generating the hourglass.
         The hourglass is just two identical equilateral spherical triangles mirroring
         each other above/below the 45-degree latitude.  Therefore the angle subtended
         by the ascending & descending arcs is twice the angle subtended by the top and
@@ -807,7 +912,7 @@ class Drawing:
             ROT.from_euler('yz', [pi, 0.5*sigma]).apply(diag_pts)
         )
         # The full course
-        course = np.vstack((
+        points = (
             corner1,
             arc_ascend,
             corner2,
@@ -816,85 +921,80 @@ class Drawing:
             arc_descend,
             corner4,
             arc_bot
-        ))
+        )
+        return points
+
+    def _init_ovr_eight(self):
+        '''Initialize the scene of the overhead eight.'''
+        pieces = self._get_ovr_eight_pts()
+        course = np.vstack(pieces)
         result = Scene()
         result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
         result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== INTERNAL DIAGNOSTICS ONLY ===============================================
-        # Uncomment this section to draw tangency points.
-        # This results in "donuts" of green/red color at each tangency.
-        # traversal_conns = np.vstack((
-        #     arc_ascend[0], arc_ascend[-1],
-        #     arc_top[0], arc_top[-1],
-        #     arc_descend[0], arc_descend[-1],
-        #     arc_bot[0], arc_bot[-1]
-        # ))
-        # corner_conns = np.vstack((
-        #     corner1[0], corner1[-1],
-        #     corner2[0], corner2[-1],
-        #     corner3[0], corner3[-1],
-        #     corner4[0], corner4[-1],
-        # ))
-        # # Connection points at traversals: direction is red -> green
-        # result.add(Scatter(traversal_conns[0::2], size=7, color=Colors.RED))
-        # result.add(Scatter(traversal_conns[1::2], size=7, color=Colors.GREEN))
-        # # Connection points at corners: direction is red -> green
-        # result.add(Scatter(corner_conns[0::2], size=3, color=Colors.RED))
-        # result.add(Scatter(corner_conns[1::2], size=3, color=Colors.GREEN))
-        # ==== END OF INTERNAL DIAGNOSTICS =============================================
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
         return result
 
-    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
-    def _init_ovr_eight(self):
-        points = self._get_loop_pts()
-        points_right = ROT.from_euler('xy', (HALF_PI-EIGHTH_PI, EIGHTH_PI)).apply(points)
-        points_left = ROT.from_euler('y', -QUART_PI).apply(points_right)
-        result = Scene()
-        result.add(Polyline(points_right, size=7, color=Colors.GRAY20))
-        result.add(Polyline(points_left, size=7, color=Colors.GRAY20))
-        result.add(Polyline(points_right, size=3, color=Colors.WHITE))
-        result.add(Polyline(points_left, size=3, color=Colors.WHITE))
-        return result
+    def _get_ovr_eight_pts(self):
+        '''Helper method for generating the overhead eight.'''
+        # Template loop: overhead loop whose axis is Z-axis, start/end on right
+        base_pts = ROT.from_euler('yx', [-HALF_PI, HALF_PI]).apply(self._get_base_loop_pts())
+        points_right = ROT.from_euler('zy', (pi, EIGHTH_PI)).apply(base_pts)
+        points_left = ROT.from_euler('y', -EIGHTH_PI).apply(base_pts)
+        return (points_right, points_left)
 
-    # TODO: Split into `_get_*_pts` and `_init_*` for ease of testing. See `_get_square_loop_pts` and `_init_square_loop` for the pattern.
     def _init_clover(self):
-        cone_half_angle = atan(sin(EIGHTH_PI))
-        tilt_angle_top = EIGHTH_PI + QUART_PI
-        tilt_angle_bot = EIGHTH_PI
-        # radius of each loop
-        r = self.R * sin(cone_half_angle)
-        # distance from sphere center to center of each loop
-        d = self.R * cos(cone_half_angle)
-        # template loop with center at equator
-        points = self._get_loop_pts(cone_half_angle)
-        points = ROT.from_euler('x', -cone_half_angle).apply(points)
-        # clover loops in the order they are performed
-        loops = (
-            ROT.from_euler('x', tilt_angle_top).apply(
-                ROT.from_euler('z', -cone_half_angle).apply(points)),
-            ROT.from_euler('x', tilt_angle_bot).apply(
-                ROT.from_euler('z', cone_half_angle).apply(points)),
-            ROT.from_euler('x', tilt_angle_top).apply(
-                ROT.from_euler('z', cone_half_angle).apply(points)),
-            ROT.from_euler('x', tilt_angle_bot).apply(
-                ROT.from_euler('z', -cone_half_angle).apply(points))
-        )
-        # template arc for the connecting paths: centered azimuthally, lying in the XY plane
-        arc = ROT.from_euler('z', QUART_PI+EIGHTH_PI).apply(geom.get_arc(self.R, QUART_PI))
-        # arc that connects left and right halves
-        arc_horz = ROT.from_euler('x', QUART_PI).apply(arc)
-        # arc that connects top and bottom halves
-        arc_vert = ROT.from_euler('x', QUART_PI).apply(ROT.from_euler('y', HALF_PI).apply(arc))
-        # Create the scene
-        border_color = Colors.GRAY20
+        '''Initialize the scene of the four-leaf clover.'''
+        pieces = self._get_clover_pts()
+        course = np.vstack(pieces)
         result = Scene()
-        # Draw connectors behind the loops
-        result.add(Polyline(arc_horz, size=7, color=Colors.GRAY20))
-        result.add(Polyline(arc_vert, size=7, color=Colors.GRAY20))
-        result.add(Polyline(arc_horz, size=3, color=Colors.WHITE))
-        result.add(Polyline(arc_vert, size=3, color=Colors.WHITE))
-        # Draw the loops on top
-        for loop in loops:
-            result.add(Polyline(loop, size=7, color=Colors.GRAY20))
-            result.add(Polyline(loop, size=3, color=Colors.WHITE))
+        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
+        result.add(Polyline(course, size=3, color=Colors.WHITE))
+        # ==== DIAGNOSTICS ===============================================
+        self._add_diag_connections(result, pieces)
         return result
+
+    def _get_clover_pts(self):
+        '''Helper method for generating the new four-leaf clover,
+        entry from the 40.79 deg latitude (along the 45-deg tilted great arc).'''
+        # Rotation of base cone to achieve its tangency to equator
+        beta = EIGHTH_PI
+        # Each cone's half-angle
+        alpha = atan(sin(beta))
+        # Helper angles
+        delta, theta = geom.get_cone_delta(alpha, beta=beta)
+        # # Radius of each loop
+        r = self.R * sin(alpha)
+        # # Distance from sphere center to center of each loop
+        d = self.R * cos(alpha)
+        d_offset = [0., d, 0.]
+        tilt_angle_top = beta + QUART_PI
+        # Template full loop with center at equator, start/end pt at bottom.
+        loop = self._get_base_loop_pts(alpha)
+        # Template arc: almost 3/4 loop
+        base_arc = geom.get_arc(r, 1.5*pi-delta)
+        # Template for loops 2 & 3, CCW. Axis on y-axis. Start pt at right.
+        arc_ccw = ROT.from_euler('x', HALF_PI).apply(base_arc) + d_offset
+        # Template for loop 4, CW. Axis on y-axis. Start pt at left, rotated by `delta`.
+        arc_cw = ROT.from_euler('zyx', [delta+HALF_PI, pi, HALF_PI]).apply(base_arc) + d_offset
+        # Template arc for the connecting paths: centered azimuthally, lying in the XY plane, CCW
+        conn_arc = ROT.from_euler('z', QUART_PI+EIGHTH_PI).apply(geom.get_arc(self.R, QUART_PI))
+        # clover loops in the order they are performed
+        points = (
+            # Loop 1
+            ROT.from_euler('x', tilt_angle_top).apply(
+                ROT.from_euler('z', -alpha).apply(loop)),
+            # Connector: Loop 1 -> 2
+            ROT.from_euler('x', QUART_PI).apply(conn_arc),
+            # Loop 2
+            ROT.from_euler('yzx', [-delta - HALF_PI, alpha, beta]).apply(arc_ccw),
+            # Connector: Loop 2 -> 3
+            ROT.from_euler('yx', [HALF_PI, QUART_PI]).apply(conn_arc),
+            # Loop 3
+            ROT.from_euler('zx', [alpha, tilt_angle_top]).apply(arc_ccw),
+            # Connector: Loop 3 -> 4
+            ROT.from_euler('yx', [pi, QUART_PI]).apply(conn_arc),
+            # Loop 4
+            ROT.from_euler('zx', [-alpha, beta]).apply(arc_cw)
+        )
+        return points
