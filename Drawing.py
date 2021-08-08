@@ -282,7 +282,7 @@ class Drawing:
         if self._cam is not None and self._cam.Located:
             self.R = self._cam.flightRadius
             self.marker_radius = self._cam.markRadius
-            center = kwargs.pop('center') or Drawing.DEFAULT_CENTER.copy()
+            center = kwargs.pop('center', None) or Drawing.DEFAULT_CENTER.copy()
             # Ensure it's a numpy array (allow tuple, list as input)
             self.center = np.float32(center)
             self._evaluate_center()
