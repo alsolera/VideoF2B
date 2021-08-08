@@ -69,6 +69,9 @@ chk7 = tkinter.Checkbutton(master, text="Overhead eight",
 clover_chk = tkinter.BooleanVar()
 chk8 = tkinter.Checkbutton(master, text="Four-leaf clover",
                            variable=clover_chk).grid(row=8, sticky='w')
+diag_chk = tkinter.BooleanVar()
+chk9 = tkinter.Checkbutton(master, text="Draw Diagnostics",
+                           variable=diag_chk).grid(row=9, sticky="w")
 
 # Conversion constants
 FT_TO_M = 0.3048
@@ -291,6 +294,7 @@ while cap.more():
         artist.figure_state[FigureTypes.HOURGLASS] = hourglass_chk.get()
         artist.figure_state[FigureTypes.OVERHEAD_EIGHTS] = over_eight_chk.get()
         artist.figure_state[FigureTypes.FOUR_LEAF_CLOVER] = clover_chk.get()
+        artist.DrawDiags = diag_chk.get()
 
     artist.draw(frame_or, azimuth_delta)
 
