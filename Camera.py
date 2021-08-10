@@ -64,6 +64,7 @@ class CalCamera:
         self.is_fisheye = None
         self.mtx = None
         self.dist = None
+        self.dist_zero = None
         self.roi = None
         self.newcameramtx = None
         self.map1 = None
@@ -81,6 +82,7 @@ class CalCamera:
                 self.dist = npzfile['dist']
                 self.roi = npzfile['roi']
                 self.newcameramtx = npzfile['newcameramtx']
+                self.dist_zero = np.zeros_like(self.dist)
 
                 # Recalculate matrix and roi in case video from this camera was scaled after recording.
                 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
@@ -205,7 +207,7 @@ class CalCamera:
             if self.imagePoints[NumRefPoints-1, 1] > 0:
                 _ret, self.rvec, self.tvec = cv2.solvePnP(objectPoints, self.imagePoints,
                                                           self.newcameramtx,
-                                                          np.zeros_like(self.dist),
+                                                          self.dist_zero,
                                                           cv2.SOLVEPNP_ITERATIVE)
                 # precalculate all pieces necessary for line/sphere intersections
                 self.rmat = None
