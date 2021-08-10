@@ -210,10 +210,10 @@ cv2.namedWindow(WINDOW_NAME, WINDOW_FLAGS)
 # Speed meter
 fps = FPS().start()
 
-while True:
-    ret, frame_or = cap.read()
+while cap.more():
+    frame_or = cap.read()
 
-    if not ret or frame_or is None:
+    if frame_or is None:
         num_empty_frames += 1
         num_consecutive_empty_frames += 1
         logger.warning(
@@ -221,7 +221,7 @@ while True:
             f'frame_idx={frame_idx}/{num_input_frames}, '
             f'num_empty_frames={num_empty_frames}, '
             f'num_consecutive_empty_frames={num_consecutive_empty_frames}, '
-            f'ret={ret}')
+        )
         if num_consecutive_empty_frames > MAX_CONSECUTIVE_EMPTY_FRAMES:  # GoPro videos show empty frames, quick fix
             break
         continue
@@ -487,7 +487,6 @@ if fig_tracker is not None:
     fig_tracker.export(f'{input_base_name}_out_figures.npz')
 
 # Clean
-cap.release()
 out.release()
 cv2.destroyAllWindows()
 if cam.Located and PERFORM_3D_TRACKING:

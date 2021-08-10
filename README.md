@@ -41,3 +41,5 @@ Authors: Alberto Solera, Andrey Vasilik
 ## External Dependencies
 
 * See **requirements.txt**, **requirements-dev.txt**, and **requirements_windows.txt**
+
+* **IMPORTANT:** at this time the `imutils` package used for development is a modified fork of the official package.  The file `requirements.txt` in the `dev` branch reflects this.
