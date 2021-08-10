@@ -29,6 +29,7 @@ class Detector(object):
             history=4, varThreshold=15, detectShadows=False)
         self.pts = deque(maxlen=maxlen)
         self.pts_scaled = deque(maxlen=maxlen)
+        self.maxlen = maxlen
         self.clear()
         self.scale = scale
 

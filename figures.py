@@ -16,7 +16,6 @@
 
 '''Geometric definitions for F2B figures.'''
 
-import enum
 import itertools
 from collections import defaultdict
 
@@ -24,9 +23,13 @@ import matplotlib.pyplot as plt  # for debug diagnostics
 import numpy as np
 from scipy import optimize
 
+import common
+from common import FigureTypes
 
 # ==================== Golden Section Search method ===============================
 # NOTE: Unused as of yet. Also available in scipy.optimize
+
+
 def find_min_gss(f, a, b, eps=1e-4):
     '''Find Minimum by Golden Section Search Method
         Returns the value of x that minimizes the function f(x) on interval [a, b]
@@ -58,28 +61,8 @@ class FigureDiagnostics:
         self.trim_indexes = None
 
 
-@enum.unique
-class FigureTypes(enum.Enum):
-    TAKEOFF = 1
-    REVERSE_WINGOVER = 2
-    INSIDE_LOOPS = 3
-    INVERTED_FLIGHT = 4
-    OUTSIDE_LOOPS = 5
-    INSIDE_SQUARE_LOOPS = 6
-    OUTSIDE_SQUARE_LOOPS = 7
-    INSIDE_TRIANGULAR_LOOPS = 8
-    HORIZONTAL_EIGHTS = 9
-    HORIZONTAL_SQUARE_EIGHTS = 10
-    VERTICAL_EIGHTS = 11
-    HOURGLASS = 12
-    OVERHEAD_EIGHTS = 13
-    FOUR_LEAF_CLOVER = 14
-    LANDING = 15
-
-
 class Figure:
     '''Base class for all F2B figures.'''
-    DEFAULT_FLYING_RADIUS = 21.0
 
     def __init__(self, R=None, actuals=None, **kwargs):
         '''Create a figure in a sphere of radius R associated with given actual points.'''
@@ -87,7 +70,7 @@ class Figure:
         self.diag = FigureDiagnostics(enabled=kwargs.pop('enable_diags', False))
 
         if R is None:
-            self.R = Figure.DEFAULT_FLYING_RADIUS
+            self.R = common.DEFAULT_FLIGHT_RADIUS
         else:
             self.R = R
 
@@ -460,7 +443,7 @@ def test():
     if diags_on:
         plt.show()
 
-    assert fig0.R == Figure.DEFAULT_FLYING_RADIUS, 'Unexpected default radius R'
+    assert fig0.R == common.DEFAULT_FLIGHT_RADIUS, 'Unexpected default radius R'
 
     print('=' * 160)
     t = np.linspace(0., 1., 8)

@@ -133,3 +133,6 @@ dmypy.json
 *.conf
 *.log
 profiling/
+
+# Rotating logs
+*.log.*

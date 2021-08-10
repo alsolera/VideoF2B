@@ -21,6 +21,7 @@ import logging
 import numpy as np
 
 import figures
+from common import FigureTypes
 
 
 class UserError(Exception):
@@ -53,7 +54,7 @@ class FigureTracker:
 
     # Maps figure index to figure type
     FIGURE_MAP = {
-        0: figures.FigureTypes.INSIDE_LOOPS,
+        0: FigureTypes.INSIDE_LOOPS,
     }
 
     def __init__(self, logger=None, callback=lambda x: None, **kwargs):
