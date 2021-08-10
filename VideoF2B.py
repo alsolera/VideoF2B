@@ -88,7 +88,7 @@ MARKER_HEIGHT = None  # Default: ask
 SPHERE_OFFSET = None  # Default: world origin
 SPHERE_DELTA = 0.1  # offset delta in m
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
 
 logger.setLevel(logging.DEBUG)
 handler = logging.handlers.RotatingFileHandler(LOG_PATH, maxBytes=10485760,
@@ -104,9 +104,12 @@ liveVideos = '../VideoF2B_videos'
 # Load input video
 cap, videoPath, live = Video.LoadVideo(path=VIDEO_PATH)
 if cap is None or videoPath is None:
-    print('ERROR: no input specified.')
+    err_msg = 'no input specified.'
+    print(f'ERROR: {err_msg}')
+    logger.error(err_msg)
+    # TODO: fix this main program flow
     sys.exit(1)
-logger.info(f'Loaded video file "{VIDEO_PATH}".')
+logger.info(f'Loaded video file "{videoPath}".')
 FULL_FRAME_SIZE = (
     int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
     int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -115,7 +118,7 @@ FULL_FRAME_SIZE = (
 # Load camera calibration
 cam = Camera.CalCamera(
     frame_size=FULL_FRAME_SIZE,
-    calibrationPath=CALIBRATION_PATH, logger=logger,
+    calibrationPath=CALIBRATION_PATH,
     flight_radius=FLIGHT_RADIUS,
     marker_radius=MARKER_RADIUS,
     marker_height=MARKER_HEIGHT)
@@ -189,8 +192,7 @@ if cam.Calibrated and PERFORM_3D_TRACKING:
     data_path = f'{input_base_name}_out_data.csv'
     data_writer = open(data_path, 'w', encoding='utf8')
     # data_writer.write('frame_idx,p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
-    fig_tracker = figtrack.FigureTracker(
-        logger=logger, callback=sys.stdout.write, enable_diags=True)
+    fig_tracker = figtrack.FigureTracker(callback=sys.stdout.write, enable_diags=True)
 
 # aids for drawing figure start/end points over track
 is_fig_in_progress = False
@@ -472,7 +474,7 @@ fps.stop()
 final_progress_str = f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%'
 elapsed_time_str = f'Elapsed time: {fps.elapsed():.1f}'
 mean_fps_str = f'Approx. FPS: {fps.fps():.1f}'
-logger.info(f'Finished processing {VIDEO_PATH}')
+logger.info(f'Finished processing {videoPath}')
 logger.info(f'Result video written to {OUT_VIDEO_PATH}')
 logger.info(final_progress_str)
 logger.info(elapsed_time_str)

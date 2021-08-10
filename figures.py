@@ -17,6 +17,7 @@
 '''Geometric definitions for F2B figures.'''
 
 import itertools
+import logging
 from collections import defaultdict
 
 import matplotlib.pyplot as plt  # for debug diagnostics
@@ -25,6 +26,9 @@ from scipy import optimize
 
 import common
 from common import FigureTypes
+
+# "matplotlib.font_manager" tends to log a ton of debug messages. Silence all matplotlib here.
+logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 # ==================== Golden Section Search method ===============================
 # NOTE: Unused as of yet. Also available in scipy.optimize
