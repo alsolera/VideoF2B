@@ -1,6 +1,7 @@
+# -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
 # Copyright (C) 2018  Alberto Solera Rico - albertoavion(a)gmail.com
-# Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2020 - 2021  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -94,7 +95,7 @@ logger.setLevel(logging.DEBUG)
 handler = logging.handlers.RotatingFileHandler(LOG_PATH, maxBytes=10485760,
                                                backupCount=5, encoding='utf8')
 handler.setLevel(logging.DEBUG)
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)7s - %(message)s')
+formatter = logging.Formatter('%(asctime)s - %(name)10s - %(levelname)7s - %(message)s')
 handler.setFormatter(formatter)
 logger.addHandler(handler)
 logger.info('Logger started.')

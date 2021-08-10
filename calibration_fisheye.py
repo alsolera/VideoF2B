@@ -1,5 +1,6 @@
+# -*- coding: utf-8 -*-
 # calibration_fisheye - Calibrate a camera using the fisheye model.
-# Copyright (C) 2020  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2020 - 2021  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
