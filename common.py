@@ -25,6 +25,9 @@ DEFAULT_FLIGHT_RADIUS = 21.0
 DEFAULT_MARKER_RADIUS = 25.0
 DEFAULT_MARKER_HEIGHT = 1.5
 
+# Default radius in all figure turns, in meters
+DEFAULT_TURN_RADIUS = 1.5
+
 # Frequently used chunks of pi
 HALF_PI = 0.5 * pi
 QUART_PI = 0.25 * pi
