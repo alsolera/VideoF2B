@@ -109,17 +109,17 @@ class CalCamera:
                     self.balance = float(npzfile['balance'])
 
                 self.flightRadius = self.flightRadius or tkSimpleDialog.askfloat(
-                    'Input', f'Flight radius (m) (Cancel = {common.DEFAULT_FLIGHT_RADIUS} m):')
+                    'Input', f'Flight radius (m):', initialvalue = common.DEFAULT_FLIGHT_RADIUS)
                 if self.flightRadius is None:
                     self.flightRadius = common.DEFAULT_FLIGHT_RADIUS
 
                 self.markRadius = self.markRadius or tkSimpleDialog.askfloat(
-                    'Input', f'Height markers distance to center (m) (Cancel = {common.DEFAULT_MARKER_RADIUS} m)')
+                    'Input', f'Height markers distance to center (m):', initialvalue = common.DEFAULT_MARKER_RADIUS)
                 if self.markRadius is None:
                     self.markRadius = common.DEFAULT_MARKER_RADIUS
 
                 self.markHeight = self.markHeight or tkSimpleDialog.askfloat(
-                    'Input', f'Height markers: height above center of circle (m) (Cancel = {common.DEFAULT_MARKER_HEIGHT} m)')
+                    'Input', f'Height markers: height above center of circle (m):', initialvalue = common.DEFAULT_MARKER_HEIGHT)
                 if self.markHeight is None:
                     self.markHeight = common.DEFAULT_MARKER_HEIGHT
             except:
