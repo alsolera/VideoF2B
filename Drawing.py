@@ -575,16 +575,20 @@ class Drawing:
             scene.add_diag(Scatter(conns[1::4], size=3, color=Colors.GREEN))
         return
 
-    def _init_loop(self):
-        '''Initialize the scene of the basic loop.'''
-        pieces = self._get_loop_pts()
+    def _get_figure_scene(self, pieces):
+        '''Helper method for creating any figure from the given contiguous pieces.'''
         course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
+        result = Scene(
+            Polyline(course, size=7, color=Colors.GRAY20),  # outline border
+            Polyline(course, size=3, color=Colors.WHITE)
+        )
+        # Diagnostics: tangency points
         self._add_diag_connections(result, pieces)
         return result
+
+    def _init_loop(self):
+        '''Initialize the scene of the basic loop.'''
+        return self._get_figure_scene(self._get_loop_pts())
 
     def _get_loop_pts(self):
         '''Helper method for generating the basic loop.'''
@@ -593,14 +597,7 @@ class Drawing:
 
     def _init_square_loop(self):
         '''Initialize the scene of the square loop.'''
-        pieces = self._get_square_loop_pts()
-        course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
-        self._add_diag_connections(result, pieces)
-        return result
+        return self._get_figure_scene(self._get_square_loop_pts())
 
     def _get_square_loop_pts(self):
         '''Helper method for generating the square loop and square eight.'''
@@ -699,14 +696,7 @@ class Drawing:
 
     def _init_tri_loop(self):
         '''Initialize the scene of the triangular loop.'''
-        pieces = self._get_tri_loop_pts()
-        course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
-        self._add_diag_connections(result, pieces)
-        return result
+        return self._get_figure_scene(self._get_tri_loop_pts())
 
     def _get_tri_loop_pts(self):
         '''Helper method for generating the triangular loop.'''
@@ -765,19 +755,12 @@ class Drawing:
 
     def _init_hor_eight(self):
         '''Initialize the scene of the horizontal eight.'''
-        pieces = self._get_hor_eight_pts()
+        return self._get_figure_scene(self._get_hor_eight_pts())
         # TODO: move this chunk to a test case when we are ready for drawing tests. Verify all connections between the pieces.
         # right_loop, left_loop = points
         # print(np.linalg.norm(right_loop[0] - right_loop[-1]))
         # print(np.linalg.norm(right_loop[-1] - left_loop[0]))
         # print(np.linalg.norm(left_loop[0] - left_loop[-1]))
-        course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
-        self._add_diag_connections(result, pieces)
-        return result
 
     def _get_hor_eight_pts(self):
         '''Helper method for generating the horizontal eight.'''
@@ -799,14 +782,7 @@ class Drawing:
 
     def _init_sq_eight(self):
         '''Initialize the scene of the horizontal square eight.'''
-        pieces = self._get_sq_eight_pts()
-        course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
-        self._add_diag_connections(result, pieces)
-        return result
+        return self._get_figure_scene(self._get_sq_eight_pts())
 
     def _get_sq_eight_pts(self):
         '''Helper method for generating the horizontal square eight.'''
@@ -821,14 +797,7 @@ class Drawing:
 
     def _init_ver_eight(self):
         '''Initialize the scene of the vertical eight.'''
-        pieces = self._get_ver_eight_pts()
-        course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
-        self._add_diag_connections(result, pieces)
-        return result
+        return self._get_figure_scene(self._get_ver_eight_pts())
 
     def _get_ver_eight_pts(self):
         '''Helper method for generating the vertical eight.'''
@@ -841,14 +810,7 @@ class Drawing:
 
     def _init_hourglass(self):
         '''Initialize the scene of the hourglass.'''
-        pieces = self._get_hourglass_pts()
-        course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
-        self._add_diag_connections(result, pieces)
-        return result
+        return self._get_figure_scene(self._get_hourglass_pts())
 
     def _get_hourglass_pts(self):
         '''Helper method for generating the hourglass.
@@ -926,14 +888,7 @@ class Drawing:
 
     def _init_ovr_eight(self):
         '''Initialize the scene of the overhead eight.'''
-        pieces = self._get_ovr_eight_pts()
-        course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
-        self._add_diag_connections(result, pieces)
-        return result
+        return self._get_figure_scene(self._get_ovr_eight_pts())
 
     def _get_ovr_eight_pts(self):
         '''Helper method for generating the overhead eight.'''
@@ -945,14 +900,7 @@ class Drawing:
 
     def _init_clover(self):
         '''Initialize the scene of the four-leaf clover.'''
-        pieces = self._get_clover_pts()
-        course = np.vstack(pieces)
-        result = Scene()
-        result.add(Polyline(course, size=7, color=Colors.GRAY20))  # outline border
-        result.add(Polyline(course, size=3, color=Colors.WHITE))
-        # ==== DIAGNOSTICS ===============================================
-        self._add_diag_connections(result, pieces)
-        return result
+        return self._get_figure_scene(self._get_clover_pts())
 
     def _get_clover_pts(self):
         '''Helper method for generating the new four-leaf clover,
