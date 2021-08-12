@@ -56,7 +56,8 @@ class Plot:
         is_fixed: bool indicating whether this Plot is fixed in object space or not.
                   If True, world transforms do not affect the object coordinates.
                   If False (default), then world transforms will
-                    rotate, scale, and translate the object coordinates.
+                    rotate, scale, and translate the object coordinates according
+                    to the rules in the `_calculate()` method.
     '''
 
     def __init__(self, obj_pts, **kwargs):
@@ -264,7 +265,6 @@ class Drawing:
     DEFAULT_CENTER = np.float32([0., 0., 0.])
     # Default point density per pi (180 degrees) of arc.
     DEFAULT_N = 100
-    # TODO: corner radius should be a shared attribute here
 
     def __init__(self, detector, **kwargs):
         '''Initialize the Drawing artist instance.
@@ -278,18 +278,31 @@ class Drawing:
                 `axis`: True to draw vertical axis, False otherwise.
                 `point_density`: number of arc points per full circle.
                                  Default is Drawing.DEFAULT_N, which is 100.
+                `turn_r`: the radius of turns in all figures, in meters.
         '''
         # Defines the visibility state of all drawn figures.
         self.figure_state = defaultdict(bool)
+        # Indicates whether the sphere center is sufficiently close to world origin.
         self._is_center_at_origin = False
+        # Instance of motion detector.
         self._detector = detector
+        # Instance of the camera.
         self._cam = kwargs.pop('cam', None)
+        # Radius of flight hemisphere, in m.
         self.R = None
+        # Radius of the circle in which the markers are located, in m.
         self.marker_radius = None
+        # Coordinates of flight sphere relative to world coordinates, in m.
         self.center = None
+        # Indicates whether we draw the axis (CSys marker at center)
         self.axis = kwargs.pop('axis', False)
+        # Defines the turn radius of all applicable figures.
+        self.turn_r = kwargs.pop('turn_r', common.DEFAULT_TURN_RADIUS)
+        # Number of points per 180 degrees of any arc. TODO: not used yet.
         self._point_density = None
+        # Indicates whether to draw diagnostics or not.
         self._draw_diags = False
+        # Collection of all necessary scenes, keyed on type.
         self._scenes = {}
         self.Locate(self._cam, **kwargs)
 
@@ -605,7 +618,7 @@ class Drawing:
         # There is only symmetry about the vertical plane.
         #
         # Corner radius in m
-        r = 1.5
+        r = self.turn_r
         # Half-angle of apex of all corner cones
         alpha = geom.get_cone_alpha(self.R, r)
         # Distance from sphere center to centers of all corners
@@ -701,7 +714,7 @@ class Drawing:
     def _get_tri_loop_pts(self):
         '''Helper method for generating the triangular loop.'''
         # Corner radius
-        r = 1.5
+        r = self.turn_r
         # Central angle of each arc and angle between adjacent arcs
         sigma, phi = geom.calc_tri_loop_params(self.R, r)
         # Height of the full equilateral triangle (without the radii in corners)
@@ -821,7 +834,7 @@ class Drawing:
         radii at the bottom and top turns.
         '''
         # Radius of corner turns
-        r = 1.5
+        r = self.turn_r
         # Angle subtended by one leg of the equilateral spherical triangle
         sigma = geom.calc_equilateral_sigma()
         # Angle between legs of the triangle
