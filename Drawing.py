@@ -181,31 +181,43 @@ class EdgePolyline(Polyline):
         key = translation
         if key not in self._cache:
             R = self.R
+            # Vector from current sphere center to cam
             p = self.cam_pos.reshape((3,)) - translation
+            # Length of p
             d = np.linalg.norm(p)
-            if d <= R:
+            if d <= R or d < 0.001:
                 # We are on the surface of the sphere, or inside its volume.
+                # Also guard against DBZ errors.
                 return
-            n = p / d
-            # TODO: optimize the creation of this arc using ROT or....?
+            d_inv = 1. / d
+            # Unit vector of p: points from sphere center back to cam.
+            # This is the normal of the "visible edge" arc.
+            n = p * d_inv
+            # Azimuth angle of the normal.
+            # Accounts correctly for the sign (CCW positive around +Z from +X axis)
             phi = atan2(n[1], n[0])
-            rot_mat = np.array([
-                [cos(phi), -sin(phi), 0.],
-                [sin(phi), cos(phi), 0.],
-                [0., 0., 1.]])
-            u = np.array([0., 1., 0.])
-            u = rot_mat.dot(u)
+            # Choose two linearly independent arbitrary vectors `u` and `v` that span the arc.
+            # `u` is chosen such that it is perpendicular to `n` and lies in the world XY plane.
+            u = np.array((-sin(phi), cos(phi), 0.))
+            # `v` follows from `n` and `u`.
             v = np.cross(n, u)
-            t = np.linspace(0., 1., 100)
-            k = np.pi  # semi-circle
-            c = (R**2 / d) * n + translation
-            det = d**2 - R**2
+            # Helper quantity
+            R_sq = R * R
+            # Vector from sphere center to center of the "visible edge" arc.
+            c = (R_sq * d_inv) * n + translation
+            # Determinant for calculating the arc's radius
+            det = d*d - R_sq
             if det < 0.:
                 # guard against negative arg of sqrt
                 r = 0.0
             else:
-                r = R / d * np.sqrt(det)
-            obj_pts = np.array([c + r * (np.cos(k * t_i) * u + np.sin(k * t_i) * v) for t_i in t])
+                r = R * d_inv * np.sqrt(det)
+            # `u`, `v`, and `n` form the basis vectors for the arc.
+            # Arrange them as columns in a matrix to orient the arc.
+            # Add `c` to place its center correctly.
+            # Also, this is always a 180-degree arc, and 35 points (rho=70) looks smooth enough.
+            obj_pts = ROT.from_matrix(np.array([u, v, n]).T).apply(
+                geom.get_arc(r, pi, rho=70)) + c
             tmp, _ = cv2.projectPoints(obj_pts, rvec, tvec, cameraMatrix, distCoeffs)
             self._cache[key] = tmp.astype(int).reshape(-1, 2)
         self._img_pts = self._cache[key]
