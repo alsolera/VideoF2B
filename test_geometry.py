@@ -24,12 +24,8 @@ import pytest
 from scipy.spatial.transform import Rotation as ROT
 
 import geometry as geom
+from common import EIGHTH_PI, HALF_PI, QUART_PI, TWO_PI
 from Drawing import Drawing
-
-HALF_PI = 0.5 * pi
-QUART_PI = 0.25 * pi
-EIGHTH_PI = 0.125 * pi
-TWO_PI = 2.0 * pi
 
 # Good enough for everything we need to do
 TOL = 1.0e-15
@@ -208,7 +204,7 @@ class TestGeometry:
         f = geom.Fillet(R, r, phi)
         assert f.is_valid
         # Raw template points
-        pts = Drawing.get_arc(r, f.beta, rho=27)
+        pts = geom.get_arc(r, f.beta, rho=27)
         pts_ctr = np.zeros((3,))
         # Starting template arc in the middle of the bottom leg
         pts = ROT.from_euler('zxy', [0.5*(pi - f.beta), -HALF_PI, HALF_PI]
