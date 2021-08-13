@@ -49,7 +49,8 @@ class CalCamera:
         if calibrationPath is None:
             calibrationPath = tkFileDialog.askopenfilename(
                 parent=root, initialdir=initialdir,
-                title='Select camera calibration .npz file or cancel to ignore')
+                title='Select camera calibration .npz file or cancel to ignore',
+                filetypes=(("Calibration files", "*.npz"), ("All files", "*.*")))
         cal_path_str = f'calibrationPath: {calibrationPath}'
         logger.info(cal_path_str)
         print(cal_path_str)
