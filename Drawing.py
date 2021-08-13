@@ -275,7 +275,7 @@ class Drawing:
     '''Container that performs all the drawing of AR sphere, track, figures, etc., in any given image frame.'''
     # Default location of drawn sphere wrt world center.
     DEFAULT_CENTER = np.float32([0., 0., 0.])
-    # Default point density per pi (180 degrees) of arc.
+    # Default point density per 2*pi (360 degrees) of arc.
     DEFAULT_N = 100
 
     def __init__(self, detector, **kwargs):
@@ -308,10 +308,10 @@ class Drawing:
         self.center = None
         # Indicates whether we draw the axis (CSys marker at center)
         self.axis = kwargs.pop('axis', False)
+        # Number of points per 360 degrees of any arc.
+        self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
         # Defines the turn radius of all applicable figures.
         self.turn_r = kwargs.pop('turn_r', common.DEFAULT_TURN_RADIUS)
-        # Number of points per 180 degrees of any arc. TODO: not used yet.
-        self._point_density = None
         # Indicates whether to draw diagnostics or not.
         self._draw_diags = False
         # Collection of all necessary scenes, keyed on type.
@@ -341,7 +341,6 @@ class Drawing:
             # Ensure it's a numpy array (allow tuple, list as input)
             self.center = np.float32(center)
             self._evaluate_center()
-            self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
             self.figure_state['base'] = True
             self._init_scenes()
 
@@ -393,7 +392,8 @@ class Drawing:
         '''Base scene: main hemisphere and markers.'''
         result = Scene()
         # --- The base level (aka the equator) of flight hemisphere.
-        result.add(Polyline(geom.get_arc(self.R, TWO_PI), size=1, color=Colors.WHITE))
+        result.add(Polyline(geom.get_arc(self.R, TWO_PI, rho=self._point_density),
+                            size=1, color=Colors.WHITE))
         # --- All the meridians of the flight hemisphere.
         # rot for initial meridian in YZ plane
         rot0 = ROT.from_euler('xz', [HALF_PI, HALF_PI])
@@ -402,7 +402,7 @@ class Drawing:
             color = (gray, gray, gray)
             # rot for orienting each meridian
             rot1 = ROT.from_euler('z', angle, degrees=True)
-            pts = rot1.apply(rot0.apply(geom.get_arc(self.R, pi)))
+            pts = rot1.apply(rot0.apply(geom.get_arc(self.R, pi, rho=self._point_density)))
             result.add(Polyline(pts, size=1, color=color))
         # --- The coordinate axis reference at sphere center
         if self.axis:
@@ -418,13 +418,14 @@ class Drawing:
             result.add(Polyline((p[0], p[3]), size=1, color=Colors.BLUE))
         # --- 45-degree elevation circle
         r45 = self.R * cos(QUART_PI)
-        elev_circle = geom.get_arc(r45, TWO_PI) + (0, 0, r45)
+        elev_circle = geom.get_arc(r45, TWO_PI, rho=self._point_density) + (0, 0, r45)
         result.add(Polyline(elev_circle, size=1, color=Colors.GREEN))
         # --- The upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.
         tol = 0.3
         # Radius of the tolerance circles is equivalent to the axis height of a cone whose radius is `tol`.
         r_tol = geom.get_cone_d(self.R, tol)
-        tol_pts = geom.get_arc(r_tol, TWO_PI, 200)
+        # Use 2X point density to account for dashes
+        tol_pts = geom.get_arc(r_tol, TWO_PI, rho=2*self._point_density)
         pts_lower = tol_pts - [0., 0., tol]
         pts_upper = tol_pts + [0., 0., tol]
         color = (214, 214, 214)
@@ -571,7 +572,7 @@ class Drawing:
             half_angle = EIGHTH_PI
         r_loop = self.R * sin(half_angle)
         # Loop template
-        points = geom.get_arc(r_loop, TWO_PI)
+        points = geom.get_arc(r_loop, TWO_PI, rho=self._point_density)
         if cw:
             points = ROT.from_euler('x', pi).apply(points)
         # Rotate template to XZ plane
@@ -690,11 +691,11 @@ class Drawing:
         # Central angle of bottom arc (arc 4)
         arc4_angle = geom.angle(p1-p0, p2-p0)
         # Template arc for the top flat
-        top_arc = geom.get_arc(R45, arc2_angle)
+        top_arc = geom.get_arc(R45, arc2_angle, rho=self._point_density)
         # Template arc for the bottom flat
-        arc4 = geom.get_arc(self.R, arc4_angle)
+        arc4 = geom.get_arc(self.R, arc4_angle, rho=self._point_density)
         # Template arc for the laterals
-        arc13 = geom.get_arc(self.R, arc13_angle)
+        arc13 = geom.get_arc(self.R, arc13_angle, rho=self._point_density)
         # ---- All the points
         points = (
             # Corner 1
@@ -753,7 +754,7 @@ class Drawing:
         # Main arcs are actually this long to meet tangency
         leg_sigma = geom.angle(corner3[-1], corner1[0])
         # Legs: template arc
-        leg_points = geom.get_arc(self.R, leg_sigma)
+        leg_points = geom.get_arc(self.R, leg_sigma, rho=self._point_density)
         leg_points = ROT.from_euler('z', 0.5*(pi - leg_sigma)).apply(leg_points)
         # Helper values for construction of the corner axes
         caxis_s = sin(0.5*sigma)
@@ -882,7 +883,7 @@ class Drawing:
         diag_sigma = geom.angle(corner1[-1], corner2[0])
         # Template arc for the diagonal arcs
         diag_pts = ROT.from_euler('z', 0.5*(pi-diag_sigma)).apply(
-            geom.get_arc(self.R, diag_sigma)
+            geom.get_arc(self.R, diag_sigma, rho=self._point_density)
         )
         # Ascending arc
         arc_ascend = ROT.from_rotvec((pi-phi)*np.array([-sin(half_sigma), cos(half_sigma), 0])).apply(
@@ -891,7 +892,8 @@ class Drawing:
         # Angle of top/bottom arcs between tangency points
         hor_sigma = geom.angle(corner2[-1], corner3[0])
         # Bottom arc
-        arc_bot = ROT.from_euler('z', 0.5*(pi-hor_sigma)).apply(geom.get_arc(self.R, hor_sigma))
+        arc_bot = ROT.from_euler('z', 0.5*(pi-hor_sigma)
+                                 ).apply(geom.get_arc(self.R, hor_sigma, rho=self._point_density))
         # Top arc
         arc_top = ROT.from_euler('x', HALF_PI).apply(arc_bot)
         # Descending arc
@@ -945,13 +947,14 @@ class Drawing:
         # Template full loop with center at equator, start/end pt at bottom.
         loop = self._get_base_loop_pts(alpha)
         # Template arc: almost 3/4 loop
-        base_arc = geom.get_arc(r, 1.5*pi-delta)
+        base_arc = geom.get_arc(r, 1.5*pi-delta, rho=self._point_density)
         # Template for loops 2 & 3, CCW. Axis on y-axis. Start pt at right.
         arc_ccw = ROT.from_euler('x', HALF_PI).apply(base_arc) + d_offset
         # Template for loop 4, CW. Axis on y-axis. Start pt at left, rotated by `delta`.
         arc_cw = ROT.from_euler('zyx', [delta+HALF_PI, pi, HALF_PI]).apply(base_arc) + d_offset
         # Template arc for the connecting paths: centered azimuthally, lying in the XY plane, CCW
-        conn_arc = ROT.from_euler('z', QUART_PI+EIGHTH_PI).apply(geom.get_arc(self.R, QUART_PI))
+        conn_arc = ROT.from_euler(
+            'z', QUART_PI+EIGHTH_PI).apply(geom.get_arc(self.R, QUART_PI, rho=self._point_density))
         # clover loops in the order they are performed
         points = (
             # Loop 1
