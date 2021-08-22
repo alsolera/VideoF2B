@@ -21,24 +21,29 @@ import itertools
 import logging
 from collections import defaultdict
 
+import matplotlib
+
+# FIXME: matplotlib 3.4 does not play well with PySide6 (causes access violation in Python DLL on exit).
+#      : For now, use the built-in tkinter backend.
+#      : mpl 3.5 allegedly will work with PySide6.
+# See https://stackoverflow.com/questions/26955017/matplotlib-crashing-python
+matplotlib.use("TkAgg")
 import matplotlib.pyplot as plt  # for debug diagnostics
 import numpy as np
 from scipy import optimize
-
-import common
-from common import FigureTypes
+from videof2b.core.common import DEFAULT_FLIGHT_RADIUS, FigureTypes
 
 # "matplotlib.font_manager" tends to log a ton of debug messages. Silence all matplotlib here.
 logging.getLogger('matplotlib').setLevel(logging.WARNING)
-
-# ==================== Golden Section Search method ===============================
-# NOTE: Unused as of yet. Also available in scipy.optimize
 
 
 def find_min_gss(f, a, b, eps=1e-4):
     '''Find Minimum by Golden Section Search Method
         Returns the value of x that minimizes the function f(x) on interval [a, b]
     '''
+    # ==================== Golden Section Search method ===============================
+    # NOTE: Unused as of yet. Also available in scipy.optimize
+    #
     # Golden section: 1/phi = 2/(1+sqrt(5))
     R = 0.61803399
     # Num of needed iterations to get precision eps: log(eps/|b-a|)/log(R)
@@ -75,7 +80,7 @@ class Figure:
         self.diag = FigureDiagnostics(enabled=kwargs.pop('enable_diags', False))
 
         if R is None:
-            self.R = common.DEFAULT_FLIGHT_RADIUS
+            self.R = DEFAULT_FLIGHT_RADIUS
         else:
             self.R = R
 
@@ -448,7 +453,7 @@ def test():
     if diags_on:
         plt.show()
 
-    assert fig0.R == common.DEFAULT_FLIGHT_RADIUS, 'Unexpected default radius R'
+    assert fig0.R == DEFAULT_FLIGHT_RADIUS, 'Unexpected default radius R'
 
     print('=' * 160)
     t = np.linspace(0., 1., 8)

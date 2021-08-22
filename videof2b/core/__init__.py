@@ -16,5 +16,5 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 '''
-The :mod:`videof2b` package contains all VideoF2B functionality.
+Core modules of VideoF2B application.
 '''

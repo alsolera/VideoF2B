@@ -26,11 +26,10 @@ from math import (acos, asin, atan, atan2, cos, degrees, pi, radians, sin,
 
 import cv2
 import numpy as np
+import videof2b.core.geometry as geom
 from scipy.spatial.transform import Rotation as ROT
-
-import common
-import geometry as geom
-from common import EIGHTH_PI, HALF_PI, QUART_PI, TWO_PI, FigureTypes
+from videof2b.core.common import (DEFAULT_TURN_RADIUS, EIGHTH_PI, HALF_PI,
+                                  QUART_PI, TWO_PI, FigureTypes)
 
 logger = logging.getLogger(__name__)
 
@@ -311,7 +310,7 @@ class Drawing:
         # Number of points per 360 degrees of any arc.
         self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
         # Defines the turn radius of all applicable figures.
-        self.turn_r = kwargs.pop('turn_r', common.DEFAULT_TURN_RADIUS)
+        self.turn_r = kwargs.pop('turn_r', DEFAULT_TURN_RADIUS)
         # Indicates whether to draw diagnostics or not.
         self._draw_diags = False
         # Collection of all necessary scenes, keyed on type.

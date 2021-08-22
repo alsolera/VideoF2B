@@ -20,9 +20,8 @@
 import logging
 
 import numpy as np
-
-import figures
-from common import FigureTypes
+from videof2b.core.figures import Figure
+from videof2b.core.common import FigureTypes
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +102,7 @@ class FigureTracker:
 
         fig_type = FigureTracker.FIGURE_MAP.get(self.figure_idx)
         if fig_type is not None and self.R is not None:
-            self._curr_figure_fitter = figures.Figure.create(
+            self._curr_figure_fitter = Figure.create(
                 fig_type, R=self.R, actuals=self.actuals[self.figure_idx], enable_diags=self.enable_diags)
             self.figure_params.append(
                 # tuple of (initial, final) fit parameters

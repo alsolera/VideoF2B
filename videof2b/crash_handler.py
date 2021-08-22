@@ -16,5 +16,26 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 '''
-The :mod:`videof2b` package contains all VideoF2B functionality.
+Module for handling application crashes.
 '''
+
+import faulthandler
+import json
+import locale
+import os
+import os.path
+import platform
+import tempfile
+import traceback
+import uuid
+from typing import Any, cast
+
+# pylint: disable=import-error
+from PySide6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR, QUrl
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QGroupBox,
+                               QLabel, QPushButton, QTextEdit, QVBoxLayout)
+
+HOME_DIR = os.path.expanduser("~")
+
+# TODO: complete this module using Cura's CrashHandler as a guide?

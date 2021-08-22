@@ -17,50 +17,47 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
-import tkinter as Tkinter
 from os import path
 from tkinter import filedialog as tkFileDialog
 from tkinter import simpledialog as tkSimpleDialog
 
 import cv2
 import numpy as np
-
-import common
+import videof2b.core.common as common
+from videof2b.core.common.path import path_to_str
 
 logger = logging.getLogger(__name__)
 
 
 class CalCamera:
 
-    def __init__(self, frame_size, calibrationPath=None,
-                 flight_radius=None, marker_radius=None, marker_height=None,
+    PointNames = ('circle center', 'front marker', 'left marker', 'right marker')
+
+    # TODO: notes on completing the rework in CalCamera:
+    # * Move _loc_pts, flightRadius, markRadius, markHeight from here to Flight class.
+    # * Use those only as inputs to the Locate() method.
+    # * In fact, just pass a Flight instance as input to Locate().
+    # * CalCamera does not need to store them permanently.
+    # * It should only store its intrinsic/extrinsic calibration params and be able to serialize them.
+    # * In fact, a Calibrate() method could be implemented here with all the functionality
+    # * of CamCalibration.py so that everything is encapsulated here in one place.
+    # * It only needs them to calculate the on-demand pose estimation for a given Flight.
+    # * Move objectPoints, NumRefPoints, and related stuff to Flight as well. It makes more sense to define them there.
+
+    def __init__(self, frame_size, calibrationPath,
+                 flight_radius=None,
+                 marker_radius=None,
+                 marker_height=None,
                  marker_points=None):
 
-        initialdir = '../'
-        try:
-            with open('cal.conf', 'r') as CF:
-                initialdir = CF.read()
-                print(initialdir)
-        except Exception as readErr:
-            print(f'Error reading cal.conf: {readErr}')
-
-        root = Tkinter.Tk()
-        root.withdraw()  # use to hide tkinter window
-        if calibrationPath is None:
-            calibrationPath = tkFileDialog.askopenfilename(
-                parent=root, initialdir=initialdir,
-                title='Select camera calibration .npz file or cancel to ignore',
-                filetypes=(("Calibration files", "*.npz"), ("All files", "*.*")))
-        cal_path_str = f'calibrationPath: {calibrationPath}'
-        logger.info(cal_path_str)
-        print(cal_path_str)
-        self.Calibrated = len(calibrationPath) > 1
+        logger.info(f'calibrationPath: {calibrationPath}')
+        self._loc_pts = []
+        self.Calibrated = calibrationPath is not None
         self.Located = False
         self.AR = True
         self.flightRadius = flight_radius
         self.markRadius = marker_radius
         self.markHeight = marker_height
-        self.PointNames = ('circle center', 'front marker', 'left marker', 'right marker')
         self.frame_size = frame_size
         # Calibration default values
         self.is_fisheye = None
@@ -89,6 +86,7 @@ class CalCamera:
                 self.dist_zero = np.zeros_like(self.dist)
 
                 # Recalculate matrix and roi in case video from this camera was scaled after recording.
+                # FIXME: I suspect this approach doesn't actually work for rescaled videos. Currently, it results in incorrectly scaled AR geometry.
                 newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
                     self.mtx, self.dist, self.frame_size, 1)
                 # For diagnostics only. If video was not scaled after recording, these comparisons should be exactly equal.
@@ -110,17 +108,17 @@ class CalCamera:
                     self.balance = float(npzfile['balance'])
 
                 self.flightRadius = self.flightRadius or tkSimpleDialog.askfloat(
-                    'Input', f'Flight radius (m):', initialvalue = common.DEFAULT_FLIGHT_RADIUS)
+                    'Input', f'Flight radius (m):', initialvalue=common.DEFAULT_FLIGHT_RADIUS)
                 if self.flightRadius is None:
                     self.flightRadius = common.DEFAULT_FLIGHT_RADIUS
 
                 self.markRadius = self.markRadius or tkSimpleDialog.askfloat(
-                    'Input', f'Height markers distance to center (m):', initialvalue = common.DEFAULT_MARKER_RADIUS)
+                    'Input', f'Height markers distance to center (m):', initialvalue=common.DEFAULT_MARKER_RADIUS)
                 if self.markRadius is None:
                     self.markRadius = common.DEFAULT_MARKER_RADIUS
 
                 self.markHeight = self.markHeight or tkSimpleDialog.askfloat(
-                    'Input', f'Height markers: height above center of circle (m):', initialvalue = common.DEFAULT_MARKER_HEIGHT)
+                    'Input', f'Height markers: height above center of circle (m):', initialvalue=common.DEFAULT_MARKER_HEIGHT)
                 if self.markHeight is None:
                     self.markHeight = common.DEFAULT_MARKER_HEIGHT
             except:
@@ -130,13 +128,10 @@ class CalCamera:
                 self.Calibrated = False
                 input("Press <ENTER> to continue without calibration...")
 
-        del root
         logger.info(f'flight radius = {self.flightRadius} m')
         logger.info(f'  mark radius = {self.markRadius} m')
         logger.info(f'  mark height = {self.markHeight} m')
-        using_cal_str = f'Using calibration: {"YES" if self.Calibrated else "NO"}'
-        logger.info(using_cal_str)
-        print(using_cal_str)
+        logger.info(f'Using calibration: {"YES" if self.Calibrated else "NO"}')
 
     def Undistort(self, img):
         x, y, w, h = self.roi
