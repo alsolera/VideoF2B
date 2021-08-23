@@ -57,10 +57,6 @@ class VideoWindow(QtWidgets.QLabel):
         # log.debug(f'  self._pixmap = {self._pixmap}')
         self._update_pixmap(self.size())
         # log.debug('Leaving  VideoWindow.update_frame()')
-        #
-        # Let the UI breathe.
-        # TODO: the UI seems to run fine without this..do we really need this call on every frame update?
-        QtWidgets.QApplication.processEvents()
 
     @property
     def is_mouse_enabled(self):

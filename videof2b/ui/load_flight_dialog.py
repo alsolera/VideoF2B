@@ -19,18 +19,17 @@
 The dialog that loads the input video.
 '''
 
-from videof2b.core.common.path import path_to_str, str_to_path
-
 from PySide6 import QtCore, QtGui, QtWidgets
 from videof2b.core.common import (DEFAULT_FLIGHT_RADIUS, DEFAULT_MARKER_HEIGHT,
                                   DEFAULT_MARKER_RADIUS)
+from videof2b.core.common.path import path_to_str, str_to_path
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.flight import Flight
 from videof2b.ui import EXTENSIONS_VIDEO
 from videof2b.ui.widgets import PathEdit, PathEditType
 
 
-class LoadVideoDialog(QtWidgets.QDialog, StoreProperties):
+class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
     def __init__(self, parent) -> None:
         super().__init__(
             parent,
@@ -41,10 +40,8 @@ class LoadVideoDialog(QtWidgets.QDialog, StoreProperties):
         # TODO: try to implement this UI with a QAbstractListModel or a QStandardItemModel for proper cohesion.
         # see https://doc.qt.io/qtforpython/overviews/model-view-programming.html#models
         self.flight = None
-        self.start_processing = False
         self.setup_ui()
-        self.setWindowTitle('Load Video')
-        self.start_proc_chk.clicked.connect(self.on_start_proc_checked)
+        self.setWindowTitle('Load a Flight')
         self.cancel_btn.clicked.connect(self.reject)
         self.load_btn.clicked.connect(self.accept)
 
@@ -81,7 +78,6 @@ class LoadVideoDialog(QtWidgets.QDialog, StoreProperties):
         self.meas_grid.addWidget(self.marker_height_lbl, 3, 1, 1, 1)
         self.meas_grid.addWidget(self.marker_height_txt, 3, 2, 1, 1)
         #
-        self.start_proc_chk = QtWidgets.QCheckBox('Start processing immediately', self)
         self.load_btn = QtWidgets.QPushButton('Load', self)
         self.load_btn.setDefault(True)
         self.cancel_btn = QtWidgets.QPushButton('Cancel', self)
@@ -94,18 +90,20 @@ class LoadVideoDialog(QtWidgets.QDialog, StoreProperties):
         self.main_layout.addWidget(self.cal_path_lbl)
         self.main_layout.addWidget(self.cal_path_txt)
         self.main_layout.addLayout(self.meas_grid)
-        self.main_layout.addWidget(self.start_proc_chk)
         self.main_layout.addSpacerItem(QtWidgets.QSpacerItem(20, 20))
         self.main_layout.addLayout(self.bottom_layout)
-        # Actions
-        # action = QtGui.QAction(self)
-        # action.setChecked(False)
-        # action.setCheckable(True)
-        # self.act_live_chk = action
-        # self.live_chk.addAction(self.act_live_chk)
-
-    def on_start_proc_checked(self, val):
-        self.start_processing = val
+        # TODO: the following are temporarily disabled because calibrated flights are not ready yet. ==========
+        self.live_chk.setEnabled(False)
+        self.cal_path_lbl.setEnabled(False)
+        self.cal_path_txt.setEnabled(False)
+        self.flight_radius_lbl.setEnabled(False)
+        self.flight_radius_txt.setEnabled(False)
+        self.flight_radius_txt.setEnabled(False)
+        self.marker_radius_lbl.setEnabled(False)
+        self.marker_radius_txt.setEnabled(False)
+        self.marker_height_lbl.setEnabled(False)
+        self.marker_height_txt.setEnabled(False)
+        # ======= END OF temporarily disabled widgets =========================================================
 
     def accept(self) -> None:
         if not self.validate():

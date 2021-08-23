@@ -16,27 +16,28 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 '''
-The main video processor in VideoF2B.
+The main flight processor in VideoF2B.
 '''
 
+import enum
 import logging
 import platform
 import sys
 import time
-# from datetime import timedelta
 from pathlib import Path
+from typing import Tuple
 
 import cv2
-import imutils
 import numpy as np
 import videof2b.core.figure_tracker as figtrack
 import videof2b.core.projection as projection
+from imutils import resize
 from imutils.video import FPS
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QCoreApplication, QObject, Signal
 from PySide6.QtGui import QImage
 from videof2b.core import common
 from videof2b.core.camera import CalCamera
-# from videof2b.core.common import FigureTypes
+# from videof2b.core.common import FigureTypes  # TODO: for connecting UI checkboxes to drawing of figure templates here.
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.detection import Detector
 from videof2b.core.drawing import Drawing
@@ -45,40 +46,61 @@ from videof2b.core.flight import Flight
 log = logging.getLogger(__name__)
 
 
+@enum.unique
+class ProcessorReturnCodes(enum.IntEnum):
+    '''Definition of the return codes from VideoProcessor's processing loop.'''
+    # This is the code at init before the loop starts.
+    Undefined = -1,
+    # The loop exited normally.
+    Normal = 0,
+    # User cancelled the loop early.
+    UserCanceled = 1,
+
+
 class ProcessorSettings:
     '''Stores persistable user settings.'''
     # TODO: implement all these in the shared Settings object.
-    perform_3d_tracking = False
-    max_track_time = 15  # seconds
+    perform_3d_tracking = False  # TODO: add this option to LoadFlightDialog
+    max_track_time = 15  # seconds  # TODO: add this option to LoadFlightDialog
     # width of detector frame
     im_width = 960
     sphere_xy_delta = 0.1  # XY offset delta in m
     sphere_rot_delta = 0.5  # Rotation offset delta in degrees
-    live_videos = Path('../VideoF2B_videos')
+    live_videos = Path('../VideoF2B_videos')  # TODO: add this option to LoadFlightDialog
 
 
-class VideoProcessor(QThread, StoreProperties):
+class VideoProcessor(QObject, StoreProperties):
     '''Main video processor. Handles processing
     of a video input from start to finish.'''
 
-    # Signals
+    # --- Signals
+    # TODO: locator point interaction is incomplete right now. Needs rework of CalCamera first.
+    # Emits when locator points changed during camera locating.
     locator_points_changed = Signal(object)
+    # Emits the availability of AR geometry. Typically corresponds to value of `cam.Located`.
+    ar_geometry_available = Signal(bool)
+    # Emits when a new frame of video has been processed and is available for display.
     new_frame_available = Signal(QImage)
+    # Emits when we send a progress update.
     progress_updated = Signal(tuple)
+    # Emits when `process()` is about to return.
+    finished = Signal(int)
+    # Emits when we finish clearing the flight track.
+    track_cleared = Signal()
 
     def __init__(self) -> None:
         '''Create a new video processor.'''
         super().__init__()
-        # A note on QThread naming: =======================================================
-        # Sadly, this currently does not work. PySide6 names the threads `Dummy-#` instead.
-        # According to PySide6 docs:
-        # "Note that this is currently not available with release builds on Windows."
-        # See https://doc.qt.io/qtforpython/PySide6/QtCore/QThread.html#managing-threads
-        self.setObjectName('VideoProcessorThread')
+        self.ret_code: ProcessorReturnCodes = ProcessorReturnCodes.Undefined
+        self._keep_running: bool = False
+        self._clear_track_flag: bool = False
+        # We emit progress updates at this interval, in percent. Must be an integer.
+        self._progress_interval: int = 5
+        self._full_frame_size: Tuple[int, int] = None
+        self._fourcc: cv2.VideoWriter_fourcc = None
+        self.flight: Flight = None
+        # TODO: create the default values of the rest of the processing attributes here.
         #
-        self._full_frame_size = None
-        self._fourcc = None
-        self.flight = None
 
     def load_flight(self, flight: Flight) -> None:
         '''Load a Flight and prepare for processing.
@@ -91,7 +113,7 @@ class VideoProcessor(QThread, StoreProperties):
             int(self.flight.cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             int(self.flight.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         )
-        # TODO: move the setup code from run() to here. The code in run() should just contain the loop.
+        # TODO: move the setup code from process() to here. The code in process() should just contain the loop.
 
     def add_locator_point(self, point):
         '''Add a potential locator point.'''
@@ -106,9 +128,14 @@ class VideoProcessor(QThread, StoreProperties):
             self.flight.pop_locator_point()
 
     def on_locator_points_changed(self, points):
-        ''''''
+        '''Handles changes in locator points during the camera locating procedure.'''
         log.info(f'new locator points:\n{points}')
         self.locator_points_changed.emit(points)
+
+    def clear_track(self):
+        '''Clear the aircraft's existing flight track.'''
+        log.info('Clearing the flight track.')
+        self._clear_track_flag = True
 
     @staticmethod
     def _cv_img_to_qimg(cv_img: np.ndarray) -> QImage:
@@ -136,14 +163,22 @@ class VideoProcessor(QThread, StoreProperties):
         log.info(f"Input size: {inp_width} x {inp_height}")
         return scale, inp_width, inp_height
 
-    def run(self):
-        '''The main processing loop.'''
-        log.debug('VideoProcessor thread start.')
+    def stop_process(self):
+        '''Respond to a "nice" request to stop our processing loop.'''
+        log.debug('Entering `stop_process()`')
+        self.ret_code = ProcessorReturnCodes.UserCanceled
+        self._keep_running = False
 
+    def process(self):
+        '''The main processing loop.'''
         # This is an adaptation of this simple idea:
         # https://stackoverflow.com/questions/44404349/pyqt-showing-video-stream-from-opencv/44404713
 
-        # Prepare for processing -----------------
+        log.debug('Entering `VideoProcessor.process()`')
+        self._keep_running = True
+        self.ret_code = ProcessorReturnCodes.Normal
+
+        # --- Prepare for processing
         cap = self.flight.cap
 
         # Load camera calibration
@@ -155,7 +190,7 @@ class VideoProcessor(QThread, StoreProperties):
             marker_height=self.flight.marker_height
         )
         if not cam.Calibrated:
-            pass  # TODO: disable/hide the figure checkboxes in UI before processing.
+            self.ar_geometry_available.emit(False)
 
         # Determine input video size and the scale wrt detector's frame size
         scale, inp_width, inp_height = self.get_size(cam, cap, ProcessorSettings.im_width)
@@ -168,12 +203,12 @@ class VideoProcessor(QThread, StoreProperties):
         if platform.system() == 'Windows':
             self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
 
-        parent_path = self.flight.video_path.parent
+        video_path = self.flight.video_path
         video_name = self.flight.video_path.stem
 
         # Output video file
         VIDEO_FPS = cap.get(cv2.CAP_PROP_FPS)
-        OUT_VIDEO_PATH = parent_path / f'{video_name}_out.mp4'
+        OUT_VIDEO_PATH = video_path.with_name(f'{video_name}_out.mp4')
         w_ratio = inp_width / self._full_frame_size[0]
         h_ratio = inp_height / self._full_frame_size[1]
         RESTORE_SIZE = w_ratio > 0.95 and h_ratio > 0.95
@@ -233,7 +268,7 @@ class VideoProcessor(QThread, StoreProperties):
 
         fig_tracker = None
         if cam.Calibrated and ProcessorSettings.perform_3d_tracking:
-            data_path = parent_path / f'{video_name}_out_data.csv'
+            data_path = video_path.with_name(f'{video_name}_out_data.csv')
             data_writer = data_path.open('w', encoding='utf8')
             # data_writer.write('frame_idx,p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
             fig_tracker = figtrack.FigureTracker(
@@ -251,14 +286,15 @@ class VideoProcessor(QThread, StoreProperties):
         frame_idx = 0
         frame_delta = 0
         num_input_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        MAX_FRAME_DELTA = int(num_input_frames / 100)
+        MAX_FRAME_DELTA = int(num_input_frames * self._progress_interval / 100)
         is_paused = False
         # Speed meter
         fps = FPS().start()
         sphere_offset = common.DEFAULT_CENTER  # TODO: maybe get this from UI?
         watermark_text = f'{self.application.applicationName()} - v{self.application.applicationVersion()}'
 
-        while cap.more():
+        log.debug('Processing loop begins.')
+        while cap.more() and self._keep_running:
             frame_or = cap.read()
 
             if frame_or is None:
@@ -282,13 +318,14 @@ class VideoProcessor(QThread, StoreProperties):
             if cam.Calibrated:
                 frame_or = cam.Undistort(frame_or)
                 if not cam.Located and cam.AR:
-                    # TODO: this is broken right now because Camera needs rework
+                    # TODO: this is broken right now because CalCamera needs rework.
                     log.debug('Locating camera...')
                     cam.Locate(frame_or)
                     artist.Locate(cam, center=sphere_offset)
                     # The above two calls, especially cam.Locate(), take a long time.
-                    # Restart FPS meter to be fair
+                    # Restart FPS meter to be fair.
                     fps.start()
+                    self.ar_geometry_available.emit(cam.Located)
 
                 # TODO: refactor this into a private method here.
                 '''
@@ -322,7 +359,7 @@ class VideoProcessor(QThread, StoreProperties):
                 # '''
 
             # TODO: should we make `im_width` variable so that it's always less than input video width?
-            frame = imutils.resize(frame_or, width=ProcessorSettings.im_width)
+            frame = resize(frame_or, width=ProcessorSettings.im_width)
 
             detector.process(frame)
 
@@ -387,7 +424,7 @@ class VideoProcessor(QThread, StoreProperties):
 
             if not self.flight.is_live and RESTORE_SIZE:
                 # Size us back up to original. preserve aspect, crop to middle
-                frame_or = imutils.resize(frame_or, **resize_kwarg)[
+                frame_or = resize(frame_or, **resize_kwarg)[
                     crop_offset[1]:crop_idx_y,
                     crop_offset[0]:crop_idx_x]
 
@@ -402,15 +439,27 @@ class VideoProcessor(QThread, StoreProperties):
             out.write(frame_or)
             fps.update()
 
-            # Display processing progress to user
+            # Display processing progress to user at a fixed percentage interval
             frame_time = frame_idx / VIDEO_FPS
             progress = int(frame_idx / (num_input_frames) * 100)
-            if (frame_idx == 1) or (progress % 5 == 0 and frame_delta >= MAX_FRAME_DELTA) or (frame_time % 1 < 0.05):
+            if ((frame_idx == 1) or
+                    (progress % self._progress_interval == 0
+                        and frame_delta >= MAX_FRAME_DELTA)):
                 self.progress_updated.emit((frame_time, progress))
                 frame_delta = 0
             frame_delta += 1
 
             # azimuth_delta += 0.4  # For quick visualization of sphere outline
+
+            if self._clear_track_flag:
+                # Clear the track, reset the flag, let the world know.
+                detector.clear()
+                self._clear_track_flag = False
+                self.track_cleared.emit()
+
+            # IMPORTANT: Let the calling thread process events
+            # so that this thread receives signals from it.
+            QCoreApplication.processEvents()
 
             # TODO: refactor this huge if block into handlers for signals from UI.
             # =============================================================================================================
@@ -523,24 +572,27 @@ class VideoProcessor(QThread, StoreProperties):
             #         f'User resets sphere center after frame {frame_idx} ({timedelta(seconds=frame_time)})')
             #     artist.ResetCenter()
 
+        log.debug('Processing loop ended, cleaning up...')
         fps.stop()
-        self.progress_updated.emit((frame_time, progress))
         final_progress_str = f'frame_idx={frame_idx}, num_input_frames={num_input_frames}, num_empty_frames={num_empty_frames}, progress={progress}%'
         elapsed_time_str = f'Elapsed time: {fps.elapsed():.1f}'
         mean_fps_str = f'Approx. FPS: {fps.fps():.1f}'
-        log.info(f'Finished processing {self.flight.video_path}')
-        log.info(f'Result video written to {OUT_VIDEO_PATH}')
+        log.info(f'Finished processing {self.flight.video_path.name}')
+        log.info(f'Result video written to {OUT_VIDEO_PATH.name}')
         log.info(final_progress_str)
         log.info(elapsed_time_str)
         log.info(mean_fps_str)
 
         if fig_tracker is not None:
             fig_tracker.finish_all()
-            fig_tracker.export(parent_path / f'{video_name}_out_figures.npz')
+            fig_tracker.export(video_path.with_name(f'{video_name}_out_figures.npz'))
 
         # Clean up
         out.release()
         cv2.destroyAllWindows()
         if cam.Located and ProcessorSettings.perform_3d_tracking:
             data_writer.close()
-        log.debug('VideoProcessor thread end.')
+
+        # Exit with a code
+        log.debug(f'Exiting `VideoProcessor.process()` with retcode = {self.ret_code}')
+        self.finished.emit(self.ret_code)

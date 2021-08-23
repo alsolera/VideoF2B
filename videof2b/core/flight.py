@@ -67,11 +67,12 @@ class Flight(QObject):
         # Check if we succeeded.
         if self.cap.isOpened():
             self.is_ready = True
-            log.info(f'Loaded video source {self.video_path}')
+            # TODO: Using filename only for now. Maybe use a sanitized path?
+            log.info(f'Loaded video source {self.video_path.name}')
         else:
             self.is_ready = False
-            err_msg = f'Failed to load video source {self.video_path}'
-            log.error(err_msg)
+            # TODO: Using filename only for now. Maybe use a sanitized path?
+            log.error(f'Failed to load video source {self.video_path.name}')
             self.cap.release()
             self.cap = None
 

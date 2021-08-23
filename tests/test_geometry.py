@@ -21,11 +21,11 @@ from math import acos, atan, atan2, cos, degrees, pi, radians, sin, sqrt
 
 import numpy as np
 import pytest
+import videof2b.core.geometry as geom
 from scipy.spatial.transform import Rotation as ROT
-
-import geometry as geom
-from common import EIGHTH_PI, HALF_PI, QUART_PI, TWO_PI
-from Drawing import Drawing
+from videof2b.core.common import EIGHTH_PI, HALF_PI, QUART_PI, TWO_PI
+# TODO: for future tests of the Drawing API once CalCamera API is stabilized and testable.
+# from videof2b.core.drawing import Drawing
 
 # Good enough for everything we need to do
 TOL = 1.0e-15

@@ -61,8 +61,10 @@ VideoF2B is an open-source desktop application for tracing F2B Stunt competition
     include_package_data=True,
     zip_safe=False,
     python_requires='>=3.7',
-    dependency_links=['https://github.com/basil96/imutils/tarball/master'],
     install_requires=[
+        # To list a private GitHub repo as a dependency, see the following:
+        # https://stackoverflow.com/questions/18026980/python-setuptools-how-can-i-list-a-private-repository-under-install-requires
+        'imutils @ git+https://github.com/basil96/imutils.git',
         'numpy>=1.21.1',
         'platformdirs>=2.2.0',
         'opencv-python >= 4.5.3; platform_system=="Windows"',
