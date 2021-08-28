@@ -104,6 +104,10 @@ class Ui_MainWindow:
         self.filename_label = QtWidgets.QLabel(self.status_bar)
         self.filename_label.setObjectName('filename_label')
         self.status_bar.addPermanentWidget(self.filename_label, stretch=2)
+        # Status bar: instruction label
+        self.instruct_lbl = QtWidgets.QLabel(self.status_bar)
+        self.instruct_lbl.setObjectName('instruct_lbl')
+        self.status_bar.addPermanentWidget(self.instruct_lbl, stretch=1)
         # Status bar: processing progress bar
         self.proc_progress_bar = QtWidgets.QProgressBar(self.status_bar)
         self.proc_progress_bar.setObjectName('proc_progress_bar')
@@ -210,6 +214,11 @@ class Ui_MainWindow:
         action.setShortcut(QtCore.Qt.Key_BracketRight)
         self.act_figure_end = action
         main_window.addAction(self.act_figure_end)
+        #
+        action = QtGui.QAction(main_window)
+        action.setShortcut(QtCore.Qt.CTRL | QtCore.Qt.Key_R)
+        self.act_restart_flight = action
+        main_window.addAction(self.act_restart_flight)
         # Finish
         self.setLayout(self.main_layout)
 
@@ -218,6 +227,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     '''The main UI window of the VideoF2B application.'''
 
     stop_processor = QtCore.Signal()
+    locating_completed = QtCore.Signal()
     clear_track = QtCore.Signal()
 
     # Mapping of processor retcodes to user-friendly messages
@@ -237,14 +247,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # Set up internal objects
         self._proc = None
         self._proc_thread = None
+        self._last_flight = None
         # Set up signals and slots that are NOT related to VideoProcessor
-        self.act_file_load.triggered.connect(self.on_load_video)
+        self.act_file_load.triggered.connect(self.on_load_flight)
+        # TODO: The restart action is currently hidden because it's a nice feature for developer convenience. Should it become visible?
+        # self.act_restart_flight.triggered.connect(self.on_restart_flight)
         self.act_file_exit.triggered.connect(self.close)
         # TODO: center on main screen on first use, or use saved Settings if available.
         self.move(5, 5)
 
     def closeEvent(self, event):
-        '''Overriden to handle the closing of the main window in a safe manner.
+        '''Overridden to handle the closing of the main window in a safe manner.
         Handles all exit/close/quit requests here, ensuring all threads are stopped
         before we close.
         '''
@@ -282,34 +295,62 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             log.debug('VideoProcessor thread is not running. MainWindow is closing...')
             event.accept()
 
-    def on_loc_pts_changed(self):
-        '''Handler to echo changes in the VideoProcessor's locator points.'''
-        print('Entering `MainWindow.on_loc_pts_changed()`')
-        # self._print_pts(points)
+    def on_loc_pts_changed(self, points, msg):
+        '''Echoes changes in the VideoProcessor's locator points
+        and updates the instruction message.'''
+        self._output_pts(points)
+        self.instruct_lbl.setStyleSheet('QLabel { color : red; }')
+        self.instruct_lbl.setText(msg)
+
+    def on_loc_pts_defined(self):
+        '''Present the user with a confirm/redefine choice via messagebox.'''
+        self.instruct_lbl.setStyleSheet('QLabel { color : green; }')
+        self.instruct_lbl.setText('Fully defined.')
+        ret = QtWidgets.QMessageBox.information(
+            self,
+            'Locating completed',
+            'Locating points are fully defined. Proceed with processing?\n'
+            'Press Yes to proceed, No to redefine the points.',
+            QtWidgets.QMessageBox.Yes, QtWidgets.QMessageBox.No
+        )
+        if ret == QtWidgets.QMessageBox.Yes:
+            # Done locating. Disable the mouse reactions in video window.
+            self.video_window.is_mouse_enabled = False
+            self.instruct_lbl.setText('')
+            # self.instruct_lbl.hide()
+            # Signal to the processor that we're done.
+            self.locating_completed.emit()
+            self._pre_processing()
+        else:
+            self._last_flight.clear_locator_points()
 
     def _output_msg(self, msg):
-        '''Append a message to the output text box.'''
+        '''Append a message to the output text box and log it.'''
         self.output_txt.append(f'{datetime.now()} : {msg}')
         log.info(msg)
 
-    def _print_pts(self, points):
-        if points:
-            q = ['Image points:']
-            for i, p in enumerate(points):
-                q += [f'  {i+1:2d} : ({p.x():4d}, {p.y():4d})']
-            self._output_msg('\n'.join(q))
+    def _output_pts(self, points):
+        '''Output locator points.'''
+        q = ['Image points:']
+        for i, p in enumerate(points):
+            q += [f'  {i+1:1d} : ({",".join(f"{pp:4d}" for pp in p)})']
+        if not points:
+            q += ['  <empty>']
+        self._output_msg('\n'.join(q))
 
     def _init_proc(self):
         '''Create a new instance of the video processor and connect all its signals.'''
         self._proc = VideoProcessor()
 
-        # Set up thread-safe communication between threads.
+        # Connect signals that communicate between threads.
         # DO NOT call the processor's API directly from
         # the main UI thread, or you might have a bad day.
         # NOTE: the connections in this section must use
-        # Qt.QueuedConnection for cross-thread safety.
+        # QtCore.Qt.QueuedConnection for cross-thread safety.
         self.stop_processor.connect(
-            self._proc.stop_process, QtCore.Qt.QueuedConnection)
+            self._proc.stop, QtCore.Qt.QueuedConnection)
+        self.locating_completed.connect(
+            self._proc.stop_locating, QtCore.Qt.QueuedConnection)
         self.clear_track.connect(
             self._proc.clear_track, QtCore.Qt.QueuedConnection)
         self._proc.track_cleared.connect(
@@ -318,12 +359,21 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             self.on_progress_updated, QtCore.Qt.QueuedConnection)
         self._proc.ar_geometry_available.connect(
             self.on_ar_geometry_available, QtCore.Qt.QueuedConnection)
+        self._proc.new_frame_available.connect(
+            self.video_window.update_frame, QtCore.Qt.QueuedConnection)
+        self._proc.locator_points_changed.connect(
+            self.on_loc_pts_changed, QtCore.Qt.QueuedConnection)
+        self._proc.locator_points_defined.connect(
+            self.on_loc_pts_defined, QtCore.Qt.QueuedConnection)
+        self.video_window.point_added.connect(
+            self._proc.add_locator_point, QtCore.Qt.QueuedConnection)
+        self.video_window.point_removed.connect(
+            self._proc.pop_locator_point, QtCore.Qt.QueuedConnection)
 
-        # TODO: complete these connections when CalCamera is ready.
-        # self._proc.locator_points_changed.connect(self.on_loc_pts_changed)
-        # self.video_window.point_added.connect(self._proc.add_locator_point)
-        # self.video_window.point_removed.connect(self._proc.pop_locator_point)
-
+        # Actions and signals that are within the UI thread.
+        # NOTE: all of these must be disconnected in self._deinit_proc(),
+        # or we will end up with multiple connections after more than one
+        # flight is loaded during one application session.
         self.act_stop_proc.triggered.connect(self.on_stop_proc)
         self.act_clear_track.triggered.connect(self.on_clear_track)
         self.act_rotate_left.triggered.connect(self.on_rotate_left)
@@ -370,25 +420,44 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.act_figure_end.triggered.disconnect(self.on_figure_end)
         self._proc = None
 
-    def on_load_video(self):
+    def on_load_flight(self):
         '''Loads a flight via LoadFlightDialog and starts processing it.'''
         # TODO: is there a scenario when we would NOT want to start processing a Flight immediately?
         diag = LoadFlightDialog(self)
         if diag.exec() == QtWidgets.QDialog.Accepted:
             self._init_proc()
             # At this point, the flight data is validated. Load it into the processor.
-            self._proc.load_flight(diag.flight)
-            # Enable mouse if cam locating is necessary
-            self.video_window.is_mouse_enabled = diag.flight.is_calibrated
-            self.proc_progress_bar.show()
-            self._output_msg(f'Video loaded successfully from {self._proc.flight.video_path.name}')
-            self.filename_label.setText(self._proc.flight.video_path.name)
-            # Using Qt.QueuedConnection here because self._proc lives on a non-UI thread.
-            # See https://stackoverflow.com/questions/2823112/communication-between-threads-in-pyside
-            self._proc.new_frame_available.connect(
-                self.video_window.update_frame, QtCore.Qt.QueuedConnection
-            )
-            self.start_proc()
+            self._last_flight = diag.flight
+            self._load_flight(diag.flight)
+
+    def _load_flight(self, flight):
+        '''Load a specified flight.'''
+        if flight is None:
+            return
+        self._proc.load_flight(flight)
+        # Enable mouse if cam locating is necessary
+        self.video_window.is_mouse_enabled = flight.is_calibrated
+        self._pre_processing()
+        self.start_proc_thread()
+
+    def _pre_processing(self):
+        '''Prepare the UI before we start processing.'''
+        self.proc_progress_bar.show()
+        self._output_msg(f'Video loaded successfully from {self._proc.flight.video_path.name}')
+        self.filename_label.setText(self._proc.flight.video_path.name)
+
+    def on_restart_flight(self):
+        '''Reload the current flight and restart it.'''
+        # TODO: needs attention. processor exits, but processing thread does not join.
+        if self._last_flight is None:
+            return
+        self.on_stop_proc()
+        # Block until proc thread joins us.
+        if hasattr(self, '_proc_thread') and self._proc_thread is not None:
+            self._proc_thread.wait()
+        self._init_proc()
+        self._last_flight.restart()
+        self._load_flight(self._last_flight)
 
     def on_proc_starting(self):
         '''Handle required preparations when the processing thread starts.'''
@@ -397,7 +466,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
 
     def on_proc_finished(self, retcode: ProcessorReturnCodes):
         '''Let the user know that the video processing finished, and indicate the reason.'''
-        # WARNING: do not access self._proc here, as it it likely deleted at this point.
+        # BEWARE: `_proc` is available here only because we arrange
+        # the order of signal connections in `start_proc_thread()`
+        # so that this runs before the processor instance is deleted.
+        # Process any unhandled exceptions from the processing thread:
+        if self._proc.exc is not None:
+            QtWidgets.QMessageBox.critical(
+                'A surprise error occurred.\n'
+                'It may be a bug. Please report this.')
+            # Re-raise the exception here on the main thread so that excepthook has a chance.
+            raise RuntimeError('Problem in VideoProcessor.') from self._proc.exc
+
         self._output_msg(self._retcodes_dict[retcode])
         # TODO: what else do we want to do here?
         # Options:
@@ -419,13 +498,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         if self._is_window_closing:
             self.close()
 
-    def _deinit_thread(self):
+    def _deinit_proc_thread(self):
         '''Explicitly dereference the processing thread so that
         we don't end up referencing a deleted C++ object in PySide.'''
         log.debug(f'Dereferencing _proc_thread ... self._proc = {self._proc}')
         self._proc_thread = None
 
-    def start_proc(self):
+    def start_proc_thread(self):
         '''Starts the video processor on a worker thread.'''
         self._proc_thread = QtCore.QThread()
         # A note on QThread naming: =======================================================
@@ -436,17 +515,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # See https://doc.qt.io/qtforpython/PySide6/QtCore/QThread.html#managing-threads
         self._proc_thread.setObjectName('VideoProcessorThread')
         self._proc.moveToThread(self._proc_thread)
-        self._proc_thread.started.connect(self._proc.process)
+        self._proc_thread.started.connect(self._proc.run)
+        self._proc.finished.connect(self.on_proc_finished)
         self._proc.finished.connect(self._proc_thread.exit)
         self._proc.finished.connect(self._proc.deleteLater)
-        self._proc.finished.connect(self.on_proc_finished)
         self._proc_thread.finished.connect(self._proc_thread.deleteLater)
         self._proc_thread.finished.connect(self.on_proc_thread_finished)
-        self._proc_thread.destroyed.connect(self._deinit_thread)
-
+        self._proc_thread.destroyed.connect(self._deinit_proc_thread)
         # --- Final preparations
         self.on_proc_starting()
-        # Start the processing thread
+        # Start the thread
         self._proc_thread.start()
 
     def on_progress_updated(self, data):
@@ -462,6 +540,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     def on_stop_proc(self):
         '''Request to stop the video processor.'''
         log.debug('User says: CANCEL PROCESSING')
+        # Clean up the UI
+        self.instruct_lbl.setText('')
+        self.instruct_lbl.hide()
         # Politely ask the processing loop to stop.
         self.stop_processor.emit()
 

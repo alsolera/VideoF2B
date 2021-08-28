@@ -19,6 +19,8 @@
 The dialog that loads the input video.
 '''
 
+from pathlib import Path
+
 from PySide6 import QtCore, QtGui, QtWidgets
 from videof2b.core.common import (DEFAULT_FLIGHT_RADIUS, DEFAULT_MARKER_HEIGHT,
                                   DEFAULT_MARKER_RADIUS)
@@ -30,7 +32,10 @@ from videof2b.ui.widgets import PathEdit, PathEditType
 
 
 class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
+    '''The dialog window that collects user inputs for a Flight instance.'''
+
     def __init__(self, parent) -> None:
+        '''Constructor.'''
         super().__init__(
             parent,
             QtCore.Qt.WindowSystemMenuHint |
@@ -46,18 +51,26 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.load_btn.clicked.connect(self.accept)
 
     def setup_ui(self):
+        '''Lay out the UI elements'''
         self.main_layout = QtWidgets.QVBoxLayout(self)
         self.main_layout.setObjectName('main_layout')
         self.live_chk = QtWidgets.QCheckBox('&Live video', self)
         self.video_path_lbl = QtWidgets.QLabel('Video source:', self)
-        self.video_path_txt = PathEdit(self, PathEditType.Files,
-                                       'Select video file',
-                                       str_to_path(self.settings.value('mru/video_dir')))  # TODO: there must be a cleaner way to convert path<->str in settings!
+        self.video_path_txt = PathEdit(
+            self, PathEditType.Files,
+            'Select video file',
+            str_to_path(self.settings.value('mru/video_dir'))
+        )  # TODO: there must be a cleaner way to convert path<->str in settings!
         self.video_path_txt.filters = f'Video files ({" ".join(EXTENSIONS_VIDEO)});;All files (*)'
+        #
+        # TODO: insert a checkbox here that connects to `flight.is_ar_enabled` and conditionally enables/disables the entire "calibrated" group of inputs below.
+        #
         self.cal_path_lbl = QtWidgets.QLabel('Calibration file:', self)
-        self.cal_path_txt = PathEdit(self, PathEditType.Files,
-                                     'Select calibration file',
-                                     str_to_path(self.settings.value('mru/cal_dir')))  # TODO: there must be a cleaner way to convert path<->str in settings!
+        self.cal_path_txt = PathEdit(
+            self, PathEditType.Files,
+            'Select calibration file',
+            str_to_path(self.settings.value('mru/cal_dir'))
+        )  # TODO: there must be a cleaner way to convert path<->str in settings!
         self.cal_path_txt.filters = 'Calibration files (*.npz);;All files (*)'
         # Measurement inputs
         self.flight_radius_lbl = QtWidgets.QLabel(
@@ -92,22 +105,13 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.main_layout.addLayout(self.meas_grid)
         self.main_layout.addSpacerItem(QtWidgets.QSpacerItem(20, 20))
         self.main_layout.addLayout(self.bottom_layout)
-        # TODO: the following are temporarily disabled because calibrated flights are not ready yet. ==========
-        self.live_chk.setEnabled(False)
-        self.cal_path_lbl.setEnabled(False)
-        self.cal_path_txt.setEnabled(False)
-        self.flight_radius_lbl.setEnabled(False)
-        self.flight_radius_txt.setEnabled(False)
-        self.flight_radius_txt.setEnabled(False)
-        self.marker_radius_lbl.setEnabled(False)
-        self.marker_radius_txt.setEnabled(False)
-        self.marker_height_lbl.setEnabled(False)
-        self.marker_height_txt.setEnabled(False)
-        # ======= END OF temporarily disabled widgets =========================================================
 
     def accept(self) -> None:
-        if not self.validate():
-            return
+        '''Create a Flight instance if all inputs are valid.
+        Store the instance as our `flight` attribute.
+        '''
+        if not self._validate():
+            return None  # Keeps the window up
         self.flight = Flight(
             self.video_path_txt.path,
             cal_path=self.cal_path_txt.path,
@@ -116,6 +120,7 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
             flight_radius=float(self.flight_radius_txt.text()),
             marker_radius=float(self.marker_radius_txt.text()),
             marker_height=float(self.marker_height_txt.text())
+            # TODO: include `sphere_offset` as well. Add a grid widget to UI for the XYZ values.
         )
         # TODO: there must be a cleaner way to convert path<->str in settings!
         self.settings.setValue('mru/video_dir', path_to_str(self.video_path_txt.path.parent))
@@ -130,31 +135,36 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
                 'Failed to load video source.',
                 QtWidgets.QMessageBox.Ok
             )
-            return None
+            return None  # Keeps the window up
         return super().accept()
 
-    def validate(self) -> bool:
+    def _validate(self) -> bool:
         '''Validate user inputs.'''
         result = True
         # TODO: this is rudimentary for now. Using a Qt Model with field validators would be more ideal.
-        vid_path = self.video_path_txt.path
-        if vid_path is None or not vid_path.exists():
-            QtWidgets.QMessageBox.critical(
-                self, 'Error',
-                'Please specify a valid video source.',
-                QtWidgets.QMessageBox.Ok
-            )
+        # Then we could highlight invalid fields instead of popping up a bunch of error messageboxes.
+        if not self._validate_path(self.video_path_txt.path, 'Please specify a valid video source.'):
             result = False
+        # TODO: calibration path can only be validated if we add a "is calibrated" checkbox to this dialog that enables AR-related data.
+        # if not self._validate_path(self.cal_path_txt.path, 'Please specify a valid calibration file.'):
+        #     result = False
         try:
             float(self.flight_radius_txt.text())
             float(self.marker_radius_txt.text())
             float(self.marker_height_txt.text())
         except ValueError as err:
-            QtWidgets.QMessageBox.critical(
-                self, 'Error',
-                f'ERROR: {err}\n'
-                'Please verify numeric inputs.',
-                QtWidgets.QMessageBox.Ok
-            )
+            self._show_error_message(f'ERROR: {err}\nPlease verify numeric inputs.')
             result = False
         return result
+
+    def _validate_path(self, path: Path, err_msg: str) -> bool:
+        '''Validate a path input. Show an error message
+        if path is empty or doesn't exist.'''
+        if path is None or not path.exists():
+            self._show_error_message(err_msg)
+            return False
+        return True
+
+    def _show_error_message(self, msg):
+        '''Display a simple error messagebox to user.'''
+        QtWidgets.QMessageBox.critical(self, 'Error', msg, QtWidgets.QMessageBox.Ok)

@@ -72,6 +72,8 @@ class VideoWindow(QtWidgets.QLabel):
         '''Rescale our pixmap to the given size.
         Always create the scaled pixmap from the original provided pixmap.'''
         if self._pixmap.isNull():
+            # A null QPixmap has zero width, zero height and no contents.
+            # You cannot draw in a null pixmap.
             return
         self._scaled_pix_map = self._pixmap.scaled(
             size,
@@ -79,8 +81,13 @@ class VideoWindow(QtWidgets.QLabel):
             mode=QtCore.Qt.SmoothTransformation)
         self.setPixmap(self._scaled_pix_map)
 
+    def clear(self) -> None:
+        '''Overridden method to clear our custom pixmap.'''
+        self._pixmap = QtGui.QPixmap()
+        return super().clear()
+
     def resizeEvent(self, event: QtGui.QResizeEvent) -> None:  # pylint:disable=invalid-name
-        '''Overriden event so that our window resizes with its parent
+        '''Overridden event so that our window resizes with its parent
         while maintaining the loaded image's original aspect ratio.'''
         self._update_pixmap(event.size())
         self.update()
@@ -88,7 +95,7 @@ class VideoWindow(QtWidgets.QLabel):
         # return super().resizeEvent(event) # possible stack overflow?
 
     def mousePressEvent(self, event: QtGui.QMouseEvent) -> None:  # pylint:disable=invalid-name
-        '''Overriden event so that we react to mouse clicks as needed.'''
+        '''Overridden event so that we react to mouse clicks as needed.'''
         if not self._is_mouse_enabled:
             return None
         options = {

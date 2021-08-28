@@ -18,7 +18,7 @@
 '''Common definitions and constants for VideoF2B.'''
 
 import enum
-from math import pi
+from math import pi, cos
 import numpy as np
 
 import platformdirs
@@ -36,6 +36,8 @@ HALF_PI = 0.5 * pi
 QUART_PI = 0.25 * pi
 EIGHTH_PI = 0.125 * pi
 TWO_PI = 2.0 * pi
+# Trig functions of common angles
+COS_45 = cos(QUART_PI)
 
 
 @enum.unique

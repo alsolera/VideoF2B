@@ -30,10 +30,13 @@ log = logging.getLogger(__name__)
 class Flight(QObject):
     '''Contains information about a flight to be processed.'''
 
-    # Signals
-    locator_points_changed = Signal(object)
+    # --- Signals
+    # Indicates that the current locator points changed during the locating procedure.
+    locator_points_changed = Signal(object, str)
+    # Indicates that all required points have been defined during the locating procedure.
+    locator_points_defined = Signal()
 
-    point_names = (
+    obj_point_names = (
         'circle center',
         'front marker',
         'left marker',
@@ -42,27 +45,56 @@ class Flight(QObject):
 
     def __init__(self, vid_path: Path, is_live=False, cal_path=None, **kwargs) -> None:
         '''Provide a flight video with a path to the video file, plus these options:
+
             `is_live`: True if using a live video stream, False if loading from a file.
             `cal_path`: path to the calibration file.
+
             `kwargs` are additional parameters when cal_path is specified.
             These are as follows:
-            `flight_radius`
-            `marker_radius`
-            `marker_height`
-            `sphere_offset`
-            All dimensions are in meters.
+            `flight_radius`: radius of the flight hemisphere.
+            `marker_radius`: radius of the circle where the markers are located.
+            `marker_height`: elevation of the marker circle above the center marker.
+            `sphere_offset`: XYZ sequence of coordinates of the AR flight sphere
+                             with respect to the center of the marker circle.
+                             Defaults to origin (0., 0., 0.)
+            `loc_pts`: locator points (in pixels). Use when you know what you are doing.
+            All dimensions are in meters unless otherwise specified.
         '''
         super().__init__()
+        self.num_obj_pts = len(Flight.obj_point_names)
         self.is_ready = False
         self.video_path = vid_path
         self.is_live = is_live
         self.calibration_path = cal_path
         self.is_calibrated = cal_path is not None and cal_path.exists()
+        self.is_located = False
+        self.is_ar_enabled = True
         self.flight_radius = kwargs.pop('flight_radius', common.DEFAULT_FLIGHT_RADIUS)
         self.marker_radius = kwargs.pop('marker_radius', common.DEFAULT_MARKER_RADIUS)
         self.marker_height = kwargs.pop('marker_height', common.DEFAULT_MARKER_HEIGHT)
         self.sphere_offset = kwargs.pop('sphere_offset', common.DEFAULT_CENTER)
-        # Load the video
+        rcos45 = self.marker_radius * common.COS_45
+        # --- Object points for pose estimation.
+        # NOTE: This sequence must reflect the representation of these points in `Flight.obj_point_names`
+        self.obj_pts = (
+            [0, 0, -self.marker_height],  # Center marker
+            [0, self.marker_radius, 0],  # Front marker
+            [-rcos45, rcos45, 0],  # Left marker
+            [rcos45, rcos45, 0]  # Right marker
+        )
+        # Locator points. This list grows and shrinks during the locating procedure.
+        self.loc_pts = kwargs.pop('loc_pts', [])
+
+        log.info(f'    flight radius = {self.flight_radius} m')
+        log.info(f'      mark radius = {self.marker_radius} m')
+        log.info(f'      mark height = {self.marker_height} m')
+        log.info(f'Using calibration:  {"YES" if self.is_calibrated else "NO"}')
+
+        # Load the video stream
+        self._load_stream()
+
+    def _load_stream(self):
+        '''Load this flight's video stream.'''
         self.cap = FileVideoStream(str(self.video_path)).start()
         # Check if we succeeded.
         if self.cap.isOpened():
@@ -76,18 +108,36 @@ class Flight(QObject):
             self.cap.release()
             self.cap = None
 
+    def restart(self):
+        '''Restart this flight's video stream.'''
+        self._load_stream()
+
     def add_locator_point(self, point) -> None:
         '''Add a potential locator point.'''
-        if len(self._loc_pts) < len(Flight.point_names):
-            self._loc_pts.append(point)
+        if len(self.loc_pts) < self.num_obj_pts:
+            self.loc_pts.append(point)
             self.on_locator_points_changed()
+        # If we just reached the limit, then emit
+        # that all required points have been defined.
+        if len(self.loc_pts) == self.num_obj_pts:
+            self.locator_points_defined.emit()
 
     def pop_locator_point(self) -> None:
         '''Remove the last added locator point, if it exists.'''
-        if self._loc_pts:
-            _ = self._loc_pts.pop()
+        if self.loc_pts:
+            _ = self.loc_pts.pop()
             self.on_locator_points_changed()
 
+    def clear_locator_points(self):
+        '''Clear all locator points.'''
+        self.loc_pts.clear()
+        self.on_locator_points_changed()
+
     def on_locator_points_changed(self):
-        '''Emits the `locator_points_changed` signal.'''
-        self.locator_points_changed.emit(self._loc_pts)
+        '''Signals that locator points changed, and the new instruction message.'''
+        idx = len(self.loc_pts)
+        if idx < len(self.obj_point_names):
+            msg = f'Click {self.obj_point_names[idx]}.'
+        else:
+            msg = 'All points defined.'
+        self.locator_points_changed.emit(self.loc_pts, msg)

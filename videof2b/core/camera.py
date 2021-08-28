@@ -17,47 +17,25 @@
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 import logging
-from os import path
-from tkinter import filedialog as tkFileDialog
-from tkinter import simpledialog as tkSimpleDialog
 
 import cv2
 import numpy as np
-import videof2b.core.common as common
-from videof2b.core.common.path import path_to_str
+from PySide6.QtCore import QObject
+from videof2b.core.flight import Flight
 
 logger = logging.getLogger(__name__)
 
 
-class CalCamera:
+class CalCamera(QObject):
+    '''Represents a real-world camera whose intrinsic and extrinsic optical properties are known.'''
 
-    PointNames = ('circle center', 'front marker', 'left marker', 'right marker')
+    # TODO: implement a `Calibrate()`` method here with all the functionality of CamCalibration.py to encapsulate all CalCamera-related functionality in one place.
 
-    # TODO: notes on completing the rework in CalCamera:
-    # * Move _loc_pts, flightRadius, markRadius, markHeight from here to Flight class.
-    # * Use those only as inputs to the Locate() method.
-    # * In fact, just pass a Flight instance as input to Locate().
-    # * CalCamera does not need to store them permanently.
-    # * It should only store its intrinsic/extrinsic calibration params and be able to serialize them.
-    # * In fact, a Calibrate() method could be implemented here with all the functionality
-    # * of CamCalibration.py so that everything is encapsulated here in one place.
-    # * It only needs them to calculate the on-demand pose estimation for a given Flight.
-    # * Move objectPoints, NumRefPoints, and related stuff to Flight as well. It makes more sense to define them there.
-
-    def __init__(self, frame_size, calibrationPath,
-                 flight_radius=None,
-                 marker_radius=None,
-                 marker_height=None,
-                 marker_points=None):
-
-        logger.info(f'calibrationPath: {calibrationPath}')
-        self._loc_pts = []
-        self.Calibrated = calibrationPath is not None
-        self.Located = False
-        self.AR = True
-        self.flightRadius = flight_radius
-        self.markRadius = marker_radius
-        self.markHeight = marker_height
+    def __init__(self, frame_size, flight: Flight):
+        '''Create a CalCamera for a given image frame size and a given Flight.'''
+        # We expect a properly populated Flight instance.
+        self._flight = flight
+        logger.info(f'calibration_path: {self._flight.calibration_path}')
         self.frame_size = frame_size
         # Calibration default values
         self.is_fisheye = None
@@ -69,14 +47,10 @@ class CalCamera:
         self.map1 = None
         self.map2 = None
 
-        if self.Calibrated:
+        if self._flight.is_calibrated:
             try:
-                with open('cal.conf', 'w') as CF:
-                    CF.write(path.dirname(calibrationPath))
-            except Exception as writeErr:
-                print(f'Error writing to cal.conf: {writeErr}')
-            try:
-                npzfile = np.load(calibrationPath)
+                # TODO: factor out the loading of the cal file itself to an instance method here.
+                npzfile = np.load(self._flight.calibration_path)
                 # is_fisheye: new in v0.6, default=False for compatibility with pre-v0.6 camera files.
                 self.is_fisheye = npzfile.get('is_fisheye', False)
                 self.mtx = npzfile['mtx']
@@ -106,34 +80,12 @@ class CalCamera:
                     self.cam_mat = npzfile['cam_mat']
                     # 'balance' is a scalar, but numpy insists on serializing it as ndarray
                     self.balance = float(npzfile['balance'])
+            except Exception as load_err:
+                logger.error(f'Error loading calibration file: {load_err}')
+                self._flight.is_calibrated = False
 
-                self.flightRadius = self.flightRadius or tkSimpleDialog.askfloat(
-                    'Input', f'Flight radius (m):', initialvalue=common.DEFAULT_FLIGHT_RADIUS)
-                if self.flightRadius is None:
-                    self.flightRadius = common.DEFAULT_FLIGHT_RADIUS
-
-                self.markRadius = self.markRadius or tkSimpleDialog.askfloat(
-                    'Input', f'Height markers distance to center (m):', initialvalue=common.DEFAULT_MARKER_RADIUS)
-                if self.markRadius is None:
-                    self.markRadius = common.DEFAULT_MARKER_RADIUS
-
-                self.markHeight = self.markHeight or tkSimpleDialog.askfloat(
-                    'Input', f'Height markers: height above center of circle (m):', initialvalue=common.DEFAULT_MARKER_HEIGHT)
-                if self.markHeight is None:
-                    self.markHeight = common.DEFAULT_MARKER_HEIGHT
-            except:
-                cal_err_str = 'Error loading calibration file'
-                logger.error(cal_err_str)
-                print(cal_err_str)
-                self.Calibrated = False
-                input("Press <ENTER> to continue without calibration...")
-
-        logger.info(f'flight radius = {self.flightRadius} m')
-        logger.info(f'  mark radius = {self.markRadius} m')
-        logger.info(f'  mark height = {self.markHeight} m')
-        logger.info(f'Using calibration: {"YES" if self.Calibrated else "NO"}')
-
-    def Undistort(self, img):
+    def undistort(self, img):
+        '''Undistort a given image according to the camera's calibration.'''
         x, y, w, h = self.roi
         if self.is_fisheye:
             # img = cv2.fisheye.undistortImage(img, self.mtx, self.dist, None, self.newcameramtx) # kinda works, but something's still off...
@@ -168,6 +120,10 @@ class CalCamera:
             # crop it
             img = img[y:y+h, x:x+w]
 
+            # TODO: create regression tests for this if possible.
+            # Verify the current `undistort` behavior against the original slow one,
+            # in case we ever change anything in the current approach.
+            # ==================================================================================
             # Diagnostics for testing the equality of the faster approach against the original.
             # Uncomment above and below sections to verify.
             # np.save('img_undistort_slow', img_slow)
@@ -177,90 +133,39 @@ class CalCamera:
 
         return img
 
-    def Locate(self, img):
-        self.calWindowName = 'Calibration (Center, Front, Left, Right)'
+    def locate(self, flight: Flight):
+        '''Locate a given Flight instance using this camera.'''
+        obj_pts = np.float32(flight.obj_pts)
+        loc_pts = np.float32(flight.loc_pts)
+        _ret, self.rvec, self.tvec = cv2.solvePnP(obj_pts, loc_pts,
+                                                  self.newcameramtx,
+                                                  self.dist_zero,
+                                                  cv2.SOLVEPNP_ITERATIVE)
+        # Precalculate all pieces necessary for line/sphere intersections.
+        self.rmat = None
+        self.rmat, _ = cv2.Rodrigues(self.rvec, self.rmat)
+        rmat_inv = np.linalg.inv(self.rmat)
+        m_inv = np.linalg.inv(self.newcameramtx)
+        self.qmat = rmat_inv.dot(m_inv)
+        self.rtvec = rmat_inv.dot(self.tvec)
+        # Direct result: camera location in world coordinates
+        # is where the free scaling factor = 0.
+        self.cam_pos = -self.rtvec
+        cam_d = np.linalg.norm(self.cam_pos)
 
-        rcos45 = self.markRadius * 0.70710678
-        objectPoints = np.array([[0, 0, -self.markHeight],
-                                 [0, self.markRadius, 0],
-                                 [-rcos45, rcos45, 0],
-                                 [rcos45, rcos45, 0]], dtype=np.float32)
+        logger.info(f'loc_pts =\n{loc_pts}')
+        logger.debug('Matrices and vectors for 3D tracking: =====================')
+        logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
+        logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
+        logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
+        logger.debug(f'rmat = {type(self.rmat)}\n{self.rmat}')
+        logger.debug(f'rmat_inv = {type(rmat_inv)}\n{rmat_inv}')
+        logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
+        logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
+        logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
+        logger.debug('End of matrices and vectors for 3D tracking ===============')
+        logger.info(f'world cam location =\n{self.cam_pos}')
+        logger.info(f'world cam straight distance from sphere center = {cam_d:.3f}')
 
-        self.point = 0
-        NumRefPoints = np.shape(objectPoints)[0]
-        self.imagePoints = np.zeros((NumRefPoints, 2), dtype=np.float32)
-
-        cv2.namedWindow(self.calWindowName, cv2.WINDOW_NORMAL)
-        cv2.setMouseCallback(self.calWindowName, self.CB_mouse, param=img)
-
-        while(1):
-
-            cv2.imshow(self.calWindowName,
-                       cv2.putText(img.copy(),
-                                   f'Click {self.PointNames[self.point]}', (15, 20),
-                                   cv2.FONT_HERSHEY_SIMPLEX, .75, (0, 0, 255), 2))
-
-            k = cv2.waitKey(1) & 0xFF
-
-            if self.imagePoints[NumRefPoints-1, 1] > 0:
-                _ret, self.rvec, self.tvec = cv2.solvePnP(objectPoints, self.imagePoints,
-                                                          self.newcameramtx,
-                                                          self.dist_zero,
-                                                          cv2.SOLVEPNP_ITERATIVE)
-                # precalculate all pieces necessary for line/sphere intersections
-                self.rmat = None
-                self.rmat, _ = cv2.Rodrigues(self.rvec, self.rmat)
-                rmat_inv = np.linalg.inv(self.rmat)
-                m_inv = np.linalg.inv(self.newcameramtx)
-                self.qmat = rmat_inv.dot(m_inv)
-                self.rtvec = rmat_inv.dot(self.tvec)
-                # Direct result: camera location in world coordinates is where the scaling factor = 0
-                self.cam_pos = -self.rtvec
-                cam_d = np.linalg.norm(self.cam_pos)
-
-                logger.info(f'imagePoints =\n{self.imagePoints}')
-                logger.debug('Matrices and vectors for 3D tracking: =====================')
-                logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
-                logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
-                logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
-                logger.debug(f'rmat = {type(self.rmat)}\n{self.rmat}')
-                logger.debug(f'rmat_inv = {type(rmat_inv)}\n{rmat_inv}')
-                logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
-                logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
-                logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
-                logger.debug('End of matrices and vectors for 3D tracking ===============')
-                logger.info(f'world cam location =\n{self.cam_pos}')
-                logger.info(f'world cam straight distance from sphere center = {cam_d:.3f}')
-
-                self.Located = True
-                cv2.destroyWindow(self.calWindowName)
-                break
-
-            if k == 27 or cv2.getWindowProperty(self.calWindowName, 1) < 0:
-                self.AR = False
-                if cv2.getWindowProperty(self.calWindowName, 1) >= 0:
-                    cv2.destroyWindow(self.calWindowName)
-                break
-
-    # mouse callback function
-    def CB_mouse(self, event, x, y, flags, param):
-        '''NOTE: param is the image frame.'''
-        # print(event, x, y, flags, param)
-        if event == cv2.EVENT_LBUTTONDOWN:
-            self.imagePoints[self.point, 0], self.imagePoints[self.point, 1] = x, y
-            self.point += 1
-            # curr_pts_str = f'Point {self.point} entered. Points =\n{self.imagePoints}'
-            # logger.info(curr_pts_str)
-            # print(curr_pts_str)
-            if param is not None:
-                cv2.circle(param, (x, y), 6, (0, 255, 0))
-
-        elif event == cv2.EVENT_RBUTTONDOWN:
-            if self.point > 0:
-                self.point -= 1
-                if param is not None:
-                    cv2.circle(param, (self.imagePoints[self.point, 0], self.imagePoints[self.point, 1]),
-                               5, (0, 0, 255))
-                self.imagePoints[self.point, 0] = 0
-                self.imagePoints[self.point, 1] = 0
-                # print(self.imagePoints)
+        # TODO: should we check `_ret` first? Or return `_ret` as appropriate?
+        self._flight.is_located = True

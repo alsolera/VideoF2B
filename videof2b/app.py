@@ -59,10 +59,10 @@ class VideoF2B(QtCore.QObject):
         :param traceback: A traceback object with the details of where the exception occurred.
         """
         # We can't log.exception here because the last exception no longer exists, we're actually busy handling it.
-        log.critical(''.join(format_exception(exc_type, value, traceback)))
-
+        exc_msg = ''.join(format_exception(exc_type, value, traceback))
+        log.critical(exc_msg)
         # TODO: temporarily here until ExceptionDialog is ready.
-        raise SystemExit(''.join(format_exception(exc_type, value, traceback)))
+        raise Exception(exc_msg)
 
         # TODO: enable the exception form here once its design is ready
         # if not hasattr(self, 'exception_form'):
