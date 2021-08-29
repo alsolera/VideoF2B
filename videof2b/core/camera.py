@@ -23,7 +23,7 @@ import numpy as np
 from PySide6.QtCore import QObject
 from videof2b.core.flight import Flight
 
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class CalCamera(QObject):
@@ -35,54 +35,74 @@ class CalCamera(QObject):
         '''Create a CalCamera for a given image frame size and a given Flight.'''
         # We expect a properly populated Flight instance.
         self._flight = flight
-        logger.info(f'calibration_path: {self._flight.calibration_path}')
         self.frame_size = frame_size
-        # Calibration default values
-        self.is_fisheye = None
-        self.mtx = None
-        self.dist = None
-        self.dist_zero = None
-        self.roi = None
+        # Calibration defaults
         self.newcameramtx = None
+        self.mtx = None
+        self.roi = None
+        self.dist = None
+        # Fisheye calibration defaults (experimental)
+        self.is_fisheye = False
+        self.scaled_cam_mat = None
+        self.cam_mat = None
+        self.balance = None
+        # Runtime attributes
+        self.dist_zero = None
         self.map1 = None
         self.map2 = None
+        # 3D-related attributes
+        self.rvec = None
+        self.tvec = None
+        self.rmat = None
+        self.qmat = None
+        self.rtvec = None
+        self.cam_pos = None
 
         if self._flight.is_calibrated:
             try:
-                # TODO: factor out the loading of the cal file itself to an instance method here.
-                npzfile = np.load(self._flight.calibration_path)
-                # is_fisheye: new in v0.6, default=False for compatibility with pre-v0.6 camera files.
-                self.is_fisheye = npzfile.get('is_fisheye', False)
-                self.mtx = npzfile['mtx']
-                self.dist = npzfile['dist']
-                self.roi = npzfile['roi']
-                self.newcameramtx = npzfile['newcameramtx']
-                self.dist_zero = np.zeros_like(self.dist)
-
-                # Recalculate matrix and roi in case video from this camera was scaled after recording.
-                # FIXME: I suspect this approach doesn't actually work for rescaled videos. Currently, it results in incorrectly scaled AR geometry.
-                newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
-                    self.mtx, self.dist, self.frame_size, 1)
-                # For diagnostics only. If video was not scaled after recording, these comparisons should be exactly equal.
-                # print(f'as recorded newcameramtx =\n{self.newcameramtx}')
-                # print(f'scaled newcameramtx = \n{newcameramtx}')
-                # print(f'as recorded roi =\n{self.roi}')
-                # print(f'scaled roi =\n{roi}')
-                self.newcameramtx = newcameramtx
-                self.roi = roi
-
-                # Calculate these undistortion maps just once
-                self.map1, self.map2 = cv2.initUndistortRectifyMap(
-                    self.mtx, self.dist, np.eye(3), self.newcameramtx, self.frame_size, cv2.CV_16SC2)
-
-                if self.is_fisheye:
-                    self.scaled_cam_mat = npzfile['scaled_cam_mat']
-                    self.cam_mat = npzfile['cam_mat']
-                    # 'balance' is a scalar, but numpy insists on serializing it as ndarray
-                    self.balance = float(npzfile['balance'])
+                self.load_calibration(self._flight.calibration_path)
             except Exception as load_err:
-                logger.error(f'Error loading calibration file: {load_err}')
+                log.error(f'Error loading calibration file: {load_err}')
                 self._flight.is_calibrated = False
+                return
+            self._calc_undistortion_maps()
+
+    def load_calibration(self, path):
+        '''Load a camera calibration from the specified path.'''
+        npzfile = np.load(path)
+        # is_fisheye: new in v0.6, default=False for compatibility with pre-v0.6 camera files.
+        self.is_fisheye = npzfile.get('is_fisheye', False)
+        if self.is_fisheye:
+            # TODO: fisheye cal is an experimental feature. Needs more testing.
+            self.scaled_cam_mat = npzfile['scaled_cam_mat']
+            self.cam_mat = npzfile['cam_mat']
+            # 'balance' is a scalar, but numpy insists on serializing it as ndarray
+            self.balance = float(npzfile['balance'])
+        self.mtx = npzfile['mtx']
+        self.dist = npzfile['dist']
+        self.roi = npzfile['roi']
+        self.newcameramtx = npzfile['newcameramtx']
+        self.dist_zero = np.zeros_like(self.dist)
+
+    def _calc_undistortion_maps(self):
+        '''One-time calculation of the optimal new camera matrix.
+        This is a valid calculation when the camera's POV
+        does not move from frame to frame.'''
+        # Recalculate matrix and roi in case video from this camera was scaled after recording.
+        # FIXME: I suspect this approach doesn't actually work for rescaled videos. Currently, it results in incorrectly scaled AR geometry.
+        # If `self.frame_size` is the same size as the original video recording, this call has no side effects.
+        newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
+            self.mtx, self.dist, self.frame_size, 1)
+        # For diagnostics only. If video was not scaled after recording, these comparisons should be exactly equal.
+        # print(f'as recorded newcameramtx =\n{self.newcameramtx}')
+        # print(f'scaled newcameramtx = \n{newcameramtx}')
+        # print(f'as recorded roi =\n{self.roi}')
+        # print(f'scaled roi =\n{roi}')
+        self.newcameramtx = newcameramtx
+        self.roi = roi
+        # Calculate these undistortion maps just once
+        self.map1, self.map2 = cv2.initUndistortRectifyMap(
+            self.mtx, self.dist, np.eye(3), self.newcameramtx, self.frame_size, cv2.CV_16SC2)
 
     def undistort(self, img):
         '''Undistort a given image according to the camera's calibration.'''
@@ -133,15 +153,23 @@ class CalCamera(QObject):
 
         return img
 
-    def locate(self, flight: Flight):
+    def locate(self, flight: Flight) -> bool:
         '''Locate a given Flight instance using this camera.'''
         obj_pts = np.float32(flight.obj_pts)
         loc_pts = np.float32(flight.loc_pts)
-        _ret, self.rvec, self.tvec = cv2.solvePnP(obj_pts, loc_pts,
-                                                  self.newcameramtx,
-                                                  self.dist_zero,
-                                                  cv2.SOLVEPNP_ITERATIVE)
+        ret, rvec, tvec = cv2.solvePnP(obj_pts, loc_pts,
+                                       self.newcameramtx,
+                                       self.dist_zero,
+                                       cv2.SOLVEPNP_ITERATIVE)
+        if not ret:
+            log.error('Failed to locate the camera. Values returned from `cv2.solvePnP`:')
+            log.error(f'rvec =\n{rvec}')
+            log.error(f'tvec =\n{tvec}')
+            self._flight.is_located = False
+            return False
         # Precalculate all pieces necessary for line/sphere intersections.
+        self.rvec = rvec
+        self.tvec = tvec
         self.rmat = None
         self.rmat, _ = cv2.Rodrigues(self.rvec, self.rmat)
         rmat_inv = np.linalg.inv(self.rmat)
@@ -153,19 +181,19 @@ class CalCamera(QObject):
         self.cam_pos = -self.rtvec
         cam_d = np.linalg.norm(self.cam_pos)
 
-        logger.info(f'loc_pts =\n{loc_pts}')
-        logger.debug('Matrices and vectors for 3D tracking: =====================')
-        logger.debug(f'm = {type(self.newcameramtx)}\n{self.newcameramtx}')
-        logger.debug(f'rvec = {type(self.rvec)}\n{self.rvec}')
-        logger.debug(f'tvec = {type(self.tvec)}\n{self.tvec}')
-        logger.debug(f'rmat = {type(self.rmat)}\n{self.rmat}')
-        logger.debug(f'rmat_inv = {type(rmat_inv)}\n{rmat_inv}')
-        logger.debug(f'm_inv = {type(m_inv)}\n{m_inv}')
-        logger.debug(f'qmat = {type(self.qmat)}\n{self.qmat}')
-        logger.debug(f'rtvec = {type(self.rtvec)}\n{self.rtvec}')
-        logger.debug('End of matrices and vectors for 3D tracking ===============')
-        logger.info(f'world cam location =\n{self.cam_pos}')
-        logger.info(f'world cam straight distance from sphere center = {cam_d:.3f}')
-
-        # TODO: should we check `_ret` first? Or return `_ret` as appropriate?
+        log.info('Located the camera successfully.')
+        log.info(f'loc_pts =\n{loc_pts}')
+        log.debug('Matrices and vectors for 3D tracking: =====================')
+        log.debug(f'newcameramtx =\n{type(self.newcameramtx)}\n{self.newcameramtx}')
+        log.debug(f'rvec =\n{type(self.rvec)}\n{self.rvec}')
+        log.debug(f'tvec =\n{type(self.tvec)}\n{self.tvec}')
+        log.debug(f'rmat =\n{type(self.rmat)}\n{self.rmat}')
+        log.debug(f'rmat_inv =\n{type(rmat_inv)}\n{rmat_inv}')
+        log.debug(f'm_inv =\n{type(m_inv)}\n{m_inv}')
+        log.debug(f'qmat =\n{type(self.qmat)}\n{self.qmat}')
+        log.debug(f'rtvec =\n{type(self.rtvec)}\n{self.rtvec}')
+        log.debug('End of matrices and vectors for 3D tracking ===============')
+        log.info(f'World cam location =\n{self.cam_pos}')
+        log.info(f'World cam straight distance from sphere center = {cam_d:.3f}')
         self._flight.is_located = True
+        return True

@@ -23,6 +23,7 @@ import logging
 from datetime import datetime, timedelta
 
 from PySide6 import QtCore, QtGui, QtWidgets
+from videof2b.core.common import FigureTypes, SphereManipulations
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.processor import ProcessorReturnCodes, VideoProcessor
 from videof2b.ui.load_flight_dialog import LoadFlightDialog
@@ -54,24 +55,38 @@ class Ui_MainWindow:
         # TODO: group the checkboxes together for simpler programmatic access.
         self.pnl_chk = QtWidgets.QVBoxLayout()
         self.chk_loops = QtWidgets.QCheckBox('Loops', main_window)
+        self.chk_loops.setObjectName('chk_loops')
         self.chk_sq_loops = QtWidgets.QCheckBox('Square loops', main_window)
+        self.chk_sq_loops.setObjectName('chk_sq_loops')
         self.chk_tri_loops = QtWidgets.QCheckBox('Triangular loops', main_window)
+        self.chk_tri_loops.setObjectName('chk_tri_loops')
         self.chk_hor_eight = QtWidgets.QCheckBox('Horizontal eight', main_window)
+        self.chk_hor_eight.setObjectName('chk_hor_eight')
         self.chk_sq_hor_eight = QtWidgets.QCheckBox('Square horizontal eight', main_window)
+        self.chk_sq_hor_eight.setObjectName('chk_sq_hor_eight')
         self.chk_ver_eight = QtWidgets.QCheckBox('Vertical eight', main_window)
+        self.chk_ver_eight.setObjectName('chk_ver_eight')
         self.chk_hourglass = QtWidgets.QCheckBox('Hourglass', main_window)
+        self.chk_hourglass.setObjectName('chk_hourglass')
         self.chk_over_eight = QtWidgets.QCheckBox('Overhead eight', main_window)
+        self.chk_over_eight.setObjectName('chk_over_eight')
         self.chk_clover = QtWidgets.QCheckBox('Four-leaf clover', main_window)
+        self.chk_clover.setObjectName('chk_clover')
+        # All figure checkboxes, excluding the diag checkbox.
+        self.fig_chk_boxes = (
+            self.chk_loops,
+            self.chk_sq_loops,
+            self.chk_tri_loops,
+            self.chk_hor_eight,
+            self.chk_sq_hor_eight,
+            self.chk_ver_eight,
+            self.chk_hourglass,
+            self.chk_over_eight,
+            self.chk_clover
+        )
+        for fig_chk in self.fig_chk_boxes:
+            self.pnl_chk.addWidget(fig_chk)
         self.chk_diag = QtWidgets.QCheckBox('Draw Diagnostics', main_window)
-        self.pnl_chk.addWidget(self.chk_loops)
-        self.pnl_chk.addWidget(self.chk_sq_loops)
-        self.pnl_chk.addWidget(self.chk_tri_loops)
-        self.pnl_chk.addWidget(self.chk_hor_eight)
-        self.pnl_chk.addWidget(self.chk_sq_hor_eight)
-        self.pnl_chk.addWidget(self.chk_ver_eight)
-        self.pnl_chk.addWidget(self.chk_hourglass)
-        self.pnl_chk.addWidget(self.chk_over_eight)
-        self.pnl_chk.addWidget(self.chk_clover)
         self.pnl_chk.addWidget(self.chk_diag)
         self.pnl_chk.addItem(QtWidgets.QSpacerItem(20, 40, vData=QtWidgets.QSizePolicy.Expanding))
 
@@ -229,12 +244,31 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     stop_processor = QtCore.Signal()
     locating_completed = QtCore.Signal()
     clear_track = QtCore.Signal()
+    figure_state_changed = QtCore.Signal(FigureTypes, bool)
+    figure_diags_changed = QtCore.Signal(bool)
+    relocate_cam = QtCore.Signal()
+    manipulate_sphere = QtCore.Signal(SphereManipulations)
 
     # Mapping of processor retcodes to user-friendly messages
-    _retcodes_dict = {
+    _retcodes_msgs = {
+        ProcessorReturnCodes.ExceptionOccurred: 'Critical unhandled error occurred.',
         ProcessorReturnCodes.Undefined: 'Video processing never started.',
         ProcessorReturnCodes.Normal: 'Video processing finished normally.',
         ProcessorReturnCodes.UserCanceled: 'Video processing was cancelled by user.',
+        ProcessorReturnCodes.PoseEstimationFailed: 'Failed to locate the camera!',
+    }
+
+    # Maps object names of figure checkboxes to the common.FigureType required by core.Drawing.
+    _fig_chk_names_types = {
+        'chk_loops': FigureTypes.INSIDE_LOOPS,
+        'chk_sq_loops': FigureTypes.INSIDE_SQUARE_LOOPS,
+        'chk_tri_loops': FigureTypes.INSIDE_TRIANGULAR_LOOPS,
+        'chk_hor_eight': FigureTypes.HORIZONTAL_EIGHTS,
+        'chk_sq_hor_eight': FigureTypes.HORIZONTAL_SQUARE_EIGHTS,
+        'chk_ver_eight': FigureTypes.VERTICAL_EIGHTS,
+        'chk_hourglass': FigureTypes.HOURGLASS,
+        'chk_over_eight': FigureTypes.OVERHEAD_EIGHTS,
+        'chk_clover': FigureTypes.FOUR_LEAF_CLOVER
     }
 
     def __init__(self):
@@ -295,6 +329,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             log.debug('VideoProcessor thread is not running. MainWindow is closing...')
             event.accept()
 
+    def on_locating_started(self):
+        '''Prepare UI for the camera locating procedure.'''
+        self._output_msg(
+            'Locating AR geometry. Follow the instructions in the status bar. '
+            'Left-click to add a point, right-click to remove last point.')
+        self.video_window.is_mouse_enabled = True
+
     def on_loc_pts_changed(self, points, msg):
         '''Echoes changes in the VideoProcessor's locator points
         and updates the instruction message.'''
@@ -330,13 +371,27 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         log.info(msg)
 
     def _output_pts(self, points):
-        '''Output locator points.'''
+        '''Output locator points to log.'''
         q = ['Image points:']
         for i, p in enumerate(points):
             q += [f'  {i+1:1d} : ({",".join(f"{pp:4d}" for pp in p)})']
         if not points:
             q += ['  <empty>']
-        self._output_msg('\n'.join(q))
+        log.info('\n'.join(q))
+
+    def on_chk_figure_changed(self):
+        '''Tell the processor to toggle the drawn state of a figure.'''
+        # Leverage each checkbox's object name to send the appropriate params.
+        sender = self.sender()
+        name = sender.objectName()
+        self.figure_state_changed.emit(
+            self._fig_chk_names_types[name],
+            sender.isChecked()
+        )
+
+    def on_chk_diag_changed(self):
+        '''Tell the processor to toggle the drawn state of figure diagnostics.'''
+        self.figure_diags_changed.emit(self.sender().isChecked())
 
     def _init_proc(self):
         '''Create a new instance of the video processor and connect all its signals.'''
@@ -347,28 +402,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # the main UI thread, or you might have a bad day.
         # NOTE: the connections in this section must use
         # QtCore.Qt.QueuedConnection for cross-thread safety.
-        self.stop_processor.connect(
-            self._proc.stop, QtCore.Qt.QueuedConnection)
-        self.locating_completed.connect(
-            self._proc.stop_locating, QtCore.Qt.QueuedConnection)
-        self.clear_track.connect(
-            self._proc.clear_track, QtCore.Qt.QueuedConnection)
-        self._proc.track_cleared.connect(
-            self.on_track_cleared, QtCore.Qt.QueuedConnection)
-        self._proc.progress_updated.connect(
-            self.on_progress_updated, QtCore.Qt.QueuedConnection)
-        self._proc.ar_geometry_available.connect(
-            self.on_ar_geometry_available, QtCore.Qt.QueuedConnection)
-        self._proc.new_frame_available.connect(
-            self.video_window.update_frame, QtCore.Qt.QueuedConnection)
-        self._proc.locator_points_changed.connect(
-            self.on_loc_pts_changed, QtCore.Qt.QueuedConnection)
-        self._proc.locator_points_defined.connect(
-            self.on_loc_pts_defined, QtCore.Qt.QueuedConnection)
-        self.video_window.point_added.connect(
-            self._proc.add_locator_point, QtCore.Qt.QueuedConnection)
-        self.video_window.point_removed.connect(
-            self._proc.pop_locator_point, QtCore.Qt.QueuedConnection)
+        self.stop_processor.connect(self._proc.stop, QtCore.Qt.QueuedConnection)
+        self.locating_completed.connect(self._proc.stop_locating, QtCore.Qt.QueuedConnection)
+        self.clear_track.connect(self._proc.clear_track, QtCore.Qt.QueuedConnection)
+        self._proc.track_cleared.connect(self.on_track_cleared, QtCore.Qt.QueuedConnection)
+        self._proc.progress_updated.connect(self.on_progress_updated, QtCore.Qt.QueuedConnection)
+        self._proc.ar_geometry_available.connect(self.on_ar_geometry_available, QtCore.Qt.QueuedConnection)
+        self._proc.new_frame_available.connect(self.video_window.update_frame, QtCore.Qt.QueuedConnection)
+        self._proc.locating_started.connect(self.on_locating_started, QtCore.Qt.QueuedConnection)
+        self._proc.locator_points_changed.connect(self.on_loc_pts_changed, QtCore.Qt.QueuedConnection)
+        self._proc.locator_points_defined.connect(self.on_loc_pts_defined, QtCore.Qt.QueuedConnection)
+        self.video_window.point_added.connect(self._proc.add_locator_point, QtCore.Qt.QueuedConnection)
+        self.video_window.point_removed.connect(self._proc.pop_locator_point, QtCore.Qt.QueuedConnection)
+        self.figure_state_changed.connect(self._proc.update_figure_state, QtCore.Qt.QueuedConnection)
+        self.figure_diags_changed.connect(self._proc.update_figure_diags, QtCore.Qt.QueuedConnection)
+        self.relocate_cam.connect(self._proc.relocate, QtCore.Qt.QueuedConnection)
+        self.manipulate_sphere.connect(self._proc.manipulate_sphere, QtCore.Qt.QueuedConnection)
 
         # Actions and signals that are within the UI thread.
         # NOTE: all of these must be disconnected in self._deinit_proc(),
@@ -376,8 +425,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # flight is loaded during one application session.
         self.act_stop_proc.triggered.connect(self.on_stop_proc)
         self.act_clear_track.triggered.connect(self.on_clear_track)
-        self.act_rotate_left.triggered.connect(self.on_rotate_left)
-        self.act_rotate_right.triggered.connect(self.on_rotate_right)
+        for fig_chk in self.fig_chk_boxes:
+            fig_chk.stateChanged.connect(self.on_chk_figure_changed)
+        self.chk_diag.stateChanged.connect(self.on_chk_diag_changed)
+        self.act_rotate_left.triggered.connect(self.on_rotate_ccw)
+        self.act_rotate_right.triggered.connect(self.on_rotate_cw)
         self.act_move_north.triggered.connect(self.on_move_north)
         self.act_move_south.triggered.connect(self.on_move_south)
         self.act_move_west.triggered.connect(self.on_move_west)
@@ -407,8 +459,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # ==================================================================================
         self.act_stop_proc.triggered.disconnect(self.on_stop_proc)
         self.act_clear_track.triggered.disconnect(self.on_clear_track)
-        self.act_rotate_left.triggered.disconnect(self.on_rotate_left)
-        self.act_rotate_right.triggered.disconnect(self.on_rotate_right)
+        self.act_rotate_left.triggered.disconnect(self.on_rotate_ccw)
+        self.act_rotate_right.triggered.disconnect(self.on_rotate_cw)
         self.act_move_north.triggered.disconnect(self.on_move_north)
         self.act_move_south.triggered.disconnect(self.on_move_south)
         self.act_move_west.triggered.disconnect(self.on_move_west)
@@ -435,8 +487,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         if flight is None:
             return
         self._proc.load_flight(flight)
-        # Enable mouse if cam locating is necessary
-        self.video_window.is_mouse_enabled = flight.is_calibrated
         self._pre_processing()
         self.start_proc_thread()
 
@@ -477,7 +527,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             # Re-raise the exception here on the main thread so that excepthook has a chance.
             raise RuntimeError('Problem in VideoProcessor.') from self._proc.exc
 
-        self._output_msg(self._retcodes_dict[retcode])
+        self._output_msg(self._retcodes_msgs.get(retcode, f'Unknown return code: {retcode}'))
         # TODO: what else do we want to do here?
         # Options:
         #   * blank out the video window
@@ -535,7 +585,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # TODO: It would be nice to use `frame_time` to update the current video time in the status bar!
         # For best results, the progress update signal would need
         # to fire when frame_time is near a whole second of the input.
-        self._output_msg(f'video time: {timedelta(seconds=frame_time)}, progress: {progress:3d}%')
+        log.debug(f'video time: {timedelta(seconds=frame_time)}, progress: {progress:3d}%')
 
     def on_stop_proc(self):
         '''Request to stop the video processor.'''
@@ -546,6 +596,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # Politely ask the processing loop to stop.
         self.stop_processor.emit()
 
+    def _enable_figure_controls(self, enable: bool) -> None:
+        '''Enables/disables all the widgets that control drawn figure state.'''
+        for fig_chk in self.fig_chk_boxes:
+            fig_chk.setEnabled(enable)
+        self.chk_diag.setEnabled(enable)
+
+    def on_ar_geometry_available(self, is_available: bool):
+        '''Update UI controls based on availability of AR geometry.'''
+        self._enable_figure_controls(is_available)
+        msg_bit = 'is' if is_available else 'is not'
+        self._output_msg(f'AR geometry {msg_bit} available.')
+
     def on_clear_track(self):
         '''Clear the aircraft's existing flight track.'''
         log.debug('User says: CLEAR TRACK')
@@ -555,54 +617,55 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         '''Slot that responds to the processor's signal.'''
         self._output_msg('Track cleared.')
 
+    def on_relocate_cam(self):
+        '''Relocate the camera.'''
+        log.debug('User says: RELOCATE CAM')
+        self.relocate_cam.emit()
+
+    def on_rotate_ccw(self):
+        '''Rotate AR sphere CCW.'''
+        log.debug('User says: rotate CCW')
+        self.manipulate_sphere.emit(SphereManipulations.RotateCCW)
+
+    def on_rotate_cw(self):
+        '''Rotate AR sphere CW.'''
+        log.debug('User says: rotate CW')
+        self.manipulate_sphere.emit(SphereManipulations.RotateCW)
+
+    def on_move_north(self):
+        '''Move AR sphere North.'''
+        log.debug('User says: move NORTH')
+        self.manipulate_sphere.emit(SphereManipulations.MoveNorth)
+
+    def on_move_south(self):
+        '''Move AR sphere South.'''
+        log.debug('User says: move SOUTH')
+        self.manipulate_sphere.emit(SphereManipulations.MoveSouth)
+
+    def on_move_west(self):
+        '''Move AR sphere West.'''
+        log.debug('User says: move WEST')
+        self.manipulate_sphere.emit(SphereManipulations.MoveWest)
+
+    def on_move_east(self):
+        '''Move AR sphere East.'''
+        log.debug('User says: move EAST')
+        self.manipulate_sphere.emit(SphereManipulations.MoveEast)
+
+    def on_move_reset(self):
+        '''Reset AR sphere's center to world origin.'''
+        log.debug('User says: RESET to center')
+        self.manipulate_sphere.emit(SphereManipulations.ResetCenter)
+
     # ====================================================
     # TODO: connect all these handlers to VideoProcessor.
     # ====================================================
 
-    def on_ar_geometry_available(self, is_available: bool):
-        # TODO: enable/disable the checkboxes as a group based on `is_available`.
-        self.chk_loops.setEnabled(is_available)
-        self.chk_sq_loops.setEnabled(is_available)
-        self.chk_tri_loops.setEnabled(is_available)
-        self.chk_hor_eight.setEnabled(is_available)
-        self.chk_sq_hor_eight.setEnabled(is_available)
-        self.chk_ver_eight.setEnabled(is_available)
-        self.chk_hourglass.setEnabled(is_available)
-        self.chk_over_eight.setEnabled(is_available)
-        self.chk_clover.setEnabled(is_available)
-        self.chk_diag.setEnabled(is_available)
-        msg_bit = 'is' if is_available else 'is not'
-        self._output_msg(f'AR geometry {msg_bit} available.')
-
     def on_pause_unpause(self):
-        self._output_msg('User says: PAUSE / UNPAUSE')
-
-    def on_rotate_left(self):
-        self._output_msg('User says: rotate LEFT')
-
-    def on_rotate_right(self):
-        self._output_msg('User says: rotate RIGHT')
-
-    def on_move_north(self):
-        self._output_msg('User says: move NORTH')
-
-    def on_move_south(self):
-        self._output_msg('User says: move SOUTH')
-
-    def on_move_west(self):
-        self._output_msg('User says: move WEST')
-
-    def on_move_east(self):
-        self._output_msg('User says: move EAST')
-
-    def on_move_reset(self):
-        self._output_msg('User says: RESET to center')
-
-    def on_relocate_cam(self):
-        self._output_msg('User says: RELOCATE CAM')
+        log.debug('User says: PAUSE / UNPAUSE')
 
     def on_figure_start(self):
-        self._output_msg('User says: START FIGURE')
+        log.debug('User says: START FIGURE')
 
     def on_figure_end(self):
-        self._output_msg('User says: END FIGURE')
+        log.debug('User says: END FIGURE')

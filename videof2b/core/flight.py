@@ -62,6 +62,7 @@ class Flight(QObject):
         '''
         super().__init__()
         self.num_obj_pts = len(Flight.obj_point_names)
+        # Indicates whether the underlying video stream is ready to roll.
         self.is_ready = False
         self.video_path = vid_path
         self.is_live = is_live
@@ -84,14 +85,22 @@ class Flight(QObject):
         )
         # Locator points. This list grows and shrinks during the locating procedure.
         self.loc_pts = kwargs.pop('loc_pts', [])
-
-        log.info(f'    flight radius = {self.flight_radius} m')
-        log.info(f'      mark radius = {self.marker_radius} m')
-        log.info(f'      mark height = {self.marker_height} m')
-        log.info(f'Using calibration:  {"YES" if self.is_calibrated else "NO"}')
-
+        # Log some basic info.
+        log.info('Creating a new flight =========')
+        log.info(f'      Video path: {self.video_path.name}')
+        if self.is_calibrated:
+            log.info(f'Calibration path: {self.calibration_path.name}')
+        log.info(f'  flight radius = {self.flight_radius} m')
+        log.info(f'    mark radius = {self.marker_radius} m')
+        log.info(f'    mark height = {self.marker_height} m')
+        log.info(f'  sphere offset = {self.sphere_offset} m')
         # Load the video stream
         self._load_stream()
+        # Log some more to report the stream's status.
+        if self.is_ready:
+            log.info(f'Video stream is ready.')
+        else:
+            log.warn(f'Video stream IS NOT ready.')
 
     def _load_stream(self):
         '''Load this flight's video stream.'''

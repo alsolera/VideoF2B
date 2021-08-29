@@ -18,9 +18,9 @@
 '''Common definitions and constants for VideoF2B.'''
 
 import enum
-from math import pi, cos
-import numpy as np
+from math import cos, pi
 
+import numpy as np
 import platformdirs
 
 # Some default lengths, in meters
@@ -58,6 +58,18 @@ class FigureTypes(enum.Enum):
     OVERHEAD_EIGHTS = 13
     FOUR_LEAF_CLOVER = 14
     LANDING = 15
+
+
+@enum.unique
+class SphereManipulations(enum.Enum):
+    '''Possible manipulations of the AR sphere during processing.'''
+    ResetCenter = 0
+    RotateCCW = 1
+    RotateCW = 2
+    MoveWest = 3
+    MoveEast = 4
+    MoveNorth = 5
+    MoveSouth = 6
 
 
 # Common instance of PlatformDir that helps us with various platform-specific paths

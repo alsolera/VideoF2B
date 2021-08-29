@@ -305,6 +305,8 @@ class Drawing:
         flight: Flight = kwargs.pop('flight', None)
         # Internal flag. Indicates whether located geometry can be drawn.
         self._is_located = False
+        # Current azimuth of the AR sphere. Zero points "North", or from sphere center to front marker.
+        self._azimuth = 0.
         # Radius of flight hemisphere, in m.
         self.R = None
         # Radius of the circle in which the markers are located, in m.
@@ -492,6 +494,9 @@ class Drawing:
         result.add(mrk_perimeter)
         return result
 
+    def set_azimuth(self, azimuth):
+        self._azimuth = azimuth
+
     def MoveCenterX(self, delta):
         self.center[0] += delta
         self._evaluate_center()
@@ -533,13 +538,13 @@ class Drawing:
             cv2.line(img, pts[i - 1], pts[i], Drawing._get_track_color(i, maxlen), 1)
         return img
 
-    def draw(self, img, azimuth_delta=0.):
+    def draw(self, img):
         '''Draw all relevant geometry in the given image frame.'''
         if self._is_located:
-            self._draw_located_geometry(img, azimuth_delta)
+            self._draw_located_geometry(img)
         self._draw_track(img)
 
-    def _draw_located_geometry(self, img, azimuth_delta=0.):
+    def _draw_located_geometry(self, img):
         '''Draw the geometry that is relevant when the camera is located.'''
         center = tuple(self.center)
         # Display flight radius at all times
@@ -563,7 +568,7 @@ class Drawing:
                 # Draw the scene that is defined for this figure type
                 self._scenes.get(ftype, DEFAULT_SCENE).draw(
                     img,
-                    (azimuth_delta, center),
+                    (self._azimuth, center),
                     rvec=rvec,
                     tvec=tvec,
                     cameraMatrix=newcameramtx,
