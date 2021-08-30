@@ -33,11 +33,19 @@ def projectSpherePointsToImage(cam, world_pts, frame=None):
     return img_pts
 
 
-def projectImagePointToSphere(cam, center, imgPoint, frame_or, data_writer):
-    '''Project image point to world sphere given a calibrated camera and frame.'''
-    logger.debug(f'imgPoint = {imgPoint}')
+def projectImagePointToSphere(frame, cam, radius, center, img_point, data_writer):
+    '''Project image point to world sphere given a calibrated camera and frame.
+
+    :param frame: the image frame of interest.
+    :param cam: instance of CalCamera.
+    :param radius: radius of sphere.
+    :param center: XYZ location of sphere center wrt world pose estimation.
+    :param img_point: the image point that we wish to project onto the sphere.
+    :param data_writer: a handle to a file-like object.
+    '''
+    logger.debug(f'img_point = {img_point}')
     # Augment point for transform. This is the {u v 1} vector.
-    pt_px = np.vstack((imgPoint[0], imgPoint[1], 1))
+    pt_px = np.vstack((img_point[0], img_point[1], 1))  # TODO: I think there's a faster syntax for this..
     # logger.debug(f'pt_px.T = {pt_px.T} [{len(detector.pts_scaled)} points.]')
     avec = cam.qmat.dot(pt_px)
     # logger.debug(f'avec =\n{avec}')
@@ -58,7 +66,7 @@ def projectImagePointToSphere(cam, center, imgPoint, frame_or, data_writer):
 
         2.*(a1*(t1+cx) + a2*(t2+cy) + a3*(t3+cz)),
 
-        cam.flightRadius**2 - 2.*(t1*cx + t2*cy + t3*cz) -
+        radius**2 - 2.*(t1*cx + t2*cy + t3*cz) -
         (t1**2 + t2**2 + t3**2 + cx**2 + cy**2 + cz**2)
     )
     logger.debug(f'coeffs = {coeffs}')
@@ -78,21 +86,21 @@ def projectImagePointToSphere(cam, center, imgPoint, frame_or, data_writer):
         norms_world = np.linalg.norm(pts_world, axis=1)
         logger.debug(f'norms_world = {norms_world}')
 
-        # sanity check 2: project pts_world back into video and compare against imgPoint
+        # sanity check 2: project pts_world back into video and compare against img_point
         imgPtsCheck, _ = cv2.projectPoints(pts_world, cam.rvec, cam.tvec,
                                            cam.newcameramtx, cam.dist)
         imgPtsCheck = np.int32(imgPtsCheck).reshape(-1, 2)
         # logger.debug(f'imgPtsCheck = {imgPtsCheck}')
-        logger.debug(f'imgPtsCheck - imgPoint =\n{imgPtsCheck - imgPoint}')
+        logger.debug(f'imgPtsCheck - img_point =\n{imgPtsCheck - img_point}')
         for ipt, img_pt_check in enumerate(imgPtsCheck):
-            # logger.debug(f'img_pt_check - imgPoint = {img_pt_check - imgPoint}')
+            # logger.debug(f'img_pt_check - img_point = {img_pt_check - img_point}')
             if ipt == 0:
                 p_rad = 9
                 p_col = (255, 0, 0)
             else:
                 p_rad = 3
                 p_col = (0, 0, 255)
-            cv2.circle(frame_or, (img_pt_check[0], img_pt_check[1]), p_rad, p_col, -1)
+            cv2.circle(frame, (img_pt_check[0], img_pt_check[1]), p_rad, p_col, -1)
 
         logger.debug(f'pts_world =  shape={pts_world.shape}')
         # logger.debug(pts_world)

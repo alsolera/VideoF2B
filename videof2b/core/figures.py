@@ -23,6 +23,7 @@ from collections import defaultdict
 
 import matplotlib
 
+# TODO: Starting a Matplotlib GUI outside of the main thread is a bad idea. Solve this after release of 0.6.
 # FIXME: matplotlib 3.4 does not play well with PySide6 (causes access violation in Python DLL on exit).
 #      : For now, use the built-in tkinter backend.
 #      : mpl 3.5 allegedly will work with PySide6.
@@ -366,8 +367,8 @@ class InsideLoops(Figure):
         alpha = np.radians(45.0)
         # Elevation angle of loop normal
         self.theta = np.radians(22.5)
-        # Parametric angle inside loop when t = 1 (3.5 loops)
-        k = 7.0 * np.pi
+        # Parametric angle inside loop when t = 1 (3 loops)
+        k = 6.0 * np.pi
         # Radius of loop
         self.r = self.R * np.sin(0.5 * alpha)
         print(f'Nominal R = {self.R}')

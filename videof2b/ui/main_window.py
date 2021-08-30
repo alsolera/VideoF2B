@@ -217,8 +217,8 @@ class Ui_MainWindow:
         #
         action = QtGui.QAction(main_window)
         action.setShortcut(QtCore.Qt.Key_P)
-        self.act_pause = action
-        main_window.addAction(self.act_pause)
+        self.act_pause_resume = action
+        main_window.addAction(self.act_pause_resume)
         #
         action = QtGui.QAction(main_window)
         action.setShortcut(QtCore.Qt.Key_BracketLeft)
@@ -241,6 +241,7 @@ class Ui_MainWindow:
 class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     '''The main UI window of the VideoF2B application.'''
 
+    # Signals
     stop_processor = QtCore.Signal()
     locating_completed = QtCore.Signal()
     clear_track = QtCore.Signal()
@@ -248,14 +249,18 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     figure_diags_changed = QtCore.Signal(bool)
     relocate_cam = QtCore.Signal()
     manipulate_sphere = QtCore.Signal(SphereManipulations)
+    figure_mark = QtCore.Signal(bool)
+    pause_resume = QtCore.Signal()
 
-    # Mapping of processor retcodes to user-friendly messages
+    # Mapping of processor retcodes to user-friendly messages.
+    # Keep this dict in sync with all current definitions in ProcessorReturnCodes.
     _retcodes_msgs = {
         ProcessorReturnCodes.ExceptionOccurred: 'Critical unhandled error occurred.',
         ProcessorReturnCodes.Undefined: 'Video processing never started.',
         ProcessorReturnCodes.Normal: 'Video processing finished normally.',
         ProcessorReturnCodes.UserCanceled: 'Video processing was cancelled by user.',
         ProcessorReturnCodes.PoseEstimationFailed: 'Failed to locate the camera!',
+        ProcessorReturnCodes.TooManyEmptyFrames: 'Encountered too many consecutive empty frames.',
     }
 
     # Maps object names of figure checkboxes to the common.FigureType required by core.Drawing.
@@ -334,6 +339,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self._output_msg(
             'Locating AR geometry. Follow the instructions in the status bar. '
             'Left-click to add a point, right-click to remove last point.')
+        self.instruct_lbl.show()
         self.video_window.is_mouse_enabled = True
 
     def on_loc_pts_changed(self, points, msg):
@@ -358,7 +364,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             # Done locating. Disable the mouse reactions in video window.
             self.video_window.is_mouse_enabled = False
             self.instruct_lbl.setText('')
-            # self.instruct_lbl.hide()
+            self.instruct_lbl.hide()
             # Signal to the processor that we're done.
             self.locating_completed.emit()
             self._pre_processing()
@@ -416,8 +422,11 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.video_window.point_removed.connect(self._proc.pop_locator_point, QtCore.Qt.QueuedConnection)
         self.figure_state_changed.connect(self._proc.update_figure_state, QtCore.Qt.QueuedConnection)
         self.figure_diags_changed.connect(self._proc.update_figure_diags, QtCore.Qt.QueuedConnection)
+        self.pause_resume.connect(self._proc.pause_resume, QtCore.Qt.QueuedConnection)
+        self._proc.paused.connect(self.on_paused_resumed, QtCore.Qt.QueuedConnection)
         self.relocate_cam.connect(self._proc.relocate, QtCore.Qt.QueuedConnection)
         self.manipulate_sphere.connect(self._proc.manipulate_sphere, QtCore.Qt.QueuedConnection)
+        self.figure_mark.connect(self._proc.mark_figure, QtCore.Qt.QueuedConnection)
 
         # Actions and signals that are within the UI thread.
         # NOTE: all of these must be disconnected in self._deinit_proc(),
@@ -436,7 +445,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.act_move_east.triggered.connect(self.on_move_east)
         self.act_move_reset.triggered.connect(self.on_move_reset)
         self.act_relocate_cam.triggered.connect(self.on_relocate_cam)
-        self.act_pause.triggered.connect(self.on_pause_unpause)
+        self.act_pause_resume.triggered.connect(self.on_pause_resume)
         self.act_figure_start.triggered.connect(self.on_figure_start)
         self.act_figure_end.triggered.connect(self.on_figure_end)
 
@@ -467,7 +476,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.act_move_east.triggered.disconnect(self.on_move_east)
         self.act_move_reset.triggered.disconnect(self.on_move_reset)
         self.act_relocate_cam.triggered.disconnect(self.on_relocate_cam)
-        self.act_pause.triggered.disconnect(self.on_pause_unpause)
+        self.act_pause_resume.triggered.disconnect(self.on_pause_resume)
         self.act_figure_start.triggered.disconnect(self.on_figure_start)
         self.act_figure_end.triggered.disconnect(self.on_figure_end)
         self._proc = None
@@ -495,6 +504,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.proc_progress_bar.show()
         self._output_msg(f'Video loaded successfully from {self._proc.flight.video_path.name}')
         self.filename_label.setText(self._proc.flight.video_path.name)
+        for chk in self.fig_chk_boxes:
+            chk.setChecked(False)
+        self.chk_diag.setChecked(False)
 
     def on_restart_flight(self):
         '''Reload the current flight and restart it.'''
@@ -521,11 +533,16 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # so that this runs before the processor instance is deleted.
         # Process any unhandled exceptions from the processing thread:
         if self._proc.exc is not None:
+            proc_exc = self._proc.exc
             QtWidgets.QMessageBox.critical(
+                self,
+                'Critical Error',
                 'A surprise error occurred.\n'
-                'It may be a bug. Please report this.')
+                'It may be a bug. Please report this:\n'
+                f'{proc_exc}'
+            )
             # Re-raise the exception here on the main thread so that excepthook has a chance.
-            raise RuntimeError('Problem in VideoProcessor.') from self._proc.exc
+            raise RuntimeError('Problem in VideoProcessor.') from proc_exc
 
         self._output_msg(self._retcodes_msgs.get(retcode, f'Unknown return code: {retcode}'))
         # TODO: what else do we want to do here?
@@ -622,6 +639,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         log.debug('User says: RELOCATE CAM')
         self.relocate_cam.emit()
 
+    def on_pause_resume(self):
+        '''Pause/resume processing at the current frame.'''
+        log.debug('User says: PAUSE / RESUME')
+        self.pause_resume.emit()
+
+    def on_paused_resumed(self, is_paused: bool):
+        '''
+        Slot that responds to VideoProcessor's signal.
+
+            :param is_paused: True if paused, False if resumed.
+        '''
+        if is_paused:
+            self._output_msg('Paused processing.')
+        else:
+            self._output_msg('Resumed processing.')
+
     def on_rotate_ccw(self):
         '''Rotate AR sphere CCW.'''
         log.debug('User says: rotate CCW')
@@ -657,15 +690,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         log.debug('User says: RESET to center')
         self.manipulate_sphere.emit(SphereManipulations.ResetCenter)
 
-    # ====================================================
-    # TODO: connect all these handlers to VideoProcessor.
-    # ====================================================
-
-    def on_pause_unpause(self):
-        log.debug('User says: PAUSE / UNPAUSE')
-
     def on_figure_start(self):
+        '''Mark the start of a figure in 3D.'''
         log.debug('User says: START FIGURE')
+        self.figure_mark.emit(True)
 
     def on_figure_end(self):
+        '''Mark the end of a figure in 3D. '''
         log.debug('User says: END FIGURE')
+        self.figure_mark.emit(False)
