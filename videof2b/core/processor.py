@@ -79,6 +79,7 @@ class ProcessorSettings:
     # Maximum length of the track behind the aircraft, in seconds.
     max_track_time = 15
     # Width of detector frame.
+    # TODO: should we make `im_width` variable so that it's always less than input video width?
     im_width = 960
     # Sphere's XY offset delta in meters.
     sphere_xy_delta = 0.1
@@ -109,7 +110,7 @@ class VideoProcessor(QObject, StoreProperties):
     finished = Signal(int)
     # Emits when we finish clearing the flight track.
     track_cleared = Signal()
-    # Emits when we pause/resume processing.
+    # Emits when we pause/resume processing. True means we just paused, False means we just resumed.
     paused = Signal(bool)
     # Emits when an exception occurs during processing. The calling thread should know.
     error_occurred = Signal(str, str)
@@ -135,6 +136,10 @@ class VideoProcessor(QObject, StoreProperties):
         self._det_scale: float = None
         self._inp_width: int = None
         self._inp_height: int = None
+        self._watermark_text = None
+        self._resize_kwarg = None
+        self._crop_offset = None
+        self._crop_idx = None
         self._artist: Drawing = None
         self._frame: np.ndarray = None  # the frame currently being processed for output.
         self._frame_loc: np.ndarray = None  # the current frame during pose estimation.
@@ -147,7 +152,13 @@ class VideoProcessor(QObject, StoreProperties):
         self._sphere_offset = None
         self._data_writer = None
         self._fig_tracker = None
-        self.video_name = None
+        self._video_name = None
+        self._frame_delta = None
+        self.is_paused = False
+        # Set this flag during an event handler that requires frame update while paused.
+        # This flag is just an optimization to keep the CPU
+        # from being unnecessarily busy while we are paused.
+        self._update_during_pause_flag = False
 
     def load_flight(self, flight: Flight) -> None:
         '''Load a Flight and prepare for processing.
@@ -163,7 +174,7 @@ class VideoProcessor(QObject, StoreProperties):
         )
         self._video_fps = self.flight.cap.get(cv2.CAP_PROP_FPS)
         self.num_input_frames = int(self.flight.cap.get(cv2.CAP_PROP_FRAME_COUNT))
-        self.video_name = self.flight.video_path.stem
+        self._video_name = self.flight.video_path.stem
         self.frame_idx = 0
         # Load camera
         self.cam = CalCamera(self._full_frame_size, self.flight)
@@ -186,7 +197,11 @@ class VideoProcessor(QObject, StoreProperties):
         # TODO: Like `self._azimuth`, `self._sphere_offset` really should be the driver for Drawing, but Drawing API uses incremental positioning right now.
         # Right now the two offsets go out of sync. The effect may be visible during (re)locating if offset is nonzero.
         self._sphere_offset = self.flight.sphere_offset
+        # Prepare for 3D tracking
+        self._prep_fig_tracking()
         # Misc
+        self._watermark_text = f'{self.application.applicationName()} - v{self.application.applicationVersion()}'
+        self._frame_delta = 0
         self.is_paused = False
 
     def _prep_video_output(self, path_out):
@@ -207,15 +222,15 @@ class VideoProcessor(QObject, StoreProperties):
                 )
                 # The resized width if we resize height to full size
                 w_final = int(self._full_frame_size[1] / self._inp_height * self._inp_width)
-                resize_kwarg = {'height': self._full_frame_size[1]}
-                crop_offset = (int(0.5*(w_final - self._full_frame_size[0])), 0)
+                self._resize_kwarg = {'height': self._full_frame_size[1]}
+                self._crop_offset = (int(0.5*(w_final - self._full_frame_size[0])), 0)
                 if w_final < self._full_frame_size[0]:
                     # The resized height if we resize width to full size
                     h_final = int(self._full_frame_size[0] / self._inp_width * self._inp_height)
-                    resize_kwarg = {'width': self._full_frame_size[0]}
-                    crop_offset = (0, int(0.5*(h_final - self._full_frame_size[1])))
-                crop_idx = (crop_offset[0] + self._full_frame_size[0],
-                            crop_offset[1] + self._full_frame_size[1])
+                    self._resize_kwarg = {'width': self._full_frame_size[0]}
+                    self._crop_offset = (0, int(0.5*(h_final - self._full_frame_size[1])))
+                self._crop_idx = (self._crop_offset[0] + self._full_frame_size[0],
+                                  self._crop_offset[1] + self._full_frame_size[1])
             else:
                 result = cv2.VideoWriter(
                     str(path_out),
@@ -232,25 +247,25 @@ class VideoProcessor(QObject, StoreProperties):
                 self._fourcc, self._video_fps,
                 (int(self._inp_width), int(self._inp_height))
             )
-        # TODO: it might be cleaner to return a custom object here..
-        return result, resize_kwarg, crop_offset, crop_idx
+        return result
 
     def _prep_fig_tracking(self):
         '''Prepare processor for figure tracking, if enabled.'''
         log.info(f'3D tracking is {"ON" if ProcessorSettings.perform_3d_tracking else "OFF"}')
         if self.flight.is_calibrated and ProcessorSettings.perform_3d_tracking:
-            data_path = self.flight.video_path.with_name(f'{self.video_name}_out_data.csv')
+            data_path = self.flight.video_path.with_name(f'{self._video_name}_out_data.csv')
             self._data_writer = data_path.open('w', encoding='utf8')
             # self._data_writer.write('self.frame_idx,p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
             self._fig_tracker = figtrack.FigureTracker(
                 callback=sys.stdout.write, enable_diags=True)  # FIXME: callback to a log file. callback=log.debug ?
-        # TODO: maybe this section can be included in the above condition?
-        # Class-level aids for drawing figure start/end points over track
-        self._is_fig_in_progress = False
-        self._fig_img_pts = []
-        # Class-level aids for drawing nominal paths
-        self._fit_img_pts = []
-        self._draw_fit_flag = False
+            # Aids for drawing figure start/end points over track
+            self._is_fig_in_progress = False
+            self._fig_img_pts = []
+            # Aids for drawing nominal paths
+            self._fit_img_pts = []
+            self._draw_fit_flag = False
+            self._max_draw_fit_frames = int(self._video_fps * 2.)  # multiplier is the number of seconds
+            self._num_draw_fit_frames = 0
 
     def _map_img_to_sphere(self, writer):
         ''' **EXPERIMENTAL FUNCTION**
@@ -339,6 +354,52 @@ class VideoProcessor(QObject, StoreProperties):
             if not self._is_fig_in_progress:
                 cv2.circle(self._frame, self._fig_img_pts[-1], 6, (255, 0, 255), -1)
 
+    def _update_frame(self, frame):
+        '''Update the specified frame with all of our processing and drawing of artifacts.
+            Emit the resulting QImage.
+            Return the result to caller.
+        '''
+        # Run motion detection
+        if self._clear_track_flag:
+            # Clear the track, reset the flag, let the world know.
+            self._detector.clear()
+            self._clear_track_flag = False
+            self.track_cleared.emit()
+        # Resize the frame for the detector and have the detector find the moving aircraft.
+        self._detector.process(resize(self._frame, width=ProcessorSettings.im_width))
+        # Draw most of the artifacts in the original frame.
+        # This includes the detected track as well as any AR geometry, if applicable.
+        self._artist.draw(frame)
+        # Process 3D information if appropriate.
+        if ProcessorSettings.perform_3d_tracking and self.flight.is_located:
+            self._track_in_3d()
+        # Restore the frame to original full size, if appropriate.
+        # TODO: maybe `is_live` is not a necessary condition here..? Live video needs testing.
+        if not self.flight.is_live and self._is_size_restorable:
+            # Size us back up to original. preserve aspect, crop to middle
+            frame = resize(frame, **self._resize_kwarg)[
+                self._crop_offset[1]:self._crop_idx[1],
+                self._crop_offset[0]:self._crop_idx[0]
+            ]
+        # Label the frame with our text.
+        cv2.putText(frame, self._watermark_text, (10, 15),
+                    cv2.FONT_HERSHEY_TRIPLEX, .5, (0, 0, 255), 1)
+        # Emit the resulting frame to client.
+        self.new_frame_available.emit(self._cv_img_to_qimg(frame))
+        return frame
+
+    def _update_progress(self, max_frame_delta):
+        '''Update processing progress and report it.'''
+        # Current approach: report progress at a fixed percentage interval,
+        # as set by `self._progress_interval`.
+        # TODO: it may be nice to report at every whole second of input video stream.
+        self.frame_time = self.frame_idx / self._video_fps
+        progress = int(self.frame_idx / (self.num_input_frames) * 100)
+        if ((self.frame_idx == 1) or (progress % self._progress_interval == 0 and self._frame_delta >= max_frame_delta)):
+            self.progress_updated.emit((self.frame_time, progress))
+            self._frame_delta = 0
+        self._frame_delta += 1
+
     def _locate(self):
         '''Interactively locate this Flight.'''
         log.debug('Entering VideoProcessor._locate()')
@@ -407,13 +468,15 @@ class VideoProcessor(QObject, StoreProperties):
 
     def update_figure_state(self, figure_type: FigureTypes, val: bool) -> None:
         '''Update figure state in the drawing.'''
-        if self.flight.is_located:  # protect drawing
+        if self.flight.is_located:  # protect artist
             self._artist.figure_state[figure_type] = val
+            self._update_during_pause_flag = True
 
     def update_figure_diags(self, val: bool) -> None:
         '''Update figure diags state in the drawing.'''
-        if self.flight.is_located:  # protect drawing
+        if self.flight.is_located:  # protect artist
             self._artist.DrawDiags = val
+            self._update_during_pause_flag = True
 
     def mark_figure(self, is_start: bool) -> None:
         '''Mark the start/end of a tracked figure.
@@ -424,6 +487,7 @@ class VideoProcessor(QObject, StoreProperties):
         if self._fig_tracker is None:
             # No effect if tracker is not active
             return
+        self._update_during_pause_flag = True
         if is_start:
             # Mark the beginning of a new figure
             self._detector.clear()
@@ -465,6 +529,7 @@ class VideoProcessor(QObject, StoreProperties):
     def clear_track(self):
         '''Clear the aircraft's existing flight track.'''
         log.info('Clearing the flight track.')
+        self._update_during_pause_flag = True
         self._clear_track_flag = True
 
     def relocate(self):
@@ -477,15 +542,19 @@ class VideoProcessor(QObject, StoreProperties):
         self.flight.on_locator_points_changed()
 
     def pause_resume(self):
-        '''Pause/Resume processing at the current frame.'''
-        # Pause/Resume with ability to quit while paused
-        # TODO: allow sphere rotation and movement while paused!
+        '''Pause/Resume processing at the current frame. Allows the following
+        functionality with immediate feedback while paused:
+        * To quit processing.
+        * To clear the track.
+        * To manipulate sphere rotation and movement.
+        '''
         self.is_paused = not self.is_paused
 
     def manipulate_sphere(self, command: SphereManipulations) -> None:
         '''Manipulate the AR sphere via the specified command.'''
         if not self.flight.is_located:
             return
+        self._update_during_pause_flag = True
         if command == SphereManipulations.RotateCCW:
             # Rotate sphere CCW on Z axis
             self._azimuth += ProcessorSettings.sphere_rot_delta
@@ -603,27 +672,22 @@ class VideoProcessor(QObject, StoreProperties):
         self._keep_processing = True
         self.ret_code = ProcessorReturnCodes.Normal
         # --- Prepare for processing
-        out_video_path = self.flight.video_path.with_name(f'{self.video_name}_out.mp4')
+        out_video_path = self.flight.video_path.with_name(f'{self._video_name}_out.mp4')
         # Prepare the output video file
-        stream_out, resize_kwarg, crop_offset, crop_idx = self._prep_video_output(out_video_path)
+        stream_out = self._prep_video_output(out_video_path)
         # Number of total empty frames in the input.
         num_empty_frames = 0
         # Number of consecutive empty frames at beginning of capture
         num_consecutive_empty_frames = 0
         # Maximum allowed number of consecutive empty frames. If we find more, we quit.
         max_consecutive_empty_frames = 256
-        # Prepare for 3D tracking
-        self._prep_fig_tracking()
-        # Local aids for drawing nominal paths
-        self._max_draw_fit_frames = int(self._video_fps * 2.)  # multiplier is the number of seconds
-        self._num_draw_fit_frames = 0
         # Misc
-        frame_delta = 0
         max_frame_delta = int(self.num_input_frames * self._progress_interval / 100)
         progress = 0
+        # True when frame was updated during pause.
+        was_updated_flag = False
         # Speed meter
         self._fps = FPS().start()
-        watermark_text = f'{self.application.applicationName()} - v{self.application.applicationVersion()}'
 
         # ============================ PROCESSING LOOP ======================================================
         log.debug('Processing loop begins.')
@@ -674,84 +738,59 @@ class VideoProcessor(QObject, StoreProperties):
                     self._map_img_to_sphere(self._data_writer)
                 # '''
 
-            # TODO: should we make `im_width` variable so that it's always less than input video width?
-            det_frame = resize(self._frame, width=ProcessorSettings.im_width)
-            self._detector.process(det_frame)
-
-            self._artist.draw(self._frame)
-
-            if ProcessorSettings.perform_3d_tracking and self.flight.is_located:
-                self._track_in_3d()
-
-            # TODO: maybe `is_live` is not a necessary condition here..? Live video needs testing.
-            if not self.flight.is_live and self._is_size_restorable:
-                # Size us back up to original. preserve aspect, crop to middle
-                self._frame = resize(self._frame, **resize_kwarg)[
-                    crop_offset[1]:crop_idx[1],
-                    crop_offset[0]:crop_idx[0]
-                ]
-
-            # Write text
-            cv2.putText(self._frame, watermark_text, (10, 15),
-                        cv2.FONT_HERSHEY_TRIPLEX, .5, (0, 0, 255), 1)
-
-            # Show output
-            self.new_frame_available.emit(self._cv_img_to_qimg(self._frame))
-
-            # Save frame
-            stream_out.write(self._frame)
-            self._fps.update()
-
-            # Display processing progress to user at a fixed percentage interval
-            self.frame_time = self.frame_idx / self._video_fps
-            progress = int(self.frame_idx / (self.num_input_frames) * 100)
-            if ((self.frame_idx == 1) or
-                    (progress % self._progress_interval == 0
-                        and frame_delta >= max_frame_delta)):
-                self.progress_updated.emit((self.frame_time, progress))
-                frame_delta = 0
-            frame_delta += 1
-
-            # Optional animation effect: spin the AR sphere
-            # self._azimuth += 0.4
-            # self._artist.set_azimuth(self._azimuth)
-
-            if self._clear_track_flag:
-                # Clear the track, reset the flag, let the world know.
-                self._detector.clear()
-                self._clear_track_flag = False
-                self.track_cleared.emit()
-
-            # IMPORTANT: Let this thread process events from the calling thread,
-            # otherwise they are queued up until our processing loop exits.
-            QCoreApplication.processEvents()
-
             if self.is_paused:
                 self._fps.pause()
-                log.info(f'pausing at frame {self.frame_idx}/{self.num_input_frames} '
+                log.info(f'Pausing at frame {self.frame_idx}/{self.num_input_frames} '
                          f'(time={timedelta(seconds=self.frame_time)})')
                 self.paused.emit(True)
+                paused_frame = self._frame
+                # Update and emit a copy of the current frame because we haven't displayed it yet.
+                _ = self._update_frame(paused_frame.copy())
+                # Reset this flag before entering this event loop to clear all pre-pause requests.
+                self._update_during_pause_flag = False
                 # Trap us in an event loop here until resume is requested.
                 while self.is_paused:
-                    # TODO: Notes on future ability to have AR interaction while paused:
-                    # For this to work with drawing feedback while paused, we need methods
-                    # that will redraw all the elements in the frame AS IN THE NORMAL LOOP
-                    # within this event loop and emit the new image on each request.
-                    # I suspect this means that we need to keep a copy of the original frame
-                    # before any drawing was done on it, then draw all the things on it within this loop.
-                    # Right now, all events are processed during this loop
-                    # but we have no visual feedback while paused.
-                    # When we resume, the next frame shows the end result of all the requests.
-                    # This is what we want, we just need to rethink the processing loop.
+                    # Update only when something actually changed, then clear the request.
+                    if self._update_during_pause_flag:
+                        # Always send a copy of the pre-pause frame.
+                        paused_frame = self._update_frame(self._frame.copy())
+                        self._update_during_pause_flag = False
+                        was_updated_flag = True
+                    # Breathe, dawg
                     QCoreApplication.processEvents()
                 if not self._keep_processing:
                     # A stop request was sent while paused.
                     log.info(f'Quitting from pause at frame {self.frame_idx}')
                     self.stop()
                     break
+                self._frame = paused_frame.copy()
+                paused_frame = None
                 self._fps.resume()
                 self.paused.emit(False)
-                log.info(f'resuming from frame {self.frame_idx}')
+                log.info(f'Resuming from frame {self.frame_idx}')
+
+            if not was_updated_flag:
+                # Update the frame with all our processing, drawing, etc., and emit it.
+                # Update either here or during pause, but never both.
+                self._frame = self._update_frame(self._frame)
+            was_updated_flag = False
+
+            # Save the processed frame.
+            stream_out.write(self._frame)
+            self._fps.update()
+
+            # Report the processing progress to user
+            self._update_progress(max_frame_delta)
+
+            # Optional animation effect: spin the AR sphere.
+            # TODO: could be an option in UI.
+            # self._azimuth += 0.4
+            # self._artist.set_azimuth(self._azimuth)
+
+            # IMPORTANT: Let this thread process events from the calling thread,
+            # otherwise they are queued up until our processing loop exits.
+            QCoreApplication.processEvents()
+
         # ============================ END OF PROCESSING LOOP ===============================================
 
         log.debug('Processing loop ended, cleaning up...')
@@ -773,7 +812,7 @@ class VideoProcessor(QObject, StoreProperties):
 
         if self._fig_tracker is not None:
             self._fig_tracker.finish_all()
-            self._fig_tracker.export(self.flight.video_path.with_name(f'{self.video_name}_out_figures.npz'))
+            self._fig_tracker.export(self.flight.video_path.with_name(f'{self._video_name}_out_figures.npz'))
             self._fig_tracker = None
 
         # Clean up
