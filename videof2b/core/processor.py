@@ -176,6 +176,7 @@ class VideoProcessor(QObject, StoreProperties):
         self.num_input_frames = int(self.flight.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self._video_name = self.flight.video_path.stem
         self.frame_idx = 0
+        self.frame_time = 0.
         # Load camera
         self.cam = CalCamera(self._full_frame_size, self.flight)
         self.ar_geometry_available.emit(self.flight.is_calibrated)
@@ -203,6 +204,8 @@ class VideoProcessor(QObject, StoreProperties):
         self._watermark_text = f'{self.application.applicationName()} - v{self.application.applicationVersion()}'
         self._frame_delta = 0
         self.is_paused = False
+        # Emit initial progress
+        self.progress_updated.emit((0., 0))
 
     def _prep_video_output(self, path_out):
         '''Prepare the output video file.'''
@@ -238,12 +241,12 @@ class VideoProcessor(QObject, StoreProperties):
                     (int(self._inp_width), int(self._inp_height))
                 )
         else:
-            # TODO: clean up this path repetition
-            if not ProcessorSettings.live_videos.exists():
-                ProcessorSettings.live_videos.mkdir(parents=True)
+            live_dir_path = ProcessorSettings.live_videos
+            if not live_dir_path.exists():
+                live_dir_path.mkdir(parents=True)
             timestr = time.strftime("%Y%m%d-%H%M")
             result = cv2.VideoWriter(
-                ProcessorSettings.live_videos / f'out_{timestr}.mp4',
+                live_dir_path / f'out_{timestr}.mp4',
                 self._fourcc, self._video_fps,
                 (int(self._inp_width), int(self._inp_height))
             )
@@ -405,13 +408,10 @@ class VideoProcessor(QObject, StoreProperties):
         log.debug('Entering VideoProcessor._locate()')
         log.debug(f'Asking to display the locating frame: {self._frame_loc.shape}')
         self.locating_started.emit()
-        # Show the requested frame.
-        self.new_frame_available.emit(self._cv_img_to_qimg(self._frame_loc))
-        # Kind of a hack: force the first instruction signal.
+        # Kind of a hack, but it works: force the first instruction signal and frame display.
         self.flight.on_locator_points_changed()
         self._keep_locating = True
         while self._keep_locating:
-            time.sleep(0.010)
             # Breathe, dawg
             QCoreApplication.processEvents()
         log.debug(f'loc_pts after locating: {self.flight.loc_pts}')
@@ -484,10 +484,11 @@ class VideoProcessor(QObject, StoreProperties):
         :param is_start: True to mark the start of the figure,
                          False to mark the end.
         '''
-        if self._fig_tracker is None:
-            # No effect if tracker is not active
+        if self._fig_tracker is None or self.is_paused:
+            # No effect if tracker is not active.
+            # Also, do not allow this interaction while paused.
+            # It causes undesirable side effects.
             return
-        self._update_during_pause_flag = True
         if is_start:
             # Mark the beginning of a new figure
             self._detector.clear()
@@ -708,6 +709,7 @@ class VideoProcessor(QObject, StoreProperties):
                         f'num_consecutive_empty_frames={num_consecutive_empty_frames}'
                     )
                     break
+                # Breathe, dawg
                 QCoreApplication.processEvents()
                 continue
             num_consecutive_empty_frames = 0
