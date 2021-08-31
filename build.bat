@@ -1,1 +1,4 @@
-pyinstaller --onefile --hidden-import=platformdirs.windows --windowed .\VideoF2B.py
+pyinstaller --onefile --clean ^
+--hidden-import=platformdirs.windows ^
+--windowed ^
+VideoF2B.py
