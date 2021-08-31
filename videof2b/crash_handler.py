@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
 # Copyright (C) 2021  Andrey Vasilik - basil96@users.noreply.github.com
@@ -16,9 +15,27 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-'''Convenience entry point for VideoF2B.'''
+'''
+Module for handling application crashes.
+'''
 
-from videof2b.__main__ import main
+import faulthandler
+import json
+import locale
+import os
+import os.path
+import platform
+import tempfile
+import traceback
+import uuid
+from typing import Any, cast
 
-if __name__ == '__main__':
-    main()
+# pylint: disable=import-error
+from PySide6.QtCore import PYQT_VERSION_STR, QT_VERSION_STR, QUrl
+from PySide6.QtGui import QDesktopServices
+from PySide6.QtWidgets import (QCheckBox, QDialog, QDialogButtonBox, QGroupBox,
+                               QLabel, QPushButton, QTextEdit, QVBoxLayout)
+
+HOME_DIR = os.path.expanduser("~")
+
+# TODO: complete this module using Cura's CrashHandler as a guide?

@@ -1,26 +1,16 @@
-# autopep8 & friends
-autopep8>=1.5.3
-pycodestyle>=2.6.0
-toml>=0.10.1
+# For code formatting to PEP 8
+autopep8>=1.5.7
 
-# matplotlib & friends
-matplotlib>=3.3.1
-certifi>=2020.6.20
-cycler>=0.10.0
-kiwisolver>=1.2.0
-numpy>=1.19.1
-Pillow>=7.2.0
-pyparsing>=2.4.7
-python-dateutil>=2.8.1
-six>=1.15.0
+# For diagnostic plots
+matplotlib>=3.4.3
+# For current matplotlib 3.4 Qt5 backend until PySide6 is supported in mpl 3.5
+# See https://github.com/matplotlib/matplotlib/pull/19255 and
+# and https://github.com/matplotlib/matplotlib/issues/19226
+# NOTE: use TkAgg instead due to crash on app exit. See core/figures.py
+# PySide2>=5.15.0
 
-# PySide2 & friends (for matplotlib Qt5 backend)
-PySide2>=5.15.0
-shiboken2>=5.15.0
-
-# pytest
+# For unit testing
 pytest>=6.2.4
 
-# scipy & friends
-numpy>=1.19.1
-scipy>=1.5.2
+# For building frozen executables
+pyinstaller>=4.5.1

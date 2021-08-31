@@ -18,25 +18,31 @@
 '''Common definitions and constants for VideoF2B.'''
 
 import enum
-from math import pi
+from math import cos, pi
+
+import numpy as np
+import platformdirs
 
 # Some default lengths, in meters
 DEFAULT_FLIGHT_RADIUS = 21.0
 DEFAULT_MARKER_RADIUS = 25.0
 DEFAULT_MARKER_HEIGHT = 1.5
-
 # Default radius in all figure turns, in meters
 DEFAULT_TURN_RADIUS = 1.5
-
+# Default sphere center, in meters
+DEFAULT_CENTER = np.float32([0., 0., 0.])
 # Frequently used chunks of pi
 HALF_PI = 0.5 * pi
 QUART_PI = 0.25 * pi
 EIGHTH_PI = 0.125 * pi
 TWO_PI = 2.0 * pi
+# Trig functions of common angles
+COS_45 = cos(QUART_PI)
 
 
 @enum.unique
 class FigureTypes(enum.Enum):
+    '''All F2B figures in sequence.'''
     TAKEOFF = 1
     REVERSE_WINGOVER = 2
     INSIDE_LOOPS = 3
@@ -52,3 +58,19 @@ class FigureTypes(enum.Enum):
     OVERHEAD_EIGHTS = 13
     FOUR_LEAF_CLOVER = 14
     LANDING = 15
+
+
+@enum.unique
+class SphereManipulations(enum.Enum):
+    '''Possible manipulations of the AR sphere during processing.'''
+    ResetCenter = 0
+    RotateCCW = 1
+    RotateCW = 2
+    MoveWest = 3
+    MoveEast = 4
+    MoveNorth = 5
+    MoveSouth = 6
+
+
+# Common instance of PlatformDir that helps us with various platform-specific paths
+PD = platformdirs.PlatformDirs('VideoF2B', roaming=True)

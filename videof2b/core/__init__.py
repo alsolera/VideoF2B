@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
 # Copyright (C) 2021  Andrey Vasilik - basil96@users.noreply.github.com
@@ -16,9 +15,6 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-'''Convenience entry point for VideoF2B.'''
-
-from videof2b.__main__ import main
-
-if __name__ == '__main__':
-    main()
+'''
+Core modules of VideoF2B application.
+'''
