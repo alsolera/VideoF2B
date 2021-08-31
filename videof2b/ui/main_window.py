@@ -231,7 +231,7 @@ class Ui_MainWindow:
         main_window.addAction(self.act_figure_end)
         #
         action = QtGui.QAction(main_window)
-        action.setShortcut(QtCore.Qt.CTRL | QtCore.Qt.Key_R)
+        action.setShortcut(QtCore.Qt.CTRL | QtCore.Qt.SHIFT | QtCore.Qt.Key_R)
         self.act_restart_flight = action
         main_window.addAction(self.act_restart_flight)
         # Finish
@@ -289,8 +289,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self._last_flight = None
         # Set up signals and slots that are NOT related to VideoProcessor
         self.act_file_load.triggered.connect(self.on_load_flight)
-        # TODO: The restart action is currently hidden because it's a nice feature for developer convenience. Should it become visible?
-        # self.act_restart_flight.triggered.connect(self.on_restart_flight)
+        # TODO: The restart action is currently undocumented because it's a nice feature for developer convenience. Should it become visible?
+        self.act_restart_flight.triggered.connect(self.on_restart_flight)
         self.act_file_exit.triggered.connect(self.close)
         # TODO: center on main screen on first use, or use saved Settings if available.
         self.move(5, 5)
@@ -495,7 +495,12 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         '''Load a specified flight.'''
         if flight is None:
             return
-        self._proc.load_flight(flight)
+        try:
+            self._proc.load_flight(flight)
+        except Exception as load_exc:
+            self._output_msg('ERROR: Failed to load flight. Please check application logs.')
+            self._show_critical_msg(load_exc)
+            raise load_exc  # let it get handled by excepthook.
         self._pre_processing()
         self.start_proc_thread()
 
@@ -510,13 +515,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
 
     def on_restart_flight(self):
         '''Reload the current flight and restart it.'''
-        # TODO: needs attention. processor exits, but processing thread does not join.
         if self._last_flight is None:
             return
+        self._output_msg('Reloading the current flight.')
         self.on_stop_proc()
-        # Block until proc thread joins us.
-        if hasattr(self, '_proc_thread') and self._proc_thread is not None:
-            self._proc_thread.wait()
+        # Give the worker thread an opportunity to join us.
+        if hasattr(self, '_proc_thread'):
+            while self._proc_thread is not None:
+                # Let the main thread receive the `finished` signal
+                # so that the worker thread can exit cleanly.
+                # A `wait()` is not appropriate here, as it hangs the UI.
+                QtCore.QCoreApplication.processEvents()
         self._init_proc()
         self._last_flight.restart()
         self._load_flight(self._last_flight)
@@ -534,13 +543,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # Process any unhandled exceptions from the processing thread:
         if self._proc.exc is not None:
             proc_exc = self._proc.exc
-            QtWidgets.QMessageBox.critical(
-                self,
-                'Critical Error',
-                'A surprise error occurred.\n'
-                'It may be a bug. Please report this:\n'
-                f'{proc_exc}'
-            )
+            self._show_critical_msg(proc_exc)
             # Re-raise the exception here on the main thread so that excepthook has a chance.
             raise RuntimeError('Problem in VideoProcessor.') from proc_exc
 
@@ -555,6 +558,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.filename_label.setText('')
         #   * All of the above?
         #   * Anything else?
+
+    def _show_critical_msg(self, exc):
+        '''Display a simple messagebox when a critical unhandled exception occurs.'''
+        # TODO: Get rid of this after enabling ExceptionDialog.
+        QtWidgets.QMessageBox.critical(
+            self,
+            'Critical Error',
+            'A surprise error occurred.\n'
+            'It may be a bug. Please report this:\n'
+            f'{exc}'
+        )
 
     def on_proc_thread_finished(self):
         '''Handles cleanup when the processing thread finishes.'''

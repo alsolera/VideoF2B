@@ -66,6 +66,16 @@ class CalCamera(QObject):
                 self._flight.is_calibrated = False
                 return
             self._calc_undistortion_maps()
+            # If the flight is already located, locate this camera as well.
+            if self._flight.is_located:
+                try:
+                    self.locate(self._flight)
+                except Exception as loc_err:
+                    log.error(
+                        'Failed to auto-locate camera even though its flight is located. This should not have happened.\n'
+                        f'The problem was: {loc_err}'
+                    )
+                    raise loc_err
 
     def load_calibration(self, path):
         '''Load a camera calibration from the specified path.'''
