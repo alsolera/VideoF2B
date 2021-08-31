@@ -22,8 +22,7 @@ from math import acos, asin, atan, cos, degrees, pi, radians, sin, sqrt, tan
 import numpy as np
 import numpy.linalg as LA
 from scipy.optimize import fsolve
-
-from common import QUART_PI, TWO_PI
+from videof2b.core.common import QUART_PI, TWO_PI
 
 
 class ArgumentError(Exception):

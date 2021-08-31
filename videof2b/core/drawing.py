@@ -26,13 +26,15 @@ from math import (acos, asin, atan, atan2, cos, degrees, pi, radians, sin,
 
 import cv2
 import numpy as np
+import videof2b.core.geometry as geom
 from scipy.spatial.transform import Rotation as ROT
+from videof2b.core import common
+from videof2b.core.camera import CalCamera
+from videof2b.core.common import (DEFAULT_TURN_RADIUS, EIGHTH_PI, HALF_PI,
+                                  QUART_PI, TWO_PI, FigureTypes)
+from videof2b.core.flight import Flight
 
-import common
-import geometry as geom
-from common import EIGHTH_PI, HALF_PI, QUART_PI, TWO_PI, FigureTypes
-
-logger = logging.getLogger(__name__)
+log = logging.getLogger(__name__)
 
 
 class Colors:
@@ -273,8 +275,6 @@ DEFAULT_SCENE = DummyScene()
 
 class Drawing:
     '''Container that performs all the drawing of AR sphere, track, figures, etc., in any given image frame.'''
-    # Default location of drawn sphere wrt world center.
-    DEFAULT_CENTER = np.float32([0., 0., 0.])
     # Default point density per 2*pi (360 degrees) of arc.
     DEFAULT_N = 100
 
@@ -283,9 +283,10 @@ class Drawing:
         If only track drawing is required, provide a Detector instance.
         If drawing AR geometry is also required, supply the following kwargs:
             `cam`: instance of CalCamera.
+            `flight`: instance of Flight.
             `center`: 3-tuple or ndarray of (x, y, z) location of drawn sphere
                       with respect to the world center defined by markers.
-                      Default is Drawing.DEFAULT_CENTER, which is the origin (0, 0, 0).
+                      Default is `videof2b.core.common.DEFAULT_CENTER`, which is the origin (0, 0, 0).
             Optional:
                 `axis`: True to draw vertical axis, False otherwise.
                 `point_density`: number of arc points per full circle.
@@ -299,7 +300,13 @@ class Drawing:
         # Instance of motion detector.
         self._detector = detector
         # Instance of the camera.
-        self._cam = kwargs.pop('cam', None)
+        self._cam: CalCamera = kwargs.pop('cam', None)
+        # Instance of the recorded Flight.
+        flight: Flight = kwargs.pop('flight', None)
+        # Internal flag. Indicates whether located geometry can be drawn.
+        self._is_located = False
+        # Current azimuth of the AR sphere. Zero points "North", or from sphere center to front marker.
+        self._azimuth = 0.
         # Radius of flight hemisphere, in m.
         self.R = None
         # Radius of the circle in which the markers are located, in m.
@@ -311,12 +318,12 @@ class Drawing:
         # Number of points per 360 degrees of any arc.
         self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
         # Defines the turn radius of all applicable figures.
-        self.turn_r = kwargs.pop('turn_r', common.DEFAULT_TURN_RADIUS)
+        self.turn_r = kwargs.pop('turn_r', DEFAULT_TURN_RADIUS)
         # Indicates whether to draw diagnostics or not.
         self._draw_diags = False
         # Collection of all necessary scenes, keyed on type.
         self._scenes = {}
-        self.Locate(self._cam, **kwargs)
+        self.locate(self._cam, flight, **kwargs)
 
     @property
     def DrawDiags(self):
@@ -330,15 +337,18 @@ class Drawing:
         self._draw_diags = val
         self._sync_scene_diags()
 
-    def Locate(self, cam, **kwargs):
-        '''Locate a new camera or relocate an existing one.'''
+    def locate(self, cam: CalCamera, flight: Flight = None, **kwargs) -> None:
+        '''Locate a new Flight or relocate an existing one using the given camera.'''
+        log.debug('Entering Drawing.locate()')
         self._cam = cam
         self.figure_state['base'] = False
-        if self._cam is not None and self._cam.Located:
-            self.R = self._cam.flightRadius
-            self.marker_radius = self._cam.markRadius
-            center = kwargs.pop('center', None) or Drawing.DEFAULT_CENTER.copy()
-            # Ensure it's a numpy array (allow tuple, list as input)
+        self._is_located = cam is not None and flight is not None and flight.is_located
+        if self._is_located:
+            self.R = flight.flight_radius
+            self.marker_radius = flight.marker_radius
+            self.marker_height = flight.marker_height
+            center = kwargs.pop('center', common.DEFAULT_CENTER.copy())
+            # Ensure it's a numpy array (allow tuple, list as input). TODO: maybe it is safer to use `np.atleast_1d(center)` ?
             self.center = np.float32(center)
             self._evaluate_center()
             self.figure_state['base'] = True
@@ -434,7 +444,7 @@ class Drawing:
         # --- The edge outline of the flight sphere as seen from camera's perspective.
         result.add(EdgePolyline(self.R, self._cam.cam_pos, size=1, color=Colors.MAGENTA))
         # --- Reference points and markers (fixed in world space)
-        r45 = self._cam.markRadius * cos(QUART_PI)
+        r45 = self.marker_radius * cos(QUART_PI)
         marker_size_x = 0.20  # marker width, in m
         marker_size_z = 0.60  # marker height, in m
         # Sphere reference points (fixed in object space)
@@ -442,15 +452,15 @@ class Drawing:
             np.array([
                 # Points on sphere centerline: sphere center, pilot's feet, top of sphere.
                 [0, 0, 0],
-                [0, 0, -self._cam.markHeight],
+                [0, 0, -self.marker_height],
                 [0, 0, self.R],
                 # Points on equator: bottom of right & left marker, right & left antipodes, front & rear antipodes
                 [r45, r45, 0],
                 [-r45, r45, 0],
-                [self._cam.markRadius, 0, 0],
-                [-self._cam.markRadius, 0, 0],
-                [0, -self._cam.markRadius, 0],
-                [0, self._cam.markRadius, 0]]),
+                [self.marker_radius, 0, 0],
+                [-self.marker_radius, 0, 0],
+                [0, -self.marker_radius, 0],
+                [0, self.marker_radius, 0]]),
             size=1, color=Colors.RED, is_fixed=True)
         # Points on corners of an imaginary marker at center of sphere (optional)
         mrk_center = Scatter(
@@ -463,10 +473,10 @@ class Drawing:
         mrk_perimeter = Scatter(
             np.array([
                 # Points on corners of front marker
-                [0.5 * marker_size_x, self._cam.markRadius, 0.5 * marker_size_z],
-                [-0.5 * marker_size_x, self._cam.markRadius, 0.5 * marker_size_z],
-                [-0.5 * marker_size_x, self._cam.markRadius, -0.5 * marker_size_z],
-                [0.5 * marker_size_x, self._cam.markRadius, -0.5 * marker_size_z],
+                [0.5 * marker_size_x, self.marker_radius, 0.5 * marker_size_z],
+                [-0.5 * marker_size_x, self.marker_radius, 0.5 * marker_size_z],
+                [-0.5 * marker_size_x, self.marker_radius, -0.5 * marker_size_z],
+                [0.5 * marker_size_x, self.marker_radius, -0.5 * marker_size_z],
                 # Points on corners of right marker
                 [r45 + 0.5 * marker_size_x, r45, 0.5 * marker_size_z],
                 [r45 - 0.5 * marker_size_x, r45, 0.5 * marker_size_z],
@@ -484,6 +494,9 @@ class Drawing:
         result.add(mrk_perimeter)
         return result
 
+    def set_azimuth(self, azimuth):
+        self._azimuth = azimuth
+
     def MoveCenterX(self, delta):
         self.center[0] += delta
         self._evaluate_center()
@@ -494,13 +507,13 @@ class Drawing:
 
     def ResetCenter(self):
         '''Reset sphere center to default.'''
-        self.center = Drawing.DEFAULT_CENTER.copy()
+        self.center = common.DEFAULT_CENTER.copy()
         self._evaluate_center()
 
     def _evaluate_center(self):
         self.center = self.center.round(1)
         self._is_center_at_origin = (abs(self.center) < 0.01).all()
-        logger.info(f'Sphere center: {self.center}')
+        log.info(f'Sphere center: {self.center}')
 
     @staticmethod
     def _get_track_color(x, x_max):
@@ -525,13 +538,13 @@ class Drawing:
             cv2.line(img, pts[i - 1], pts[i], Drawing._get_track_color(i, maxlen), 1)
         return img
 
-    def draw(self, img, azimuth_delta=0.):
+    def draw(self, img):
         '''Draw all relevant geometry in the given image frame.'''
-        if self._cam.Located:
-            self._draw_located_geometry(img, azimuth_delta)
+        if self._is_located:
+            self._draw_located_geometry(img)
         self._draw_track(img)
 
-    def _draw_located_geometry(self, img, azimuth_delta=0.):
+    def _draw_located_geometry(self, img):
         '''Draw the geometry that is relevant when the camera is located.'''
         center = tuple(self.center)
         # Display flight radius at all times
@@ -555,7 +568,7 @@ class Drawing:
                 # Draw the scene that is defined for this figure type
                 self._scenes.get(ftype, DEFAULT_SCENE).draw(
                     img,
-                    (azimuth_delta, center),
+                    (self._azimuth, center),
                     rvec=rvec,
                     tvec=tvec,
                     cameraMatrix=newcameramtx,

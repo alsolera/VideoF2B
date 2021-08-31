@@ -18,27 +18,33 @@
 '''Geometric definitions for F2B figures.'''
 
 import itertools
-import logging
+# import logging
 from collections import defaultdict
 
-import matplotlib.pyplot as plt  # for debug diagnostics
+# import matplotlib
+
+# # TODO: Starting a Matplotlib GUI outside of the main thread is a bad idea. Solve this after release of 0.6.
+# # FIXME: matplotlib 3.4 does not play well with PySide6 (causes access violation in Python DLL on exit).
+# #      : For now, use the built-in tkinter backend.
+# #      : mpl 3.5 allegedly will work with PySide6.
+# # See https://stackoverflow.com/questions/26955017/matplotlib-crashing-python
+# matplotlib.use("TkAgg")
+# import matplotlib.pyplot as plt  # for debug diagnostics
 import numpy as np
 from scipy import optimize
-
-import common
-from common import FigureTypes
+from videof2b.core.common import DEFAULT_FLIGHT_RADIUS, FigureTypes
 
 # "matplotlib.font_manager" tends to log a ton of debug messages. Silence all matplotlib here.
-logging.getLogger('matplotlib').setLevel(logging.WARNING)
-
-# ==================== Golden Section Search method ===============================
-# NOTE: Unused as of yet. Also available in scipy.optimize
+# logging.getLogger('matplotlib').setLevel(logging.WARNING)
 
 
 def find_min_gss(f, a, b, eps=1e-4):
     '''Find Minimum by Golden Section Search Method
         Returns the value of x that minimizes the function f(x) on interval [a, b]
     '''
+    # ==================== Golden Section Search method ===============================
+    # NOTE: Unused as of yet. Also available in scipy.optimize
+    #
     # Golden section: 1/phi = 2/(1+sqrt(5))
     R = 0.61803399
     # Num of needed iterations to get precision eps: log(eps/|b-a|)/log(R)
@@ -75,7 +81,7 @@ class Figure:
         self.diag = FigureDiagnostics(enabled=kwargs.pop('enable_diags', False))
 
         if R is None:
-            self.R = common.DEFAULT_FLIGHT_RADIUS
+            self.R = DEFAULT_FLIGHT_RADIUS
         else:
             self.R = R
 
@@ -203,51 +209,52 @@ class Figure:
         self.diag.errs_hist = resids  # history of residual sets
 
         if self.diag.enabled:
-            resid_sums = {}
-            for f_idx, f_resids in resids.items():
-                num_iterations = len(f_resids)
-                s_resids = [sum(fr) for fr in f_resids]
-                resid_sums[f_idx] = s_resids
-                print(f'f_idx={f_idx}, num_iterations={num_iterations}')
-                if num_iterations == 0:
-                    continue
-                # Plot history of errors during optimization
-                plt.figure(f_idx)
-                plt.subplot(1, 2, 1)
-                for i, err in enumerate(f_resids):
-                    if 0 < i < num_iterations - 1:
-                        plt.plot(err, color='tab:gray', marker=None, linestyle='--',
-                                 label='Intermediate' if i == 1 else None)
-                plt.plot(f_resids[0], 'r.-', label=f'Initial, sum={sum(f_resids[0])}')
-                plt.plot(f_resids[-1], 'b.-', label=f'Optimized, sum={sum(f_resids[-1])}')
-                plt.title(f'Errors during fit #{f_idx} ({num_iterations} iterations)')
-                # Plot trend of error sums during optimization
-                plt.subplot(1, 2, 2)
-                plt.semilogy(s_resids, ',-')
-                plt.title(f'Trend of residual sums during fit #{f_idx}')
-            # Plot initial and final pathwise parameter distributions
-            plt.figure(f_idx + 1)
-            plt.plot(self.u, 'r.-')
-            plt.plot(fit_params[f_idx - 1], 'b.-')
-            plt.plot((0, len(self.u)), (0., 0.), 'r--')
-            plt.plot((0, len(self.u)), (1., 1.), 'r--')
-            plt.title('Initial and final $u_i$')
-            # Plot the histories of extrinsic parameter sets and their corresponding residual sums
-            plt.figure(f_idx + 2)
-            # Each row is a 1-d array of extrinsic param values
-            extrinsics = np.asarray(extrinsics)
-            # Each row is a 1-d array of deltas in the extrinsic param value from the previous
-            trends = np.diff(extrinsics, axis=0)
-            for i, trend in enumerate(trends):
-                # Note: indexes of the extrinsic fits are always even
-                f_idx_ref = 2 * i + 2
-                p_labels = [f'$p_{i}$' for i in range(len(trend))]
-                f_legend = f'$fit_{f_idx_ref}$, sum={resid_sums[f_idx_ref][-1]:.6f}'
-                plt.plot(p_labels, trend.T, '.-', label=f_legend)
-            plt.legend()
-            plt.title('Trends: extrinsic parameters at each iteration')
+            pass
+            # resid_sums = {}
+            # for f_idx, f_resids in resids.items():
+            #     num_iterations = len(f_resids)
+            #     s_resids = [sum(fr) for fr in f_resids]
+            #     resid_sums[f_idx] = s_resids
+            #     print(f'f_idx={f_idx}, num_iterations={num_iterations}')
+            #     if num_iterations == 0:
+            #         continue
+            #     # Plot history of errors during optimization
+            #     plt.figure(f_idx)
+            #     plt.subplot(1, 2, 1)
+            #     for i, err in enumerate(f_resids):
+            #         if 0 < i < num_iterations - 1:
+            #             plt.plot(err, color='tab:gray', marker=None, linestyle='--',
+            #                      label='Intermediate' if i == 1 else None)
+            #     plt.plot(f_resids[0], 'r.-', label=f'Initial, sum={sum(f_resids[0])}')
+            #     plt.plot(f_resids[-1], 'b.-', label=f'Optimized, sum={sum(f_resids[-1])}')
+            #     plt.title(f'Errors during fit #{f_idx} ({num_iterations} iterations)')
+            #     # Plot trend of error sums during optimization
+            #     plt.subplot(1, 2, 2)
+            #     plt.semilogy(s_resids, ',-')
+            #     plt.title(f'Trend of residual sums during fit #{f_idx}')
+            # # Plot initial and final pathwise parameter distributions
+            # plt.figure(f_idx + 1)
+            # plt.plot(self.u, 'r.-')
+            # plt.plot(fit_params[f_idx - 1], 'b.-')
+            # plt.plot((0, len(self.u)), (0., 0.), 'r--')
+            # plt.plot((0, len(self.u)), (1., 1.), 'r--')
+            # plt.title('Initial and final $u_i$')
+            # # Plot the histories of extrinsic parameter sets and their corresponding residual sums
+            # plt.figure(f_idx + 2)
+            # # Each row is a 1-d array of extrinsic param values
+            # extrinsics = np.asarray(extrinsics)
+            # # Each row is a 1-d array of deltas in the extrinsic param value from the previous
+            # trends = np.diff(extrinsics, axis=0)
+            # for i, trend in enumerate(trends):
+            #     # Note: indexes of the extrinsic fits are always even
+            #     f_idx_ref = 2 * i + 2
+            #     p_labels = [f'$p_{i}$' for i in range(len(trend))]
+            #     f_legend = f'$fit_{f_idx_ref}$, sum={resid_sums[f_idx_ref][-1]:.6f}'
+            #     plt.plot(p_labels, trend.T, '.-', label=f_legend)
+            # plt.legend()
+            # plt.title('Trends: extrinsic parameters at each iteration')
 
-            plt.show()
+            # plt.show()
 
         self.diag.fit_params = fit_params
         self.diag.u0 = self.u.copy()
@@ -361,8 +368,8 @@ class InsideLoops(Figure):
         alpha = np.radians(45.0)
         # Elevation angle of loop normal
         self.theta = np.radians(22.5)
-        # Parametric angle inside loop when t = 1 (3.5 loops)
-        k = 7.0 * np.pi
+        # Parametric angle inside loop when t = 1 (3 loops)
+        k = 6.0 * np.pi
         # Radius of loop
         self.r = self.R * np.sin(0.5 * alpha)
         print(f'Nominal R = {self.R}')
@@ -446,9 +453,10 @@ def test():
     print(f'  shape of final u: {fig0.u.shape}')
 
     if diags_on:
-        plt.show()
+        pass
+        # plt.show()
 
-    assert fig0.R == common.DEFAULT_FLIGHT_RADIUS, 'Unexpected default radius R'
+    assert fig0.R == DEFAULT_FLIGHT_RADIUS, 'Unexpected default radius R'
 
     print('=' * 160)
     t = np.linspace(0., 1., 8)
