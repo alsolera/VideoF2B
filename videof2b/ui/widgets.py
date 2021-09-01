@@ -21,6 +21,7 @@ This module contains various custom widgets for the UI.
 
 import enum
 from pathlib import Path
+from videof2b.ui.icons import MyIcons
 
 from PySide6 import QtCore, QtGui, QtWidgets
 from videof2b.core.common.path import path_to_str, replace_params, str_to_path
@@ -133,6 +134,7 @@ class PathEdit(QtWidgets.QWidget):
         self.line_edit = QtWidgets.QLineEdit(self)
         widget_layout.addWidget(self.line_edit)
         self.browse_button = QtWidgets.QToolButton(self)
+        self.browse_button.setIcon(MyIcons().browse)
         widget_layout.addWidget(self.browse_button)
         self.setLayout(widget_layout)
         # Signals and Slots
@@ -228,3 +230,23 @@ class PathEdit(QtWidgets.QWidget):
         if self._path != path:
             self.path = path
             self.path_changed.emit(path)
+
+
+class QHLine(QtWidgets.QFrame):
+    '''A horizontal line widget.'''
+
+    def __init__(self):
+        '''Create a new horizontal line widget.'''
+        super().__init__()
+        self.setFrameShape(QtWidgets.QFrame.HLine)
+        self.setFrameShadow(QtWidgets.QFrame.Sunken)
+
+
+class QVLine(QtWidgets.QFrame):
+    '''A vertical line widget.'''
+
+    def __init__(self):
+        '''Create a new vertical line widget.'''
+        super().__init__()
+        self.setFrameShape(QtWidgets.QFrame.VLine)
+        self.setFrameShadow(QtWidgets.QFrame.Sunken)
