@@ -18,10 +18,13 @@
 '''Common definitions and constants for VideoF2B.'''
 
 import enum
+import sys
 from math import cos, pi
+from pathlib import Path
 
 import numpy as np
 import platformdirs
+import videof2b
 
 # Some default lengths, in meters
 DEFAULT_FLIGHT_RADIUS = 21.0
@@ -74,3 +77,22 @@ class SphereManipulations(enum.Enum):
 
 # Common instance of PlatformDir that helps us with various platform-specific paths
 PD = platformdirs.PlatformDirs('VideoF2B', roaming=True)
+
+
+def get_frozen_path(path_when_frozen, path_when_non_frozen):
+    '''Return one of the given paths based on status of `sys.frozen`.'''
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        return path_when_frozen
+    return path_when_non_frozen
+
+
+def get_bundle_dir():
+    '''Return the path of the bundle directory.
+    When frozen as a one-file app, this is the _MEI### dir in temp.
+    When frozen as a one-dir app, this is that dir.
+    When running as a script, this is the project's root dir.
+    '''
+    bundle_path = Path(videof2b.__file__).parent.parent
+    if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
+        bundle_path = Path(sys._MEIPASS)
+    return bundle_path

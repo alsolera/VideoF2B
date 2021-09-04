@@ -26,8 +26,10 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from videof2b.core.common import FigureTypes, SphereManipulations
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.processor import ProcessorReturnCodes, VideoProcessor
+from videof2b.ui.icons import MyIcons
 from videof2b.ui.load_flight_dialog import LoadFlightDialog
 from videof2b.ui.video_window import VideoWindow
+from videof2b.ui.widgets import QHLine
 
 log = logging.getLogger(__name__)
 
@@ -35,7 +37,7 @@ log = logging.getLogger(__name__)
 class Ui_MainWindow:
     '''Define the UI layout.'''
 
-    def setup_ui(self, main_window):
+    def setup_ui(self, main_window: QtWidgets.QMainWindow):
         '''Create the UI here.'''
         main_window.setObjectName('MainWindow')
         main_window.setDockNestingEnabled(True)
@@ -51,8 +53,6 @@ class Ui_MainWindow:
         self.main_layout.setObjectName('main_layout')
         main_window.setCentralWidget(self.main_widget)
         # Figure checkboxes
-        # TODO: add button(s) to advance the current checkbox to the next figure
-        # TODO: group the checkboxes together for simpler programmatic access.
         self.pnl_chk = QtWidgets.QVBoxLayout()
         self.chk_loops = QtWidgets.QCheckBox('Loops', main_window)
         self.chk_loops.setObjectName('chk_loops')
@@ -86,9 +86,34 @@ class Ui_MainWindow:
         )
         for fig_chk in self.fig_chk_boxes:
             self.pnl_chk.addWidget(fig_chk)
+
+        def get_vspacer():
+            '''This spacer provides some vertical spacing around the separators.'''
+            # Beware: adding the same widget reference more than once causes heap corruption!
+            # Hence, this function is just a factory for producing new instances on demand.
+            return QtWidgets.QSpacerItem(1, 8, vData=QtWidgets.QSizePolicy.Fixed)
+
+        self.pnl_chk.addSpacerItem(get_vspacer())
+        # Horizontal separator 1
+        self.pnl_chk.addWidget(QHLine())
+        self.pnl_chk.addSpacerItem(get_vspacer())
+        # Diags checkbox
         self.chk_diag = QtWidgets.QCheckBox('Draw Diagnostics', main_window)
         self.pnl_chk.addWidget(self.chk_diag)
-        self.pnl_chk.addItem(QtWidgets.QSpacerItem(20, 40, vData=QtWidgets.QSizePolicy.Expanding))
+        self.pnl_chk.addSpacerItem(get_vspacer())
+        # Horizontal separator 2
+        self.pnl_chk.addWidget(QHLine())
+        self.pnl_chk.addSpacerItem(get_vspacer())
+        # Control buttons
+        self.ctrl_btns_pnl = QtWidgets.QHBoxLayout()
+        self.pause_btn = QtWidgets.QToolButton(main_window)
+        self.pause_btn.setIconSize(QtCore.QSize(24, 24))
+        self.fig_advance_btn = QtWidgets.QToolButton(main_window)
+        self.fig_advance_btn.setIconSize(QtCore.QSize(24, 24))
+        self.ctrl_btns_pnl.addWidget(self.pause_btn)
+        self.ctrl_btns_pnl.addWidget(self.fig_advance_btn)
+        self.pnl_chk.addLayout(self.ctrl_btns_pnl)
+        self.pnl_chk.addSpacerItem(QtWidgets.QSpacerItem(20, 40, vData=QtWidgets.QSizePolicy.Expanding))
 
         self.pnl_top = QtWidgets.QHBoxLayout()
         self.pnl_top.addLayout(self.pnl_chk)
@@ -217,8 +242,19 @@ class Ui_MainWindow:
         #
         action = QtGui.QAction(main_window)
         action.setShortcut(QtCore.Qt.Key_P)
+        action.setToolTip('Pause/Resume processing')
+        action.setIcon(MyIcons().play)
         self.act_pause_resume = action
+        self.pause_btn.setDefaultAction(self.act_pause_resume)
         main_window.addAction(self.act_pause_resume)
+        #
+        action = QtGui.QAction(main_window)
+        action.setShortcut(QtCore.Qt.Key_Down)
+        action.setToolTip('Select next figure')
+        action.setIcon(MyIcons().advance)
+        self.act_next_figure = action
+        self.fig_advance_btn.setDefaultAction(self.act_next_figure)
+        main_window.addAction(self.act_next_figure)
         #
         action = QtGui.QAction(main_window)
         action.setShortcut(QtCore.Qt.Key_BracketLeft)
@@ -292,6 +328,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # TODO: The restart action is currently undocumented because it's a nice feature for developer convenience. Should it become visible?
         self.act_restart_flight.triggered.connect(self.on_restart_flight)
         self.act_file_exit.triggered.connect(self.close)
+        self.act_next_figure.triggered.connect(self.on_next_figure)
+        self.act_pause_resume.setEnabled(False)
+        self._enable_figure_controls(False)
         # TODO: center on main screen on first use, or use saved Settings if available.
         self.move(5, 5)
 
@@ -341,6 +380,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             'Left-click to add a point, right-click to remove last point.')
         self.instruct_lbl.show()
         self.video_window.is_mouse_enabled = True
+        self.act_pause_resume.setEnabled(False)
 
     def on_loc_pts_changed(self, points, msg):
         '''Echoes changes in the VideoProcessor's locator points
@@ -394,6 +434,19 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             self._fig_chk_names_types[name],
             sender.isChecked()
         )
+        # Keep the enabled state of the "next figure" action consistent.
+        # We have 3 possibilities:
+        # If no figures are selected, enable it.
+        # If the last figure is selected or multiple figures are selected, disable it.
+        # Otherwise, enable it (the only remaining possibility is a non-ending single figure).
+        figs_checked, num_checked = self._get_figure_state()
+        if num_checked == 0:
+            self.act_next_figure.setEnabled(True)
+        elif (num_checked == 1 and figs_checked[0] == len(self.fig_chk_boxes) - 1 or
+              num_checked > 1):
+            self.act_next_figure.setEnabled(False)
+        else:
+            self.act_next_figure.setEnabled(True)
 
     def on_chk_diag_changed(self):
         '''Tell the processor to toggle the drawn state of figure diagnostics.'''
@@ -509,9 +562,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.proc_progress_bar.show()
         self._output_msg(f'Video loaded successfully from {self._proc.flight.video_path.name}')
         self.filename_label.setText(self._proc.flight.video_path.name)
-        for chk in self.fig_chk_boxes:
-            chk.setChecked(False)
-        self.chk_diag.setChecked(False)
+        self._reset_figure_controls()
+        self.act_pause_resume.setIcon(MyIcons().pause)
+        self.act_pause_resume.setEnabled(True)
 
     def on_restart_flight(self):
         '''Reload the current flight and restart it.'''
@@ -536,28 +589,31 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.act_file_load.setEnabled(False)
 
     def on_proc_finished(self, retcode: ProcessorReturnCodes):
-        '''Let the user know that the video processing finished, and indicate the reason.'''
+        '''Handle return codes and any possible exceptions that are reported
+        by VideoProcessor when its processing loop finishes.
+        Also update the UI as appropriate.
+        '''
         # BEWARE: `_proc` is available here only because we arrange
         # the order of signal connections in `start_proc_thread()`
         # so that this runs before the processor instance is deleted.
-        # Process any unhandled exceptions from the processing thread:
+        #
+        # First, deal with any exceptions that the processor wants us to handle.
         if self._proc.exc is not None:
             proc_exc = self._proc.exc
             self._show_critical_msg(proc_exc)
             # Re-raise the exception here on the main thread so that excepthook has a chance.
             raise RuntimeError('Problem in VideoProcessor.') from proc_exc
-
+        # Second, let the user know that the video processing finished, and indicate the reason.
         self._output_msg(self._retcodes_msgs.get(retcode, f'Unknown return code: {retcode}'))
-        # TODO: what else do we want to do here?
-        # Options:
-        #   * blank out the video window
+        # Finally, clean up the UI.
+        self.act_file_load.setEnabled(True)
+        self.act_pause_resume.setIcon(MyIcons().play)
+        self.act_pause_resume.setEnabled(False)
+        self._reset_figure_controls()
+        self._enable_figure_controls(False)
         self.video_window.clear()
-        #   * hide the progress bar
         self.proc_progress_bar.hide()
-        #   * reset filename_label
         self.filename_label.setText('')
-        #   * All of the above?
-        #   * Anything else?
 
     def _show_critical_msg(self, exc):
         '''Display a simple messagebox when a critical unhandled exception occurs.'''
@@ -571,10 +627,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         )
 
     def on_proc_thread_finished(self):
-        '''Handles cleanup when the processing thread finishes.'''
+        '''Handle cleanup when the processing thread finishes.'''
         self._deinit_proc()
-        # Re-enable the File > Load action.
-        self.act_file_load.setEnabled(True)
         # If main window close was requested, close it now.
         if self._is_window_closing:
             self.close()
@@ -632,6 +686,23 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         for fig_chk in self.fig_chk_boxes:
             fig_chk.setEnabled(enable)
         self.chk_diag.setEnabled(enable)
+        self.act_next_figure.setEnabled(enable)
+
+    def _reset_figure_controls(self):
+        '''Turn of all figure checkboxes, including diag.'''
+        for fig_chk in self.fig_chk_boxes:
+            fig_chk.setChecked(False)
+        self.chk_diag.setChecked(False)
+
+    def _get_figure_state(self):
+        '''Common method that tells us which figures are selected.'''
+        # Technically, the Drawing class keeps the dict of this state. But its functionality
+        # is not exposed by VideoProcessor. We would need signals from the processor and some
+        # shared state, etc., because that's in a worker thread. It's simpler to just
+        # maintain it here, since we're the originators of the figure state updates anyway.
+        figs_checked = [i for i, fig_chk in enumerate(self.fig_chk_boxes) if fig_chk.isChecked()]
+        num_checked = len(figs_checked)
+        return figs_checked, num_checked
 
     def on_ar_geometry_available(self, is_available: bool):
         '''Update UI controls based on availability of AR geometry.'''
@@ -665,8 +736,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             :param is_paused: True if paused, False if resumed.
         '''
         if is_paused:
+            self.act_pause_resume.setIcon(MyIcons().play)
             self._output_msg('Paused processing.')
         else:
+            self.act_pause_resume.setIcon(MyIcons().pause)
             self._output_msg('Resumed processing.')
 
     def on_rotate_ccw(self):
@@ -713,3 +786,22 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         '''Mark the end of a figure in 3D. '''
         log.debug('User says: END FIGURE')
         self.figure_mark.emit(False)
+
+    def on_next_figure(self):
+        '''
+        Advance the current figure checkbox to next figure if appropriate.
+
+        Behavior:
+        If multiple figures are checked, do nothing.
+        If the last figure is checked, do nothing.
+        If no figures are checked, check the first one.
+        In all other cases, uncheck the current figure and check the next one.
+        '''
+        figs_checked, num_checked = self._get_figure_state()
+        if num_checked == 0:
+            self.fig_chk_boxes[0].setChecked(True)
+        elif num_checked == 1:
+            idx = figs_checked[0]
+            if idx < len(self.fig_chk_boxes) - 1:
+                self.fig_chk_boxes[idx].setChecked(False)
+                self.fig_chk_boxes[idx+1].setChecked(True)

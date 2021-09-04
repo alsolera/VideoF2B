@@ -179,7 +179,7 @@ class VideoProcessor(QObject, StoreProperties):
         self.frame_time = 0.
         # Load camera
         self.cam = CalCamera(self._full_frame_size, self.flight)
-        self.ar_geometry_available.emit(self.flight.is_calibrated)
+        self.ar_geometry_available.emit(self.flight.is_located)
         # Determine input video size and the scale wrt detector's frame size
         self._calc_size()
         log.debug(f'detector im_width = {ProcessorSettings.im_width} px')
@@ -415,8 +415,7 @@ class VideoProcessor(QObject, StoreProperties):
             # Breathe, dawg
             QCoreApplication.processEvents()
         log.debug(f'loc_pts after locating: {self.flight.loc_pts}')
-
-        log.debug('Done locating the flight.')
+        log.info('Done locating the flight.')
         if not self._keep_processing:
             # The processor was requested to stop during locating.
             # Do not proceed with the rest of the processing loop.
@@ -541,6 +540,7 @@ class VideoProcessor(QObject, StoreProperties):
         self.flight.is_ar_enabled = True
         self._frame_loc = self._frame
         self.flight.on_locator_points_changed()
+        self.ar_geometry_available.emit(self.flight.is_located)
 
     def pause_resume(self):
         '''Pause/Resume processing at the current frame. Allows the following
