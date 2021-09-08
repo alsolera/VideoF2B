@@ -148,6 +148,10 @@ class Ui_MainWindow:
         self.instruct_lbl = QtWidgets.QLabel(self.status_bar)
         self.instruct_lbl.setObjectName('instruct_lbl')
         self.status_bar.addPermanentWidget(self.instruct_lbl, stretch=1)
+        # Status bar: video timestamp
+        self.video_time_lbl = QtWidgets.QLabel(self.status_bar)
+        self.video_time_lbl.setObjectName('video_time_lbl')
+        self.status_bar.addPermanentWidget(self.video_time_lbl)
         # Status bar: processing progress bar
         self.proc_progress_bar = QtWidgets.QProgressBar(self.status_bar)
         self.proc_progress_bar.setObjectName('proc_progress_bar')
@@ -562,6 +566,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.proc_progress_bar.show()
         self._output_msg(f'Video loaded successfully from {self._proc.flight.video_path.name}')
         self.filename_label.setText(self._proc.flight.video_path.name)
+        self.video_time_lbl.show()
+        self.video_time_lbl.setText('00:00')
         self._reset_figure_controls()
         self.act_pause_resume.setIcon(MyIcons().pause)
         self.act_pause_resume.setEnabled(True)
@@ -612,6 +618,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self._reset_figure_controls()
         self._enable_figure_controls(False)
         self.video_window.clear()
+        self.video_time_lbl.setText('00:00')
+        self.video_time_lbl.hide()
         self.proc_progress_bar.hide()
         self.filename_label.setText('')
 
@@ -665,12 +673,10 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     def on_progress_updated(self, data):
         '''Display video processing progress.'''
         frame_time, progress = data
-        # Update the progress bar
+        # Update the progress bar and the video timestamp
         self.proc_progress_bar.setValue(progress)
-        # TODO: It would be nice to use `frame_time` to update the current video time in the status bar!
-        # For best results, the progress update signal would need
-        # to fire when frame_time is near a whole second of the input.
-        log.debug(f'video time: {timedelta(seconds=frame_time)}, progress: {progress:3d}%')
+        video_time = datetime.utcfromtimestamp(timedelta(seconds=frame_time).total_seconds())
+        self.video_time_lbl.setText(f'{video_time:%M}:{video_time:%S}')
 
     def on_stop_proc(self):
         '''Request to stop the video processor.'''
