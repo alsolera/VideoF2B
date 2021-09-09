@@ -972,7 +972,10 @@ class Drawing:
         points = (
             # Loop 1
             ROT.from_euler('x', tilt_angle_top).apply(
-                ROT.from_euler('z', -alpha).apply(loop)),
+                ROT.from_euler('z', -alpha).apply(
+                    ROT.from_euler('y', -delta).apply(loop)
+                )
+            ),
             # Connector: Loop 1 -> 2
             ROT.from_euler('x', QUART_PI).apply(conn_arc),
             # Loop 2
