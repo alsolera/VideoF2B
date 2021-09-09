@@ -42,11 +42,10 @@ class TestDrawing:
         # test_frame = np.zeros((img_size[1], img_size[0], 3))
 
         # TODO: utilize Flight.read() method from the "serialize flight" branch later.
-        # flight_path = Path("../2021-09-04 NYCLST/publish-untraced/01_markers.flight")
+        # flight_path = Path('tests/data/01_markers.flight')
 
-        # TODO: stabilize this, or mock it entirely.
-        vid_path = Path('../2021-09-04 NYCLST/publish-untraced/01_markers.mp4')
-        cal_path = Path('../cal/SONY-A7C 14mm/as normal/CamCalibration.npz')  # TODO: stabilize this location.
+        vid_path = Path('tests/data/01_markers.mp4')
+        cal_path = Path('tests/data/CamCalibration_SONY_A7C_14mm.npz')
         loc_pts = [
             (910, 934),
             (1088, 909),
