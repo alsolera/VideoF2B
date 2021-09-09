@@ -126,8 +126,6 @@ class VideoProcessor(QObject, StoreProperties):
         self._keep_processing: bool = False
         self._keep_locating: bool = False
         self._clear_track_flag: bool = False
-        # We emit progress updates at this interval, in percent. Must be an integer.
-        self._progress_interval: int = 5
         self.flight: Flight = None
         self.cam: CalCamera = None
         self._full_frame_size: Tuple[int, int] = None
@@ -145,7 +143,11 @@ class VideoProcessor(QObject, StoreProperties):
         self._frame_loc: np.ndarray = None  # the current frame during pose estimation.
         self.frame_idx: int = None
         self.frame_time: float = None
+        self.progress: int = None
+        # Video frame rate in frames per second.
         self._video_fps: float = None
+        # Time per video frame (seconds per frame). Inverse of FPS. Used to avoid repetitive division.
+        self._video_spf: float = None
         self._is_size_restorable: bool = False
         self._detector: Detector = None
         self._azimuth: float = None
@@ -173,6 +175,7 @@ class VideoProcessor(QObject, StoreProperties):
             int(self.flight.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         )
         self._video_fps = self.flight.cap.get(cv2.CAP_PROP_FPS)
+        self._video_spf = 1. / self._video_fps
         self.num_input_frames = int(self.flight.cap.get(cv2.CAP_PROP_FRAME_COUNT))
         self._video_name = self.flight.video_path.stem
         self.frame_idx = 0
@@ -391,15 +394,13 @@ class VideoProcessor(QObject, StoreProperties):
         self.new_frame_available.emit(self._cv_img_to_qimg(frame))
         return frame
 
-    def _update_progress(self, max_frame_delta):
+    def _update_progress(self, forced=False):
         '''Update processing progress and report it.'''
-        # Current approach: report progress at a fixed percentage interval,
-        # as set by `self._progress_interval`.
-        # TODO: it may be nice to report at every whole second of input video stream.
-        self.frame_time = self.frame_idx / self._video_fps
-        progress = int(self.frame_idx / (self.num_input_frames) * 100)
-        if ((self.frame_idx == 1) or (progress % self._progress_interval == 0 and self._frame_delta >= max_frame_delta)):
-            self.progress_updated.emit((self.frame_time, progress))
+        # Report progress at every whole second of video.
+        self.frame_time = self.frame_idx * self._video_spf
+        if self.frame_time - int(self.frame_time) <= self._video_spf or forced:
+            self.progress = int(self.frame_idx / (self.num_input_frames) * 100)
+            self.progress_updated.emit((self.frame_time, self.progress))
             self._frame_delta = 0
         self._frame_delta += 1
 
@@ -683,8 +684,7 @@ class VideoProcessor(QObject, StoreProperties):
         # Maximum allowed number of consecutive empty frames. If we find more, we quit.
         max_consecutive_empty_frames = 256
         # Misc
-        max_frame_delta = int(self.num_input_frames * self._progress_interval / 100)
-        progress = 0
+        self.progress = 0
         # True when frame was updated during pause.
         was_updated_flag = False
         # Speed meter
@@ -782,7 +782,7 @@ class VideoProcessor(QObject, StoreProperties):
             self._fps.update()
 
             # Report the processing progress to user
-            self._update_progress(max_frame_delta)
+            self._update_progress()
 
             # Optional animation effect: spin the AR sphere.
             # TODO: could be an option in UI.
@@ -797,10 +797,11 @@ class VideoProcessor(QObject, StoreProperties):
 
         log.debug('Processing loop ended, cleaning up...')
         self._fps.stop()
-        final_progress_str = f'frame_idx={self.frame_idx}, '
-        f'num_input_frames={self.num_input_frames}, '
-        f'num_empty_frames={num_empty_frames}, '
-        f'progress={progress}%'
+        self._update_progress(forced=True)
+        final_progress_str = (f'frame_idx={self.frame_idx}, '
+                              f'num_input_frames={self.num_input_frames}, '
+                              f'num_empty_frames={num_empty_frames}, '
+                              f'progress={self.progress}%')
         elapsed_time_str = f'Elapsed time: {self._fps.elapsed():.1f}'
         mean_fps_str = f'Approx. FPS: {self._fps.fps():.1f}'
         proc_extent = 'partial'
