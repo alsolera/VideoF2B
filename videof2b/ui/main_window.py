@@ -72,6 +72,8 @@ class Ui_MainWindow:
         self.chk_over_eight.setObjectName('chk_over_eight')
         self.chk_clover = QtWidgets.QCheckBox('Four-leaf clover', main_window)
         self.chk_clover.setObjectName('chk_clover')
+        self.chk_clover_alt = QtWidgets.QCheckBox('Four-leaf clover (ALT)', main_window)
+        self.chk_clover_alt.setObjectName('chk_clover_alt')
         # All figure checkboxes, excluding the diag checkbox.
         self.fig_chk_boxes = (
             self.chk_loops,
@@ -82,7 +84,8 @@ class Ui_MainWindow:
             self.chk_ver_eight,
             self.chk_hourglass,
             self.chk_over_eight,
-            self.chk_clover
+            self.chk_clover,
+            self.chk_clover_alt
         )
         for fig_chk in self.fig_chk_boxes:
             self.pnl_chk.addWidget(fig_chk)
@@ -313,7 +316,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         'chk_ver_eight': FigureTypes.VERTICAL_EIGHTS,
         'chk_hourglass': FigureTypes.HOURGLASS,
         'chk_over_eight': FigureTypes.OVERHEAD_EIGHTS,
-        'chk_clover': FigureTypes.FOUR_LEAF_CLOVER
+        'chk_clover': FigureTypes.FOUR_LEAF_CLOVER,
+        'chk_clover_alt': FigureTypes.FOUR_LEAF_CLOVER_ALT
     }
 
     def __init__(self):
