@@ -339,8 +339,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.act_next_figure.triggered.connect(self.on_next_figure)
         self.act_pause_resume.setEnabled(False)
         self._enable_figure_controls(False)
-        # TODO: center on main screen on first use, or use saved Settings if available.
-        self.move(5, 5)
 
     def closeEvent(self, event):
         '''Overridden to handle the closing of the main window in a safe manner.
@@ -380,6 +378,20 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         else:
             log.debug('VideoProcessor thread is not running. MainWindow is closing...')
             event.accept()
+        if event.isAccepted():
+            self.save_settings()
+
+    def load_settings(self):
+        '''Load the settings of MainWindow.'''
+        self.move(self.settings.value('ui/main_window_position'))
+        self.restoreGeometry(self.settings.value('ui/main_window_geometry'))
+        self.restoreState(self.settings.value('ui/main_window_state'))
+
+    def save_settings(self):
+        '''Save the settings of MainWindow.'''
+        self.settings.setValue('ui/main_window_position', self.pos())
+        self.settings.setValue('ui/main_window_geometry', self.saveGeometry())
+        self.settings.setValue('ui/main_window_state', self.saveState())
 
     def on_locating_started(self):
         '''Prepare UI for the camera locating procedure.'''

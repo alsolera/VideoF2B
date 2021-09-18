@@ -42,6 +42,7 @@ class VideoF2B(QtCore.QObject):
     def run(self, app):
         app.aboutToQuit.connect(self._quitting)
         self.main_window = MainWindow()
+        self.main_window.load_settings()
         self.main_window.show()
         return app.exec()
 
