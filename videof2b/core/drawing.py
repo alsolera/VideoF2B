@@ -135,7 +135,7 @@ class Polyline(Plot):
         return img
 
 
-class DashedPolyline(Polyline):
+class DashedPolyline(Plot):
     '''Defines a polyline that is drawn dashed.'''
 
     def __init__(self, obj_pts, **kwargs):
@@ -143,7 +143,7 @@ class DashedPolyline(Polyline):
 
     def draw(self, img, key, **kwargs):
         '''Draw this polyline using its attributes.'''
-        super().draw(img, key, **kwargs)
+        super().draw(key, **kwargs)
         # Draw dashed lines
         num_on = 3
         num_off = 2
