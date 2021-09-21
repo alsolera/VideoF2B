@@ -59,8 +59,8 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.video_path_txt = PathEdit(
             self, PathEditType.Files,
             'Select video file',
-            str_to_path(self.settings.value('mru/video_dir'))
-        )  # TODO: there must be a cleaner way to convert path<->str in settings!
+            self.settings.value('mru/video_dir')
+        )
         self.video_path_txt.filters = f'Video files ({" ".join(EXTENSIONS_VIDEO)});;All files (*)'
         #
         # TODO: insert a checkbox here that connects to `flight.is_ar_enabled` and conditionally enables/disables the entire "calibrated" group of inputs below.
@@ -69,8 +69,8 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.cal_path_txt = PathEdit(
             self, PathEditType.Files,
             'Select calibration file',
-            str_to_path(self.settings.value('mru/cal_dir'))
-        )  # TODO: there must be a cleaner way to convert path<->str in settings!
+            self.settings.value('mru/cal_dir')
+        )
         self.cal_path_txt.filters = 'Calibration files (*.npz);;All files (*)'
         # Measurement inputs
         self.flight_radius_lbl = QtWidgets.QLabel(
@@ -122,12 +122,11 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
             marker_height=float(self.marker_height_txt.text())
             # TODO: include `sphere_offset` as well. Add a grid widget to UI for the XYZ values.
         )
-        # TODO: there must be a cleaner way to convert path<->str in settings!
-        self.settings.setValue('mru/video_dir', path_to_str(self.video_path_txt.path.parent))
+        self.settings.setValue('mru/video_dir', self.video_path_txt.path.parent)
         # Cal path is optional, so check it first
         cal_path = self.cal_path_txt.path
         if path_to_str(cal_path) and cal_path.exists():
-            self.settings.setValue('mru/cal_dir', path_to_str(cal_path.parent))
+            self.settings.setValue('mru/cal_dir', cal_path.parent)
         # Do not proceed if flight failed to load
         if not self.flight.is_ready:
             QtWidgets.QMessageBox.critical(

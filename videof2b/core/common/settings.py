@@ -17,16 +17,38 @@
 
 '''Module for handling persistent settings.'''
 
-from PySide6.QtCore import QSettings
+from pathlib import Path
+
+from PySide6.QtCore import QByteArray, QPoint, QSettings
 
 
 class Settings(QSettings):
+    '''Simple wrapper around QSettings.
+    Contains core definitions of all known keys and their default values.
+    Does not contain a strategy for versioning of settings.
+    Handles lookup of default values in the most basic manner.
+    '''
 
-    __default_settings__ = {
-        'version': 0,
-        'mru/video_dir': '..',
-        'mru/cal_dir': '..',
+    __defaults__ = {
+        'mru/video_dir': Path('..'),
+        'mru/cal_dir': Path('..'),
+        'ui/main_window_position': QPoint(0, 0),
+        'ui/main_window_geometry': QByteArray(),
+        'ui/main_window_state': QByteArray(),
     }
 
     def __init__(self, *args, **kwargs):
+        '''Initialize settings.'''
         super().__init__(*args, **kwargs)
+
+    def value(self, key):
+        '''Return the value for the given key.
+        The key must exist in `Settings.__defaults__`.
+        If value not found, return the value from `Settings.__defaults__`
+        '''
+        default_value = Settings.__defaults__[key]
+        try:
+            setting = super().value(key, default_value)
+        except TypeError:
+            setting = default_value
+        return setting
