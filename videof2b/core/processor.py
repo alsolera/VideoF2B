@@ -371,8 +371,9 @@ class VideoProcessor(QObject, StoreProperties):
             self._detector.clear()
             self._clear_track_flag = False
             self.track_cleared.emit()
-        # Resize the frame for the detector and have the detector find the moving aircraft.
-        self._detector.process(resize(self._frame, width=ProcessorSettings.im_width))
+        if not self.is_paused:
+            # Resize the frame for the detector and have the detector find the moving aircraft.
+            self._detector.process(resize(self._frame, width=ProcessorSettings.im_width))
         # Draw most of the artifacts in the original frame.
         # This includes the detected track as well as any AR geometry, if applicable.
         self._artist.draw(frame)
