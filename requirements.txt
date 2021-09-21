@@ -1,5 +1,5 @@
 # Current fork of imutils
-git+https://github.com/basil96/imutils.git
+git+https://github.com/basil96/imutils.git@dev
 # imutils>=0.5.3
 numpy>=1.21.1
 platformdirs>=2.2.0
