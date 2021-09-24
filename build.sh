@@ -2,6 +2,7 @@ pyinstaller \
 --onefile \
 --clean \
 --hidden-import=platformdirs.unix \
+--exclude-module=matplotlib \
 --windowed \
 --add-data="resources:resources" \
 --add-binary="/usr/lib/x86_64-linux-gnu/libOpenGL.so.0:." \
