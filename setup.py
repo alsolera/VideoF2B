@@ -18,14 +18,16 @@
 
 '''Package setup script just for legacy support of editable installs.'''
 
-import setuptools
-
 import distutils.command.build
 
+import setuptools
+
+# Custom command extension for building the main EXE.
+# TODO: this is here temporarily until `setuptools` provides a more friendly API for it.
+# See https://github.com/pypa/setuptools/issues/2591 for details.
 distutils.command.build.build.sub_commands.append(('build_exe', None))
 
 # Compatibility call for editable installs.
 setuptools.setup()
 
-# TODO: can we disable all targets except just "setup.py" which would just invoke PyInstaller, and "pip install -e ." for editable dev builds?
 # TODO: unify application metadata so that setup code and app code single-source things like app name, org name, etc.
