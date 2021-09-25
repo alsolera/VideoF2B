@@ -29,5 +29,3 @@ distutils.command.build.build.sub_commands.append(('build_exe', None))
 
 # Compatibility call for editable installs.
 setuptools.setup()
-
-# TODO: unify application metadata so that setup code and app code single-source things like app name, org name, etc.

@@ -19,8 +19,10 @@
 
 import enum
 import sys
+from importlib.metadata import metadata
 from math import cos, pi
 from pathlib import Path
+from typing import Tuple
 
 import numpy as np
 import platformdirs
@@ -97,3 +99,12 @@ def get_bundle_dir():
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
         bundle_path = Path(sys._MEIPASS)
     return bundle_path
+
+def get_app_metadata()->Tuple:
+    '''
+    Get basic app information.
+    Returns (name, version) as a tuple of strings.
+    '''
+    result = metadata('videof2b')
+    return result['Name'], result['Version']
+
