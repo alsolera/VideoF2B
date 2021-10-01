@@ -13,11 +13,22 @@ def make_version_win():
     '''
     meta = metadata('videof2b')
     product_name = meta['Name']
+    major_ver = version_tuple[0]
+    minor_ver = version_tuple[1]
+    build_ver = 0
+    if len(version_tuple) > 2:
+        # Dev builds have 4 components. Use the 3rd as the build number.
+        build_ver = version_tuple[2].replace('dev', '')
+        try:
+            build_ver = int(build_ver)
+        except ValueError:
+            # This means we couldn't drop the "dev" part. Fix the parser.
+            build_ver = 9999
     template = f"""
 VSVersionInfo(
   ffi=FixedFileInfo(
-    filevers=({version_tuple[0]}, {version_tuple[1]}, 0, 0),
-    prodvers=({version_tuple[0]}, {version_tuple[1]}, 0, 0),
+    filevers=({major_ver}, {minor_ver}, {build_ver}, 0),
+    prodvers=({major_ver}, {minor_ver}, {build_ver}, 0),
     mask=0x3f,
     flags=0x0,
     OS=0x40004,
