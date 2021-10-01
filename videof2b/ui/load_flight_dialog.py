@@ -21,10 +21,10 @@ The dialog that loads the input video.
 
 from pathlib import Path
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 from videof2b.core.common import (DEFAULT_FLIGHT_RADIUS, DEFAULT_MARKER_HEIGHT,
                                   DEFAULT_MARKER_RADIUS)
-from videof2b.core.common.path import path_to_str, str_to_path
+from videof2b.core.common.path import path_to_str
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.flight import Flight
 from videof2b.ui import EXTENSIONS_VIDEO
@@ -42,7 +42,8 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
             QtCore.Qt.WindowTitleHint |
             QtCore.Qt.WindowCloseButtonHint
         )
-        # TODO: try to implement this UI with a QAbstractListModel or a QStandardItemModel for proper cohesion.
+        # TODO: try to implement this UI with a QAbstractListModel or a QStandardItemModel
+        #       for proper cohesion.
         # see https://doc.qt.io/qtforpython/overviews/model-view-programming.html#models
         self.flight = None
         self.setup_ui()
@@ -63,7 +64,8 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         )
         self.video_path_txt.filters = f'Video files ({" ".join(EXTENSIONS_VIDEO)});;All files (*)'
         #
-        # TODO: insert a checkbox here that connects to `flight.is_ar_enabled` and conditionally enables/disables the entire "calibrated" group of inputs below.
+        # TODO: insert a checkbox here that connects to `flight.is_ar_enabled`
+        #       and conditionally enables/disables the entire "calibrated" group of inputs below.
         #
         self.cal_path_lbl = QtWidgets.QLabel('Calibration file:', self)
         self.cal_path_txt = PathEdit(
@@ -144,7 +146,8 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         # Then we could highlight invalid fields instead of popping up a bunch of error messageboxes.
         if not self._validate_path(self.video_path_txt.path, 'Please specify a valid video source.'):
             result = False
-        # TODO: calibration path can only be validated if we add a "is calibrated" checkbox to this dialog that enables AR-related data.
+        # TODO: calibration path can only be validated if we add a "is calibrated" checkbox
+        #       to this dialog that enables AR-related data.
         # if not self._validate_path(self.cal_path_txt.path, 'Please specify a valid calibration file.'):
         #     result = False
         try:

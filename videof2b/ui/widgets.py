@@ -21,14 +21,15 @@ This module contains various custom widgets for the UI.
 
 import enum
 from pathlib import Path
-from videof2b.ui.icons import MyIcons
 
-from PySide6 import QtCore, QtGui, QtWidgets
+from PySide6 import QtCore, QtWidgets
 from videof2b.core.common.path import path_to_str, replace_params, str_to_path
+from videof2b.ui.icons import MyIcons
 
 
 @enum.unique
 class PathEditType(enum.Enum):
+    '''Specifies the type of browser in a PathEdit.'''
     Files = 1
     Directories = 2
 

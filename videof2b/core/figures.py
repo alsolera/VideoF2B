@@ -62,6 +62,8 @@ def find_min_gss(f, a, b, eps=1e-4):
 
 
 class FigureDiagnostics:
+    '''Contains the diagnostic settings in a figure.'''
+
     def __init__(self, enabled=False):
         self.enabled = enabled
         self.args_low = None
@@ -131,8 +133,10 @@ class Figure:
             # print('in get_ext_residuals')
             nonlocal resids
             nonlocal fit_idx
-            # print(f'fit params = {p}')  # applies to all subclasses
-            # print(f'fit params = {np.degrees(p[0]):.3f}°, {np.degrees(p[1]):.3f}°, {p[2]:.3f}') # NB: applies only to InsideLoops class
+            # applies to all subclasses
+            # print(f'fit params = {p}')
+            # NB: applies only to InsideLoops class
+            # print(f'fit params = {np.degrees(p[0]):.3f}°, {np.degrees(p[1]):.3f}°, {p[2]:.3f}')
             # fits.append(p)
             # p_u = np.array([self.paramfunc(u, *p) for u in self.u])
             # print(f'p = {p}')
@@ -205,7 +209,8 @@ class Figure:
                 print(
                     f'args where t > 1: {self.diag.args_high}\nlen: {len(self.diag.args_high)}')
 
-        # Histories of the fitting journey (for diagnostics only). We save one per each get_*_residuals() call.
+        # Histories of the fitting journey (for diagnostics only).
+        # We save one per each get_*_residuals() call.
         self.diag.errs_hist = resids  # history of residual sets
 
         if self.diag.enabled:
@@ -379,7 +384,8 @@ class InsideLoops(Figure):
 
         def func(phi, theta, r, *t):
             '''Returns all points on the nominal loops' path according to the specified parameters:
-                    `t`: 0 < t < 1 along the path where t=0 is the start point and t=1 is the end point of the loops.
+                    `t`: 0 < t < 1 along the path where t=0 is the start point
+                         and t=1 is the end point of the loops.
                     `phi`: the azimuthal angle of the loops' normal vector (default: 0.0°)
                     `theta`: the elevation angle of the loops' normal vector (default: 22.5°)
                     `r`: the radius of the loops (default: such that elevation at the top of the loops is 45°)
@@ -402,10 +408,12 @@ class InsideLoops(Figure):
             # print(f'n = {n} {n.shape}')
             # Center of loop
             c = -n * np.sqrt(self.R**2 - r**2)
-            # Second orthogonal vector in loop plane: points from loop center to the left (from pilot's POV).
+            # Second orthogonal vector in loop plane:
+            # points from loop center to the left (from pilot's POV).
             # We define this one first because it's easy.
             v = rot_mat.dot(np.array([0., 1., 0.]))
-            # First orthogonal vector in loop plane: points from loop center down to the starting point of figure
+            # First orthogonal vector in loop plane:
+            # points from loop center down to the starting point of figure
             u = np.cross(n, v)
 
             # The resulting point
@@ -429,6 +437,8 @@ class InsideLoops(Figure):
 
 
 def test():
+    '''Test cases.'''
+    # TODO: move this to a proper test suite when ready.
     diags_on = True
     data = np.load(
         r'../2020-08-12 canandaigua [field markers]/001_20200812181538_fig0_inside_loop_out_figures_orig.npz'

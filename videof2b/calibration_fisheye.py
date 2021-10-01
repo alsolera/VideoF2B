@@ -15,7 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-import json
+'''
+This script calibrates a fisheye camera (EXPERIMENTAL).
+'''
+
 import os
 import tkinter as Tkinter
 from tkinter import filedialog as tkFileDialog
@@ -140,7 +143,9 @@ def calibrate_fisheye(path):
     scaled_cam_mat = cam_mat * dim1[0] / img_dims[0]
     scaled_cam_mat[2][2] = 1.0  # Except that K[2][2] is always 1.0
 
-    # This is how scaled_cam_mat, dim2 and balance are used to determine final_cam_mat used to un-distort image. OpenCV document failed to make this clear!
+    # This is how `scaled_cam_mat`, `dim2` and `balance` are used
+    # to determine `final_cam_mat` that is used to un-distort image.
+    # OpenCV document failed to make this clear!
     final_cam_mat = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
         scaled_cam_mat, dist_coeffs, dim2, np.eye(3), balance=balance)
     map1, map2 = cv2.fisheye.initUndistortRectifyMap(
@@ -185,6 +190,7 @@ def calibrate_fisheye(path):
 
 
 def main():
+    '''Entry point of this script.'''
     root = Tkinter.Tk()
     root.withdraw()  # use to hide tkinter window
     path = tkFileDialog.askopenfilename(parent=root, initialdir='./', title='Select video')

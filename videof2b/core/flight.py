@@ -20,9 +20,9 @@
 import logging
 from pathlib import Path
 
-import videof2b.core.common as common
 from imutils.video import FileVideoStream
 from PySide6.QtCore import QObject, Signal
+from videof2b.core import common
 
 log = logging.getLogger(__name__)
 

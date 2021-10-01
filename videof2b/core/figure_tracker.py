@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 class UserError(Exception):
     '''Class for exception that occur during Figure tracking due to user errors.'''
-    pass
 
 
 class FigureTracker:
@@ -96,7 +95,9 @@ class FigureTracker:
             f'Finished tracking Figure {self.figure_idx} '
             f'({len(self._figure_actuals)} points)')
         # logger.debug(
-        #     f'Figure {self.figure_idx} points:\n{self.actuals[self.figure_idx]} shape = {self.actuals[self.figure_idx].shape}')
+        #     f'Figure {self.figure_idx} points:\n'
+        #     f'{self.actuals[self.figure_idx]}'
+        #     f' shape = {self.actuals[self.figure_idx].shape}')
         self._figure_actuals = None
         self._figure_indexes = None
 
@@ -129,7 +130,10 @@ class FigureTracker:
         Arrays are labeled "fig0", "fig1", etc.'''
         d = {
             f'fig{i}':
-            np.asarray([np.hstack(x) for x in zip(self.indexes[i], act)]) for i, act in enumerate(self.actuals)
+            np.asarray(
+                [np.hstack(x) for x in zip(self.indexes[i], act)]
+            )
+            for i, act in enumerate(self.actuals)
         }
         np.savez(path, **d)
         logger.debug(f'Exported {len(self.actuals)} figure(s) to "{path}".')

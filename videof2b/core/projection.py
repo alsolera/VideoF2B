@@ -28,6 +28,7 @@ logger = logging.getLogger(__name__)
 
 
 def projectSpherePointsToImage(cam, world_pts, frame=None):
+    '''Project the given sphere points to image space.'''
     img_pts, _ = cv2.projectPoints(world_pts, cam.rvec, cam.tvec, cam.newcameramtx, cam.dist)
     img_pts = np.int32(img_pts).reshape(-1, 2)
     return img_pts
@@ -71,7 +72,10 @@ def projectImagePointToSphere(frame, cam, radius, center, img_point, data_writer
     )
     logger.debug(f'coeffs = {coeffs}')
     # logger.debug(f'coeffs = {coeffs}')
-    # Value of determinant (b^2 - 4ac) determines type of solution (no intersection, tangent point, or two points)
+    # Value of determinant (b^2 - 4ac) determines type of solution:
+    # * no intersection
+    # * tangent point
+    # * two points
     # determinant = coeffs[1]**2 - 4.*coeffs[0]*coeffs[2]
     roots = np.roots(coeffs)
     logger.debug(f'roots = {roots}')

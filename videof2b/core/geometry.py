@@ -27,7 +27,7 @@ from videof2b.core.common import QUART_PI, TWO_PI
 
 
 class ArgumentError(Exception):
-    pass
+    '''Thrown when the provided combination of arguments is invalid.'''
 
 
 class Fillet:
@@ -108,7 +108,8 @@ class Fillet:
 
 
 def get_arc(r, alpha, rho=100):
-    # TODO: change meaning of `rho` from angular density to circumferential (linear) density for more consistent point spacing on arcs of different radius.
+    # TODO: change meaning of `rho` from angular density to circumferential (linear) density
+    # for more consistent point spacing on arcs of different radius.
     '''Return 3D points for an arc of radius `r` and included angle `alpha`
     with point density `rho`, where `rho` is number of points per 2*pi.
     Arc center is (0, 0, 0).  The arc lies in the XY plane.

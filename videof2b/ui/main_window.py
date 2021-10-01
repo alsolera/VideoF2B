@@ -41,6 +41,8 @@ log = logging.getLogger(__name__)
 class Ui_MainWindow:
     '''Define the UI layout.'''
 
+    # pylint: disable=too-many-instance-attributes
+
     def setup_ui(self, main_window: QtWidgets.QMainWindow):
         '''Create the UI here.'''
         main_window.setObjectName('MainWindow')
@@ -344,7 +346,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self._calibrator = None
         # Set up signals and slots that are NOT related to VideoProcessor
         self.act_file_load.triggered.connect(self.on_load_flight)
-        # TODO: The restart action is currently undocumented because it's a nice feature for developer convenience. Should it become visible?
+        # TODO: The restart action is currently undocumented
+        # because it's a nice feature for developer convenience. Should it become visible?
         self.act_restart_flight.triggered.connect(self.on_restart_flight)
         self.act_file_exit.triggered.connect(self.close)
         self.act_tools_cal_cam.triggered.connect(self.on_calibrate_cam)
@@ -419,7 +422,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     def on_loc_pts_changed(self, points, msg):
         '''Echoes changes in the VideoProcessor's locator points
         and updates the instruction message.'''
-        self._output_pts(points)
+        MainWindow._output_pts(points)
         self.instruct_lbl.setStyleSheet('QLabel { color : red; }')
         self.instruct_lbl.setText(msg)
 
@@ -450,7 +453,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.output_txt.append(f'{datetime.now()} : {msg}')
         log.info(msg)
 
-    def _output_pts(self, points):
+    @staticmethod
+    def _output_pts(points):
         '''Output locator points to log.'''
         q = ['Image points:']
         for i, p in enumerate(points):

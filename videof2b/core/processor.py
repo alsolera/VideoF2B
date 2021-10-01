@@ -30,12 +30,12 @@ from typing import Tuple
 
 import cv2
 import numpy as np
-import videof2b.core.figure_tracker as figtrack
-import videof2b.core.projection as projection
 from imutils import resize
 from imutils.video import FPS
 from PySide6.QtCore import QCoreApplication, QObject, Signal
 from PySide6.QtGui import QImage
+from videof2b.core import figure_tracker as figtrack
+from videof2b.core import projection
 from videof2b.core.camera import CalCamera
 from videof2b.core.common import FigureTypes, SphereManipulations, is_win
 from videof2b.core.common.store import StoreProperties
@@ -94,12 +94,15 @@ class VideoProcessor(QObject, StoreProperties):
     '''Main video processor. Handles processing
     of a video input from start to finish.'''
 
+    # pylint: disable=too-many-instance-attributes
+
     # --- Signals
     # Emits when cam locating begins.
     locating_started = Signal()
     # Emits when locator points changed during camera locating.
     locator_points_changed = Signal(tuple, str)
-    # Emits when all required points have been defined during the locating procedure so that the user can confirm and continue.
+    # Emits when all required points have been defined during the locating procedure
+    # so that the user can confirm and continue.
     locator_points_defined = Signal()
     # Emits the availability of AR geometry. Typically corresponds to value of `flight.is_located`.
     ar_geometry_available = Signal(bool)
@@ -200,13 +203,17 @@ class VideoProcessor(QObject, StoreProperties):
         self._artist = Drawing(self._detector, cam=self.cam, flight=self.flight, axis=False)
         # Angle offset of current AR hemisphere wrt world coordinate system
         self._azimuth = 0.0
-        # TODO: Like `self._azimuth`, `self._sphere_offset` really should be the driver for Drawing, but Drawing API uses incremental positioning right now.
-        # Right now the two offsets go out of sync. The effect may be visible during (re)locating if offset is nonzero.
+        # TODO: Like `self._azimuth`, `self._sphere_offset` really should be the driver
+        #       for Drawing, but Drawing API uses incremental positioning right now.
+        #       Right now the two offsets go out of sync. The effect may be visible
+        #       during (re)locating if offset is nonzero.
         self._sphere_offset = self.flight.sphere_offset
         # Prepare for 3D tracking
         self._prep_fig_tracking()
         # Misc
-        self._watermark_text = f'{self.application.applicationName()} - v{self.application.applicationVersion()}'
+        app_name = self.application.applicationName()
+        app_version = self.application.applicationVersion()
+        self._watermark_text = f'{app_name} - v{app_version}'
         self._frame_delta = 0
         self.is_paused = False
         # Emit initial progress
@@ -264,8 +271,9 @@ class VideoProcessor(QObject, StoreProperties):
             data_path = self.flight.video_path.with_name(f'{self._video_name}_out_data.csv')
             self._data_writer = data_path.open('w', encoding='utf8')
             # self._data_writer.write('self.frame_idx,p1_x,p1_y,p1_z,p2_x,p2_y,p2_z,root1,root2\n')
+            # FIXME: callback to a log file. `callback=log.debug` maybe?
             self._fig_tracker = figtrack.FigureTracker(
-                callback=sys.stdout.write, enable_diags=True)  # FIXME: callback to a log file. callback=log.debug ?
+                callback=sys.stdout.write, enable_diags=True)
             # Aids for drawing figure start/end points over track
             self._is_fig_in_progress = False
             self._fig_img_pts = []
@@ -329,7 +337,8 @@ class VideoProcessor(QObject, StoreProperties):
             )
             if act_pts is not None:  # and act_pts.shape[0] == 2:
                 # self._fig_tracker.add_actual_point(act_pts)
-                # Typically the first point is the "far" point on the sphere...Good enough for most figures that are on the far side of the camera.
+                # Typically the first point is the "far" point on the sphere.
+                # ...Good enough for most figures that are on the far side of the camera.
                 # TODO: Make this smarter so that we track the correct path point at all times.
                 self._fig_tracker.add_actual_point(self.frame_idx, act_pts[0])
                 # self._fig_tracker.add_actual_point(act_pts[1])
@@ -532,7 +541,7 @@ class VideoProcessor(QObject, StoreProperties):
 
     def clear_track(self):
         '''Clear the aircraft's existing flight track.'''
-        log.info('Clearing the flight track.')
+        log.debug('Clearing the flight track.')
         self._update_during_pause_flag = True
         self._clear_track_flag = True
 
@@ -570,31 +579,31 @@ class VideoProcessor(QObject, StoreProperties):
             self._artist.set_azimuth(self._azimuth)
         elif command == SphereManipulations.MoveEast:
             # Move sphere right (+X)
-            log.info(
+            log.debug(
                 f'User moves sphere center X by {ProcessorSettings.sphere_xy_delta} '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
             self._artist.MoveCenterX(ProcessorSettings.sphere_xy_delta)
         elif command == SphereManipulations.MoveWest:
             # Move sphere left (-X)
-            log.info(
+            log.debug(
                 f'User moves sphere center X by {-ProcessorSettings.sphere_xy_delta} '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
             self._artist.MoveCenterX(-ProcessorSettings.sphere_xy_delta)
         elif command == SphereManipulations.MoveNorth:
             # Move sphere away from camera (+Y)
-            log.info(
+            log.debug(
                 f'User moves sphere center Y by {ProcessorSettings.sphere_xy_delta} '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
             self._artist.MoveCenterY(ProcessorSettings.sphere_xy_delta)
         elif command == SphereManipulations.MoveSouth:
             # Move sphere toward camera (-Y)
-            log.info(
+            log.debug(
                 f'User moves sphere center Y by {-ProcessorSettings.sphere_xy_delta} '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
             self._artist.MoveCenterY(-ProcessorSettings.sphere_xy_delta)
         elif command == SphereManipulations.ResetCenter:
             # Reset sphere center to world origin
-            log.info(
+            log.debug(
                 f'User resets sphere center '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
             self._artist.ResetCenter()
@@ -710,8 +719,8 @@ class VideoProcessor(QObject, StoreProperties):
 
             if self.is_paused:
                 self._fps.pause()
-                log.info(f'Pausing at frame {self.frame_idx}/{self.num_input_frames} '
-                         f'(time={timedelta(seconds=self.frame_time)})')
+                log.debug(f'Pausing at frame {self.frame_idx}/{self.num_input_frames} '
+                          f'(time={timedelta(seconds=self.frame_time)})')
                 self.paused.emit(True)
                 paused_frame = self._frame
                 # Update and emit a copy of the current frame because we haven't displayed it yet.
@@ -730,14 +739,14 @@ class VideoProcessor(QObject, StoreProperties):
                     QCoreApplication.processEvents()
                 if not self._keep_processing:
                     # A stop request was sent while paused.
-                    log.info(f'Quitting from pause at frame {self.frame_idx}')
+                    log.debug(f'Quitting from pause at frame {self.frame_idx}')
                     self.stop()
                     break
                 self._frame = paused_frame.copy()
                 paused_frame = None
                 self._fps.resume()
                 self.paused.emit(False)
-                log.info(f'Resuming from frame {self.frame_idx}')
+                log.debug(f'Resuming from frame {self.frame_idx}')
 
             if not was_updated_flag:
                 # Update the frame with all our processing, drawing, etc., and emit it.
@@ -764,13 +773,15 @@ class VideoProcessor(QObject, StoreProperties):
         # ============================ END OF PROCESSING LOOP ===============================================
 
         log.debug('Processing loop ended, cleaning up...')
+        cap.stop()
         self._fps.stop()
         self._update_progress(forced=True)
+        elapsed_time = self._fps.elapsed()
         final_progress_str = (f'frame_idx={self.frame_idx}, '
                               f'num_input_frames={self.num_input_frames}, '
                               f'num_empty_frames={num_empty_frames}, '
                               f'progress={self.progress}%')
-        elapsed_time_str = f'Elapsed time: {self._fps.elapsed():.1f}'
+        elapsed_time_str = f'Elapsed time: {elapsed_time:.1f} s  [{timedelta(seconds=elapsed_time)}]'
         mean_fps_str = f'Approx. FPS: {self._fps.fps():.1f}'
         proc_extent = 'partial'
         if self.ret_code == ProcessorReturnCodes.Normal:

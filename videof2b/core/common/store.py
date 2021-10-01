@@ -15,6 +15,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+'''
+This module contains objects that enable persistence of custom data.
+'''
+
 import logging
 
 from .singleton import Singleton

@@ -18,6 +18,10 @@
 #
 # https://markhedleyjones.com/storage/checkerboards/Checkerboard-A4-25mm-10x7.pdf
 
+'''
+This script calibrates a camera.
+'''
+
 import os
 import tkinter as Tkinter
 from tkinter import filedialog as tkFileDialog

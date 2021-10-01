@@ -21,14 +21,13 @@
 import logging
 import math
 from collections import defaultdict
-from math import (acos, asin, atan, atan2, cos, degrees, pi, radians, sin,
-                  sqrt, tan)
+from math import asin, atan, atan2, cos, pi, sin, sqrt, tan
 
 import cv2
 import numpy as np
-import videof2b.core.geometry as geom
 from scipy.spatial.transform import Rotation as ROT
 from videof2b.core import common
+from videof2b.core import geometry as geom
 from videof2b.core.camera import CalCamera
 from videof2b.core.common import (DEFAULT_TURN_RADIUS, EIGHTH_PI, HALF_PI,
                                   QUART_PI, TWO_PI, FigureTypes)
@@ -178,7 +177,8 @@ class EdgePolyline(Polyline):
     def _calculate(self, key, rvec, tvec, cameraMatrix, distCoeffs):
         '''This class must provide a custom `_calculate()` method
         because the calculation is more complex than that for ordinary world points.'''
-        # The visible edge is independent of sphere rotation. Hence this calculation is keyed on translation only.
+        # The visible edge is independent of sphere rotation.
+        # Hence this calculation is keyed on translation only.
         _, translation = key
         key = translation
         if key not in self._cache:
@@ -267,14 +267,15 @@ class DummyScene:
     '''Placeholder object for an empty scene.'''
 
     def draw(self, *args, **kwargs):
-        pass
+        '''No-op method.'''
 
 
 DEFAULT_SCENE = DummyScene()
 
 
 class Drawing:
-    '''Container that performs all the drawing of AR sphere, track, figures, etc., in any given image frame.'''
+    '''Container that performs all the drawing
+    of AR sphere, track, figures, etc., in any given image frame.'''
     # Default point density per 2*pi (360 degrees) of arc.
     DEFAULT_N = 100
 
@@ -327,6 +328,7 @@ class Drawing:
 
     @property
     def DrawDiags(self):
+        '''Controls the drawing of diagnostics.'''
         return self._draw_diags
 
     @DrawDiags.setter
@@ -348,7 +350,8 @@ class Drawing:
             self.marker_radius = flight.marker_radius
             self.marker_height = flight.marker_height
             center = kwargs.pop('center', common.DEFAULT_CENTER.copy())
-            # Ensure it's a numpy array (allow tuple, list as input). TODO: maybe it is safer to use `np.atleast_1d(center)` ?
+            # Ensure it's a numpy array (allow tuple, list as input).
+            # TODO: maybe it is safer to use `np.atleast_1d(center)` ?
             self.center = np.float32(center)
             self._evaluate_center()
             self.figure_state['base'] = True
@@ -430,7 +433,8 @@ class Drawing:
         r45 = self.R * cos(QUART_PI)
         elev_circle = geom.get_arc(r45, TWO_PI, rho=self._point_density) + (0, 0, r45)
         result.add(Polyline(elev_circle, size=1, color=Colors.GREEN))
-        # --- The upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.
+        # --- The upper & lower limits of base flight envelope.
+        # Nominally these are 0.30m above and below the equator.
         tol = 0.3
         # Radius of the tolerance circles is equivalent to the axis height of a cone whose radius is `tol`.
         r_tol = geom.get_cone_d(self.R, tol)
@@ -450,15 +454,21 @@ class Drawing:
         # Sphere reference points (fixed in object space)
         pts_ref = Scatter(
             np.array([
-                # Points on sphere centerline: sphere center, pilot's feet, top of sphere.
+                # --- Points on sphere centerline:
+                # sphere center
                 [0, 0, 0],
+                # pilot's feet
                 [0, 0, -self.marker_height],
+                # top of sphere
                 [0, 0, self.R],
-                # Points on equator: bottom of right & left marker, right & left antipodes, front & rear antipodes
+                # --- Points on equator:
+                # bottom of right & left marker
                 [r45, r45, 0],
                 [-r45, r45, 0],
+                # right & left antipodes
                 [self.marker_radius, 0, 0],
                 [-self.marker_radius, 0, 0],
+                # front & rear antipodes
                 [0, -self.marker_radius, 0],
                 [0, self.marker_radius, 0]]),
             size=1, color=Colors.RED, is_fixed=True)
@@ -495,13 +505,16 @@ class Drawing:
         return result
 
     def set_azimuth(self, azimuth):
+        '''Set the aximuth of the AR sphere, in degrees.'''
         self._azimuth = azimuth
 
     def MoveCenterX(self, delta):
+        '''Move sphere center by `delta` along world X direction, in meters.'''
         self.center[0] += delta
         self._evaluate_center()
 
     def MoveCenterY(self, delta):
+        '''Move sphere center by `delta` along world Y direction, in meters.'''
         self.center[1] += delta
         self._evaluate_center()
 
@@ -595,7 +608,8 @@ class Drawing:
         points += [0., d, 0.]
         return points
 
-    def _add_diag_connections(self, scene, pieces):
+    @staticmethod
+    def _add_diag_connections(scene, pieces):
         '''This results in "donuts" of green/red color at each connection.
         If points at a connection do not meet, then that donut's ID/OD
         will not appear concentric. Use for visual diagnostics.'''
@@ -614,7 +628,8 @@ class Drawing:
             scene.add_diag(Scatter(conns[1::4], size=3, color=Colors.GREEN))
         return
 
-    def _get_figure_scene(self, pieces):
+    @staticmethod
+    def _get_figure_scene(pieces):
         '''Helper method for creating any figure from the given contiguous pieces.'''
         course = np.vstack(pieces)
         result = Scene(
@@ -622,12 +637,12 @@ class Drawing:
             Polyline(course, size=3, color=Colors.WHITE)
         )
         # Diagnostics: tangency points
-        self._add_diag_connections(result, pieces)
+        Drawing._add_diag_connections(result, pieces)
         return result
 
     def _init_loop(self):
         '''Initialize the scene of the basic loop.'''
-        return self._get_figure_scene(self._get_loop_pts())
+        return Drawing._get_figure_scene(self._get_loop_pts())
 
     def _get_loop_pts(self):
         '''Helper method for generating the basic loop.'''
@@ -636,7 +651,7 @@ class Drawing:
 
     def _init_square_loop(self):
         '''Initialize the scene of the square loop.'''
-        return self._get_figure_scene(self._get_square_loop_pts())
+        return Drawing._get_figure_scene(self._get_square_loop_pts())
 
     def _get_square_loop_pts(self):
         '''Helper method for generating the square loop and square eight.'''
@@ -660,7 +675,8 @@ class Drawing:
         # Elevation of centers of the top corners
         theta = QUART_PI - alpha
         # `delta`: Helper angle for determining the included angle of top corners
-        # `omega`: Rotation of corner base cone from equator around x-axis by `omega` such that elevation of C_r = theta
+        # `omega`: Rotation of corner base cone from equator around x-axis
+        #          by `omega` such that elevation of C_r = theta
         delta, omega = geom.get_cone_delta(alpha, theta=theta)
         # Included angle of top corners
         beta = HALF_PI - delta
@@ -735,7 +751,7 @@ class Drawing:
 
     def _init_tri_loop(self):
         '''Initialize the scene of the triangular loop.'''
-        return self._get_figure_scene(self._get_tri_loop_pts())
+        return Drawing._get_figure_scene(self._get_tri_loop_pts())
 
     def _get_tri_loop_pts(self):
         '''Helper method for generating the triangular loop.'''
@@ -794,8 +810,9 @@ class Drawing:
 
     def _init_hor_eight(self):
         '''Initialize the scene of the horizontal eight.'''
-        return self._get_figure_scene(self._get_hor_eight_pts())
-        # TODO: move this chunk to a test case when we are ready for drawing tests. Verify all connections between the pieces.
+        return Drawing._get_figure_scene(self._get_hor_eight_pts())
+        # TODO: move this chunk to a test case when we are ready for drawing tests.
+        #       Verify all connections between the pieces.
         # right_loop, left_loop = points
         # print(np.linalg.norm(right_loop[0] - right_loop[-1]))
         # print(np.linalg.norm(right_loop[-1] - left_loop[0]))
@@ -821,7 +838,7 @@ class Drawing:
 
     def _init_sq_eight(self):
         '''Initialize the scene of the horizontal square eight.'''
-        return self._get_figure_scene(self._get_sq_eight_pts())
+        return Drawing._get_figure_scene(self._get_sq_eight_pts())
 
     def _get_sq_eight_pts(self):
         '''Helper method for generating the horizontal square eight.'''
@@ -836,7 +853,7 @@ class Drawing:
 
     def _init_ver_eight(self):
         '''Initialize the scene of the vertical eight.'''
-        return self._get_figure_scene(self._get_ver_eight_pts())
+        return Drawing._get_figure_scene(self._get_ver_eight_pts())
 
     def _get_ver_eight_pts(self):
         '''Helper method for generating the vertical eight.'''
@@ -849,7 +866,7 @@ class Drawing:
 
     def _init_hourglass(self):
         '''Initialize the scene of the hourglass.'''
-        return self._get_figure_scene(self._get_hourglass_pts())
+        return Drawing._get_figure_scene(self._get_hourglass_pts())
 
     def _get_hourglass_pts(self):
         '''Helper method for generating the hourglass.
@@ -928,7 +945,7 @@ class Drawing:
 
     def _init_ovr_eight(self):
         '''Initialize the scene of the overhead eight.'''
-        return self._get_figure_scene(self._get_ovr_eight_pts())
+        return Drawing._get_figure_scene(self._get_ovr_eight_pts())
 
     def _get_ovr_eight_pts(self):
         '''Helper method for generating the overhead eight.'''
@@ -940,7 +957,7 @@ class Drawing:
 
     def _init_clover(self):
         '''Initialize the scene of the four-leaf clover.'''
-        return self._get_figure_scene(self._get_clover_pts())
+        return Drawing._get_figure_scene(self._get_clover_pts())
 
     def _get_clover_pts(self):
         '''Helper method for generating the four-leaf clover.'''
