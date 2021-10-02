@@ -26,7 +26,7 @@ from traceback import format_exception
 
 from PySide6 import QtCore, QtWidgets
 
-from videof2b.core.common import PD
+from videof2b.core.common import PD, get_app_metadata
 from videof2b.core.common.settings import Settings
 from videof2b.core.common.store import Store
 from videof2b.ui.exception_form import ExceptionDialog
@@ -94,6 +94,7 @@ class VideoF2B(QtCore.QObject):
 def parse_options():
     '''Parse the command line arguments'''
     parser = argparse.ArgumentParser(prog='VideoF2B')
+    parser.add_argument('-V', '--version', action='store_true', help='Display version information and exit.')
     parser.add_argument('-l', '--log-level', dest='loglevel', default='info', metavar='LEVEL',
                         help='Set logging to LEVEL level. Valid values are "debug", "info", "warning".')
     return parser.parse_args()
@@ -128,9 +129,12 @@ def set_up_logging(log_path, level=logging.DEBUG):
     log.setLevel(level)
     log.info('Logger started.')
 
-
 def start():
+    my_name, my_version = get_app_metadata()
     args = parse_options()
+    if args and args.version:
+        print(my_version)
+        sys.exit()
     if args and args.loglevel.lower() in ['d', 'debug']:
         level = logging.DEBUG
     elif args and args.loglevel.lower() in ['w', 'warning']:
@@ -140,9 +144,9 @@ def start():
     set_up_logging(PD.user_data_path, level=level)
     log.debug('Initializing application')
     qt_app = QtWidgets.QApplication()
-    qt_app.setOrganizationName('VideoF2B')
-    qt_app.setApplicationName('VideoF2B')
-    qt_app.setApplicationVersion('0.6 BETA')  # TODO: need a single point of access for app version
+    qt_app.setOrganizationName(my_name)
+    qt_app.setApplicationName(my_name)
+    qt_app.setApplicationVersion(my_version)
     # Create the shared store
     Store().create()
     # TODO: supposedly, QSettings uses these names from the QApplication object...how to use that mechanism?

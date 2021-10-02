@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
 # Copyright (C) 2021  Andrey Vasilik - basil96@users.noreply.github.com
@@ -16,16 +15,9 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-'''Package setup script just for legacy support of editable installs.'''
+[build-system]
+requires = ['setuptools>=42', 'wheel', 'setuptools_scm[toml]>=3.4']
+build-backend = "setuptools.build_meta"
 
-import distutils.command.build
-
-import setuptools
-
-# Custom command extension for building the main EXE.
-# TODO: this is here temporarily until `setuptools` provides a more friendly API for it.
-# See https://github.com/pypa/setuptools/issues/2591 for details.
-distutils.command.build.build.sub_commands.append(('build_exe', None))
-
-# Compatibility call for editable installs.
-setuptools.setup()
+[tool.setuptools_scm]
+write_to = "videof2b/version.py"
