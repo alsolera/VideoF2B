@@ -49,7 +49,7 @@ The latest versions of these regulations are available at the
 
 - Clone the project from this repository and `cd` into the root dir.
 
-- Run `pip install -e .[dev]` in the virtual environment. The extra `[dev]` packages are generally required for all development work, testing, and building releases. They are not required for just running the application from source.
+- Run `pip install -e .` in the virtual environment. The installs the required packages for development work, testing, and building of releases.
 
 ### Linux
 
@@ -66,7 +66,7 @@ The latest versions of these regulations are available at the
 - Run the following commands:
 
 ```
-    pip install -e .[dev]
+    pip install -e .
     python setup.py build_exe
 ```
 
