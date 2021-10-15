@@ -119,4 +119,5 @@ exe = EXE(pyz,
           target_arch=None,
           codesign_identity=None,
           entitlements_file=None,
-          version=win_version_file_name)
+          version=win_version_file_name,
+          icon='./resources/art/videof2b.ico')
