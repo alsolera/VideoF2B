@@ -66,4 +66,5 @@ class BuildPyiExe(setuptools.Command):
                 self.output_message(
                     f'PyInstaller exited with code {result.returncode}. '
                     f'Check build log file {build_log_name} for details.'
+                    , fp_build
                 )

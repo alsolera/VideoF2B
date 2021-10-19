@@ -90,6 +90,10 @@ a = Analysis(['VideoF2B.py'],
              win_private_assemblies=False,
              cipher=block_cipher,
              noarchive=False)
+             
+splash = Splash('./resources/art/videof2b.png',
+                binaries=a.binaries,
+                datas=a.datas)
 
 pyz = PYZ(a.pure,
           a.zipped_data,
@@ -100,6 +104,8 @@ exe = EXE(pyz,
           a.binaries,
           a.zipfiles,
           a.datas,
+          splash,
+          splash.binaries,
           [],
           name='VideoF2B',
           debug=False,
@@ -113,4 +119,5 @@ exe = EXE(pyz,
           target_arch=None,
           codesign_identity=None,
           entitlements_file=None,
-          version=win_version_file_name)
+          version=win_version_file_name,
+          icon='./resources/art/videof2b.ico')

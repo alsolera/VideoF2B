@@ -49,6 +49,7 @@ class MyIcons(metaclass=Singleton):
             'pause': {'icon': 'pause-circle-line.svg'},
             'play': {'icon': 'play-circle-line.svg'},
             'advance': {'icon': 'arrow-down-line.svg'},
+            'videof2b_icon': {'icon': 'videof2b.svg'},
         }
         self._init_icons(icons)
 

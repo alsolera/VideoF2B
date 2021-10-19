@@ -31,6 +31,7 @@ from videof2b.core.common.settings import Settings
 from videof2b.core.common.store import Store
 from videof2b.ui.exception_form import ExceptionDialog
 from videof2b.ui.main_window import MainWindow
+from videof2b.ui.icons import MyIcons
 
 __all__ = ['VideoF2B', 'start']
 
@@ -146,6 +147,7 @@ def start():
     qt_app = QtWidgets.QApplication()
     qt_app.setOrganizationName(my_name)
     qt_app.setApplicationName(my_name)
+    qt_app.setWindowIcon(MyIcons().videof2b_icon)
     qt_app.setApplicationVersion(my_version)
     # Create the shared store
     Store().create()

@@ -21,4 +21,9 @@
 from videof2b.__main__ import main
 
 if __name__ == '__main__':
+    try: # Close splash image for executable file
+        import pyi_splash
+        pyi_splash.close()
+    except:
+        pass
     main()
