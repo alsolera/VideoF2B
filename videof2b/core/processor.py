@@ -42,6 +42,7 @@ from videof2b.core.common.store import StoreProperties
 from videof2b.core.detection import Detector
 from videof2b.core.drawing import Drawing
 from videof2b.core.flight import Flight
+from videof2b.core.imaging import cv_img_to_qimg
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +62,7 @@ class ProcessorReturnCodes(enum.IntEnum):
     Undefined = -1
     # The loop exited normally.
     Normal = 0
-    # User cancelled the loop early.
+    # User canceled the loop early.
     UserCanceled = 1
     # Pose estimation failed
     PoseEstimationFailed = 2
@@ -180,6 +181,7 @@ class VideoProcessor(QObject, StoreProperties):
         self._video_name = self.flight.video_path.stem
         self.frame_idx = 0
         self.frame_time = 0.
+        self.progress = 0
         # Load camera
         self.cam = CalCamera(self._full_frame_size, self.flight)
         self.ar_geometry_available.emit(self.flight.is_located)
@@ -208,7 +210,7 @@ class VideoProcessor(QObject, StoreProperties):
         self._frame_delta = 0
         self.is_paused = False
         # Emit initial progress
-        self.progress_updated.emit((0., 0))
+        self.progress_updated.emit((self.frame_time, self.progress, ''))
 
     def _prep_video_output(self, path_out):
         '''Prepare the output video file.'''
@@ -392,7 +394,7 @@ class VideoProcessor(QObject, StoreProperties):
         cv2.putText(frame, self._watermark_text, (10, 15),
                     cv2.FONT_HERSHEY_TRIPLEX, .5, (0, 0, 255), 1)
         # Emit the resulting frame to client.
-        self.new_frame_available.emit(self._cv_img_to_qimg(frame))
+        self.new_frame_available.emit(cv_img_to_qimg(frame))
         return frame
 
     def _update_progress(self, forced=False):
@@ -401,7 +403,7 @@ class VideoProcessor(QObject, StoreProperties):
         self.frame_time = self.frame_idx * self._video_spf
         if self.frame_time - int(self.frame_time) <= self._video_spf or forced:
             self.progress = int(self.frame_idx / (self.num_input_frames) * 100)
-            self.progress_updated.emit((self.frame_time, self.progress))
+            self.progress_updated.emit((self.frame_time, self.progress, ''))
             self._frame_delta = 0
         self._frame_delta += 1
 
@@ -461,7 +463,7 @@ class VideoProcessor(QObject, StoreProperties):
         img = self._frame_loc.copy()
         for p in points:
             img = cv2.circle(img, tuple(p), 6, (0, 255, 0))
-        self.new_frame_available.emit(self._cv_img_to_qimg(img))
+        self.new_frame_available.emit(cv_img_to_qimg(img))
 
     def on_locator_points_defined(self):
         '''Locator points are completely defined. Let the world know.'''
@@ -597,39 +599,6 @@ class VideoProcessor(QObject, StoreProperties):
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
             self._artist.ResetCenter()
 
-    @staticmethod
-    def _cv_img_to_qimg(cv_img: np.ndarray) -> QImage:
-        '''Convert a cv2 image to a QImage for display in QPixmap objects.'''
-        # This is an adaptation of this simple idea:
-        # https://stackoverflow.com/questions/44404349/pyqt-showing-video-stream-from-opencv/44404713
-        #
-        # One way to do it, maybe there are others:
-        # https://stackoverflow.com/questions/57204782/show-an-opencv-image-with-pyqt5
-        #
-        # When cropping cv2 images, we end up with non-contiguous arrays.
-        # First, `strides` is required:
-        # https://stackoverflow.com/questions/52869400/how-to-show-image-to-pyqt-with-opencv/52869969#52869969
-        # Second, it must be contiguous:
-        # https://github.com/almarklein/pyelastix/issues/14
-        #
-        # These extra requirements manifest themselves when we process calibrated flights.
-        # This can be verified by uncommenting the log messages around `np.ascontiguousarray()` call below,
-        # but leave them commented for production!
-        # Note that this extra step is not necessary for cv2 processing, only for converting to QImage for display.
-
-        # TODO: profile this whole method for an idea of the performance hit involved here.
-        # log.debug(f'Is `cv_img` C-contiguous before? {cv_img.flags["C_CONTIGUOUS"]}')
-        cv_img = np.ascontiguousarray(cv_img)
-        # log.debug(f'Is `cv_img` C-contiguous  after? {cv_img.flags["C_CONTIGUOUS"]}')
-        image = QImage(
-            cv_img.data,
-            cv_img.shape[1],
-            cv_img.shape[0],
-            cv_img.strides[0],
-            QImage.Format_RGB888
-        ).rgbSwapped()
-        return image
-
     def _calc_size(self):
         '''Calculate sizing information.'''
         # Calculates self._det_scale, self._inp_width, self._inp_height
@@ -684,8 +653,6 @@ class VideoProcessor(QObject, StoreProperties):
         num_consecutive_empty_frames = 0
         # Maximum allowed number of consecutive empty frames. If we find more, we quit.
         max_consecutive_empty_frames = 256
-        # Misc
-        self.progress = 0
         # True when frame was updated during pause.
         was_updated_flag = False
         # Speed meter

@@ -23,14 +23,15 @@ import logging
 from datetime import datetime, timedelta
 
 from PySide6 import QtCore, QtGui, QtWidgets
+from videof2b.core.calibration import CalibratorReturnCodes, CameraCalibrator
 from videof2b.core.common import FigureTypes, SphereManipulations
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.processor import ProcessorReturnCodes, VideoProcessor
-from videof2b.ui.about_window import AboutDialog
+from videof2b.ui.about_window import AboutDialog, EXTENSIONS_VIDEO
 from videof2b.ui.icons import MyIcons
 from videof2b.ui.load_flight_dialog import LoadFlightDialog
 from videof2b.ui.video_window import VideoWindow
-from videof2b.ui.widgets import QHLine
+from videof2b.ui.widgets import FileDialog, QHLine
 
 log = logging.getLogger(__name__)
 
@@ -302,9 +303,17 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         ProcessorReturnCodes.ExceptionOccurred: 'Critical unhandled error occurred.',
         ProcessorReturnCodes.Undefined: 'Video processing never started.',
         ProcessorReturnCodes.Normal: 'Video processing finished normally.',
-        ProcessorReturnCodes.UserCanceled: 'Video processing was cancelled by user.',
+        ProcessorReturnCodes.UserCanceled: 'Video processing was canceled by user.',
         ProcessorReturnCodes.PoseEstimationFailed: 'Failed to locate the camera!',
         ProcessorReturnCodes.TooManyEmptyFrames: 'Encountered too many consecutive empty frames.',
+    }
+
+    # Mapping of camera calibrator retcodes to user-friendly messages.
+    _cal_retcodes_msgs = {
+        CalibratorReturnCodes.ExceptionOccurred: 'Critical unhandled error occurred.',
+        CalibratorReturnCodes.Undefined: 'Calibration never started.',
+        CalibratorReturnCodes.Normal: 'Calibration finished normally.',
+        CalibratorReturnCodes.UserCanceled: 'Calibration was canceled by user.',
     }
 
     # Maps object names of figure checkboxes to the common.FigureType required by core.Drawing.
@@ -332,11 +341,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self._proc = None
         self._proc_thread = None
         self._last_flight = None
+        self._calibrator = None
         # Set up signals and slots that are NOT related to VideoProcessor
         self.act_file_load.triggered.connect(self.on_load_flight)
         # TODO: The restart action is currently undocumented because it's a nice feature for developer convenience. Should it become visible?
         self.act_restart_flight.triggered.connect(self.on_restart_flight)
         self.act_file_exit.triggered.connect(self.close)
+        self.act_tools_cal_cam.triggered.connect(self.on_calibrate_cam)
         self.act_next_figure.triggered.connect(self.on_next_figure)
         self.act_pause_resume.setEnabled(False)
         self._enable_figure_controls(False)
@@ -361,14 +372,14 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             ret = QtWidgets.QMessageBox.warning(
                 self,
                 'Warning',
-                'Flight processing is still running. '
+                'Video processing is still running. '
                 'Do you want to stop it and quit?',
                 QtWidgets.QMessageBox.Yes | QtWidgets.QMessageBox.No
             )
             if ret == QtWidgets.QMessageBox.Yes:
-                log.debug('Requesting VideoProcessor to stop...')
+                log.debug(f'Requesting {self._proc_thread.objectName()} to stop...')
                 self.on_stop_proc()
-                log.debug('Request sent. Waiting for VideoProcessorThread to exit...')
+                log.debug(f'Request sent. Waiting for {self._proc_thread.objectName()} to exit...')
             else:
                 log.debug('User changed mind about exiting early.')
                 self._is_window_closing = False
@@ -378,7 +389,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             # again and then the `else` will execute.
             event.ignore()
         else:
-            log.debug('VideoProcessor thread is not running. MainWindow is closing...')
+            log.debug('Video processing thread is not running. MainWindow is closing...')
             event.accept()
         if event.isAccepted():
             self.save_settings()
@@ -690,11 +701,13 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
 
     def on_progress_updated(self, data):
         '''Display video processing progress.'''
-        frame_time, progress = data
+        frame_time, progress, msg = data
         # Update the progress bar and the video timestamp
         self.proc_progress_bar.setValue(progress)
         video_time = datetime.utcfromtimestamp(timedelta(seconds=frame_time).total_seconds())
         self.video_time_lbl.setText(f'{video_time:%M}:{video_time:%S}')
+        if msg:
+            self._output_msg(msg)
 
     def on_stop_proc(self):
         '''Request to stop the video processor.'''
@@ -713,7 +726,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.act_next_figure.setEnabled(enable)
 
     def _reset_figure_controls(self):
-        '''Turn of all figure checkboxes, including diag.'''
+        '''Turn off all figure checkboxes, including diag.'''
         for fig_chk in self.fig_chk_boxes:
             fig_chk.setChecked(False)
         self.chk_diag.setChecked(False)
@@ -829,9 +842,119 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             if idx < len(self.fig_chk_boxes) - 1:
                 self.fig_chk_boxes[idx].setChecked(False)
                 self.fig_chk_boxes[idx+1].setChecked(True)
-                
+
     def on_help_about(self):
         '''Display About window. '''
         about_dialog = AboutDialog(self)
         about_dialog.exec()
-        
+
+    def on_calibrate_cam(self):
+        '''
+        Calibrate a camera via a specified video file.
+        '''
+        # TODO: Create a simple dialog widget that includes user instructions, a PathEdit, and Start/Cancel buttons.
+        # TODO: In future, maybe add a "is fisheye" checkbox if fisheye calibration becomes feasible and useful.
+        is_fisheye = False  # TODO: hardcoded for now.
+        cal_path, _ = FileDialog.getOpenFileName(
+            self,
+            'Choose a calibration video file',
+            self.settings.value('mru/cal_dir'),
+            f'Video files ({" ".join(EXTENSIONS_VIDEO)});;All files (*)'
+        )
+        # When user cancels the FileDialog.
+        if cal_path is None:
+            return
+        # When the returned path is somehow non-existent.
+        if not cal_path.exists():
+            QtWidgets.QMessageBox.critical(
+                self, 'Error',
+                'Failed to load video source.',
+                QtWidgets.QMessageBox.Ok
+            )
+            return
+        # All clear, proceed.
+        self._init_calibrator(cal_path, is_fisheye)
+        self._pre_calibration()
+        self.start_cal_thread()
+
+    def _init_calibrator(self, cal_path, is_fisheye):
+        '''Create a new instance of CameraCalibrator and connect all its signals.'''
+        self._calibrator = CameraCalibrator(cal_path, is_fisheye=is_fisheye)
+        # Connect cross-thread signals.
+        # Reuse the "stop processor" signal. It's compatible with the calibrator's context.
+        self.stop_processor.connect(self._calibrator.stop, QtCore.Qt.QueuedConnection)
+        self._calibrator.progress_updated.connect(
+            self.on_progress_updated, QtCore.Qt.QueuedConnection)
+        self._calibrator.new_frame_available.connect(
+            self.video_window.update_frame, QtCore.Qt.QueuedConnection)
+        # Actions and signals that are within the UI thread.
+        # NOTE: disconnect all of these in self._deinit_calibrator()
+        self.act_stop_proc.triggered.connect(self.on_stop_proc)
+
+    def _deinit_calibrator(self):
+        '''Disconnect all of the calibrator's signals and dereference the calibrator.'''
+        # This is the companion method to `_init_calibrator`. Make sure that any signal connections
+        # that are made there are disconnected here, except for those directly referencing
+        # `self._calibrator`. Disconnect only the UI thread's actions here.
+        self.act_stop_proc.triggered.disconnect(self.on_stop_proc)
+        self._calibrator = None
+
+    def _pre_calibration(self):
+        '''Prepare the UI before we start calibrating.'''
+        self.act_file_load.setEnabled(False)
+        self.act_restart_flight.setEnabled(False)
+        self.act_tools_cal_cam.setEnabled(False)
+        self.act_tools_place_cam.setEnabled(False)
+        self.proc_progress_bar.show()
+        self._output_msg(f'Calibration video loaded successfully from {self._calibrator.path.name}')
+        self.filename_label.setText(self._calibrator.path.name)
+        self.video_time_lbl.show()
+        self.video_time_lbl.setText('00:00')
+        # Reset figure controls and disable them. They are irrelevant during calibration.
+        self._reset_figure_controls()
+        self._enable_figure_controls(False)
+
+    def start_cal_thread(self):
+        '''Starts the calibrator on a worker thread.'''
+        self._proc_thread = QtCore.QThread()
+        self._proc_thread.setObjectName('CalibratorThread')
+        self._calibrator.moveToThread(self._proc_thread)
+        self._proc_thread.started.connect(self._calibrator.run)
+        self._calibrator.finished.connect(self.on_cal_finished)
+        self._calibrator.finished.connect(self._proc_thread.exit)
+        self._calibrator.finished.connect(self._calibrator.deleteLater)
+        self._proc_thread.finished.connect(self._proc_thread.deleteLater)
+        self._proc_thread.finished.connect(self.on_cal_thread_finished)
+        self._proc_thread.destroyed.connect(self._deinit_proc_thread)
+        self._proc_thread.start()
+
+    def on_cal_thread_finished(self):
+        '''Handle cleanup when the calibrator thread finishes.'''
+        self._deinit_calibrator()
+        # If main window close was requested, close it now.
+        if self._is_window_closing:
+            self.close()
+
+    def on_cal_finished(self, retcode: CalibratorReturnCodes):
+        '''
+        Handle return codes and any possible exceptions that are reported
+        by CameraCalibrator when its processing loop finishes.
+        Update the UI as appropriate.
+        '''
+        if self._calibrator.exc is not None:
+            cal_exc = self._calibrator.exc
+            self._show_critical_msg(cal_exc)
+            raise RuntimeError('Problem in CameraCalibrator.') from cal_exc
+        self._output_msg(self._cal_retcodes_msgs.get(retcode, f'Unknown return code: {retcode}'))
+        # Clean up the UI.
+        self.act_file_load.setEnabled(True)
+        self.act_restart_flight.setEnabled(True)
+        self.act_tools_cal_cam.setEnabled(True)
+        self.act_tools_place_cam.setEnabled(True)
+        self._reset_figure_controls()
+        self._enable_figure_controls(False)
+        self.video_window.clear()
+        self.video_time_lbl.setText('00:00')
+        self.video_time_lbl.hide()
+        self.proc_progress_bar.hide()
+        self.filename_label.setText('')
