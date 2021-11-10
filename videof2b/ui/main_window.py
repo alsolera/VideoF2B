@@ -26,6 +26,7 @@ from PySide6 import QtCore, QtGui, QtWidgets
 from videof2b.core.common import FigureTypes, SphereManipulations
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.processor import ProcessorReturnCodes, VideoProcessor
+from videof2b.ui.about_window import AboutDialog
 from videof2b.ui.icons import MyIcons
 from videof2b.ui.load_flight_dialog import LoadFlightDialog
 from videof2b.ui.video_window import VideoWindow
@@ -339,6 +340,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.act_next_figure.triggered.connect(self.on_next_figure)
         self.act_pause_resume.setEnabled(False)
         self._enable_figure_controls(False)
+        self.act_help_about.triggered.connect(self.on_help_about)
 
     def closeEvent(self, event):
         '''Overridden to handle the closing of the main window in a safe manner.
@@ -827,3 +829,9 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             if idx < len(self.fig_chk_boxes) - 1:
                 self.fig_chk_boxes[idx].setChecked(False)
                 self.fig_chk_boxes[idx+1].setChecked(True)
+                
+    def on_help_about(self):
+        '''Display About window. '''
+        about_dialog = AboutDialog(self)
+        about_dialog.exec()
+        
