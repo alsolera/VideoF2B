@@ -18,6 +18,9 @@
 '''Common definitions and constants for VideoF2B.'''
 
 import enum
+import os
+import platform
+import subprocess
 import sys
 from importlib.metadata import metadata
 from math import cos, pi
@@ -100,7 +103,8 @@ def get_bundle_dir():
         bundle_path = Path(sys._MEIPASS)
     return bundle_path
 
-def get_app_metadata()->Tuple:
+
+def get_app_metadata() -> Tuple:
     '''
     Get basic app information.
     Returns (name, version) as a tuple of strings.
@@ -108,3 +112,30 @@ def get_app_metadata()->Tuple:
     result = metadata('videof2b')
     return result['Name'], result['Version']
 
+
+def is_win() -> bool:
+    '''
+    Returns True if running on a Windows OS.
+
+    :return: True if running on a Windows OS.
+    '''
+    return platform.system() == 'Windows'
+
+
+def is_linux() -> bool:
+    '''
+    Returns True if running on a Linux OS.
+
+    :return: True if running on a Linux OS.
+    '''
+    return platform.system() == 'Linux'
+
+
+def launch_document(path) -> None:
+    '''
+    Open the specified document using the default application.
+    '''
+    if is_win():
+        os.startfile(str(path))
+    elif is_linux():
+        subprocess.run(['xdg-open', str(path)])

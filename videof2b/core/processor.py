@@ -37,7 +37,7 @@ from imutils.video import FPS
 from PySide6.QtCore import QCoreApplication, QObject, Signal
 from PySide6.QtGui import QImage
 from videof2b.core.camera import CalCamera
-from videof2b.core.common import FigureTypes, SphereManipulations
+from videof2b.core.common import FigureTypes, SphereManipulations, is_win
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.detection import Detector
 from videof2b.core.drawing import Drawing
@@ -191,7 +191,7 @@ class VideoProcessor(QObject, StoreProperties):
         log.debug(f'detector det_scale = {self._det_scale:.4f}')
         # Platform-dependent stuff
         self._fourcc = cv2.VideoWriter_fourcc(*'H264')
-        if platform.system() == 'Windows':
+        if is_win():
             self._fourcc = cv2.VideoWriter_fourcc(*'mp4v')
         # Detector
         max_track_len = int(ProcessorSettings.max_track_time * self._video_fps)

@@ -27,7 +27,9 @@ from videof2b.core.calibration import CalibratorReturnCodes, CameraCalibrator
 from videof2b.core.common import FigureTypes, SphereManipulations
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.processor import ProcessorReturnCodes, VideoProcessor
-from videof2b.ui.about_window import AboutDialog, EXTENSIONS_VIDEO
+from videof2b.ui import EXTENSIONS_VIDEO
+from videof2b.ui.about_window import AboutDialog
+from videof2b.ui.camera_cal_dialog import CameraCalibrationDialog
 from videof2b.ui.icons import MyIcons
 from videof2b.ui.load_flight_dialog import LoadFlightDialog
 from videof2b.ui.video_window import VideoWindow
@@ -852,30 +854,15 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         '''
         Calibrate a camera via a specified video file.
         '''
-        # TODO: Create a simple dialog widget that includes user instructions, a PathEdit, and Start/Cancel buttons.
-        # TODO: In future, maybe add a "is fisheye" checkbox if fisheye calibration becomes feasible and useful.
-        is_fisheye = False  # TODO: hardcoded for now.
-        cal_path, _ = FileDialog.getOpenFileName(
-            self,
-            'Choose a calibration video file',
-            self.settings.value('mru/cal_dir'),
-            f'Video files ({" ".join(EXTENSIONS_VIDEO)});;All files (*)'
-        )
-        # When user cancels the FileDialog.
-        if cal_path is None:
-            return
-        # When the returned path is somehow non-existent.
-        if not cal_path.exists():
-            QtWidgets.QMessageBox.critical(
-                self, 'Error',
-                'Failed to load video source.',
-                QtWidgets.QMessageBox.Ok
-            )
-            return
-        # All clear, proceed.
-        self._init_calibrator(cal_path, is_fisheye)
-        self._pre_calibration()
-        self.start_cal_thread()
+        cal_dialog = CameraCalibrationDialog(self)
+        if cal_dialog.exec() == QtWidgets.QDialog.Accepted:
+            # The dialog handles path validation, so just proceed.
+            cal_path = cal_dialog.cal_path
+            is_fisheye = cal_dialog.is_fisheye
+            self.settings.setValue('mru/cal_dir', cal_path.parent)
+            self._init_calibrator(cal_path, is_fisheye)
+            self._pre_calibration()
+            self.start_cal_thread()
 
     def _init_calibrator(self, cal_path, is_fisheye):
         '''Create a new instance of CameraCalibrator and connect all its signals.'''
