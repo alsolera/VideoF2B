@@ -1,0 +1,1 @@
+gen_pattern.py -c 11 -r 8 -T checkerboard -u px -w 3840 -h 2160 -s 250

@@ -30,6 +30,7 @@ class Settings(QSettings):
     '''
 
     __defaults__ = {
+        'core/enable_fisheye': False,
         'mru/video_dir': Path('..'),
         'mru/cal_dir': Path('..'),
         'ui/main_window_position': QPoint(0, 0),
@@ -40,6 +41,10 @@ class Settings(QSettings):
     def __init__(self, *args, **kwargs):
         '''Initialize settings.'''
         super().__init__(*args, **kwargs)
+        # Store default settings if they don't already exist.
+        for k, v in Settings.__defaults__.items():
+            if not self.contains(k):
+                self.setValue(k, v)
 
     def value(self, key):
         '''Return the value for the given key.
@@ -51,4 +56,34 @@ class Settings(QSettings):
             setting = super().value(key, default_value)
         except TypeError:
             setting = default_value
-        return setting
+        return self._convert_value(setting, default_value)
+
+    def _convert_value(self, value, default_value):
+        '''Convert the given `value` to the type of `default_value`.
+        Expand this logic for missing types as needed.
+        '''
+        # --- Empty values return None. Handle them appropriately.
+        if value is None:
+            if isinstance(default_value, str):
+                return ''
+            if isinstance(default_value, list):
+                return []
+            if isinstance(default_value, dict):
+                return {}
+            if isinstance(default_value, bool):
+                return False
+            if isinstance(default_value, int):
+                return 0
+            if isinstance(default_value, float):
+                return 0.
+        # --- Handle specific types
+        if isinstance(default_value, bool):
+            if isinstance(value, bool):
+                return value
+            # In some environments bools are stored as strings.
+            return value == 'true'
+        if isinstance(default_value, int):
+            return int(value)
+        if isinstance(default_value, float):
+            return float(value)
+        return value

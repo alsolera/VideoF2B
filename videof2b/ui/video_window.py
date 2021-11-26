@@ -79,6 +79,7 @@ class VideoWindow(QtWidgets.QLabel):
             size,
             aspectMode=QtCore.Qt.KeepAspectRatio,
             mode=QtCore.Qt.SmoothTransformation)
+        # TODO: center horizontally
         self.setPixmap(self._scaled_pix_map)
 
     def clear(self) -> None:
