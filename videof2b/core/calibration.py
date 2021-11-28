@@ -16,7 +16,8 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-# https://markhedleyjones.com/storage/checkerboards/Checkerboard-A4-25mm-10x7.pdf
+# https://markhedleyjones.com/projects/calibration-checkerboard-collection
+# https://raw.githubusercontent.com/MarkHedleyJones/markhedleyjones.github.io/master/media/calibration-checkerboard-collection/Checkerboard-A4-25mm-10x7.pdf
 
 '''
 Module for calibrating cameras.
@@ -48,8 +49,10 @@ class CalibratorReturnCodes(enum.IntEnum):
     Normal = 0
     # User canceled the loop early.
     UserCanceled = 1
-    # No valid frames found
+    # No valid frames found.
     NoValidFrames = 2
+    # Insufficient valid frames found.
+    InsufficientValidFrames = 3
 
 
 class CameraCalibrator(QObject):
@@ -141,11 +144,41 @@ class CameraCalibrator(QObject):
         '''
         return int(time_delta * cap.get(cv2.CAP_PROP_FPS))
 
+    def _validate(self):
+        '''Validate available data before performing calibration
+        by examining the loop's retcode.'''
+        success = True
+        progress_msg = None
+        # Check if loop exited early
+        if self.ret_code == CalibratorReturnCodes.UserCanceled:
+            log.info('Quitting calibration early.')
+            progress_msg = 'Canceling camera calibration.'
+            success = False
+        if self.ret_code == CalibratorReturnCodes.NoValidFrames:
+            msg = 'No frames found for calibration. Quitting.'
+            log.error(msg)
+            progress_msg = f'ERROR: {msg}'
+            success = False
+        if self.ret_code == CalibratorReturnCodes.InsufficientValidFrames:
+            msg = 'Insufficient information for calibration. Quitting.'
+            log.error(msg)
+            progress_msg = f'ERROR: {msg}'
+            success = False
+        if not success:
+            # Our thread is about to quit, so clean up appropriately.
+            self._cap.release()
+            self.progress_updated.emit((self.frame_time, self.progress, progress_msg))
+            self.finished.emit(self.ret_code)
+        return success
+
     def _calibrate_standard(self) -> None:
         '''Calibrate the camera as a standard (pinhole model) camera.'''
-        log.info(f'Calibrating standard camera based on {self.path}')
+        log.info(f'Calibrating standard camera based on {self.path.name}')
+        # Board dimensions
         chess_cols = 7
         chess_rows = 10
+        # Minimum number of required valid frames
+        min_num_used = 10
         # Termination criteria
         criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
         # Prepare object points, like (0,0,0), (1,0,0), (2,0,0) ....,(6,5,0)
@@ -169,8 +202,6 @@ class CameraCalibrator(QObject):
                 if num_images == 0:
                     sample_img = img
             if img is None:
-                if num_images == 0 or num_used == 0:
-                    self.ret_code = CalibratorReturnCodes.NoValidFrames
                 break
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             # Find the chess board corners
@@ -191,19 +222,20 @@ class CameraCalibrator(QObject):
             num_images += 1
             # Breathe, dawg
             QCoreApplication.processEvents()
-        # Check if loop exited early
-        if self.ret_code == CalibratorReturnCodes.UserCanceled:
-            log.info('Quitting calibration early.')
-            # Release the video stream
-            self._cap.release()
-            self.progress_updated.emit((self.frame_time, self.progress, 'Canceling camera calibration.'))
-            self.finished.emit(self.ret_code)
+        # Check for failures. UserCanceled has priority.
+        if self.ret_code != CalibratorReturnCodes.UserCanceled:
+            if 0 < num_used < min_num_used:
+                self.ret_code = CalibratorReturnCodes.InsufficientValidFrames
+            if num_images == 0 or num_used == 0:
+                self.ret_code = CalibratorReturnCodes.NoValidFrames
+        # Validate us before diving into calibration
+        if not self._validate():
             return
-        # Proceed with calibration itself
+        # Proceed with calibration
         log.info(f'Used: {num_used}/{num_images} images')
         log.info('Calibrating camera...')
         self.progress_updated.emit((self.frame_time, self.progress, 'Calculating camera parameters...'))
-        _, mtx, dist, _, _ = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
+        _, mtx, dist, rvecs, tvecs = cv2.calibrateCamera(objpoints, imgpoints, gray.shape[::-1], None, None)
         self._bump_progress(msg='Initial calibration complete.')
         # Optimize the cam matrix
         log.info('Getting optimal new camera matrix...')
@@ -227,10 +259,22 @@ class CameraCalibrator(QObject):
             dst,
             f'Displaying a sample frame: corrected, cropped ({w}x{h} px), offset by ({x},{y}) px.'
         )
+        # Calculate and report reprojection error
+        tot_error = 0.
+        num_objpoints = len(objpoints)
+        log.debug(f'num_objpoints = {num_objpoints}')
+        for i in range(num_objpoints):
+            imgpoints2, _ = cv2.projectPoints(objpoints[i], rvecs[i], tvecs[i], mtx, dist)
+            error = cv2.norm(src1=imgpoints[i], src2=imgpoints2, normType=cv2.NORM_L2) / len(imgpoints2)
+            tot_error += error
+        mean_reproj_err = tot_error / num_objpoints
+        mre_msg = f'Mean reprojection error = {mean_reproj_err:6.4f} px'
+        log.debug(mre_msg)
+        self.progress_updated.emit((self.frame_time, self.progress, mre_msg))
         # Write calibration to disk
         npz_name = out_dir_path / 'CamCalibration.npz'
         self._bump_progress(msg='Calibration images written to disk.')
-        log.info(f'Saving calibration data to {npz_name}')
+        log.info(f'Saving calibration data to {npz_name.name}')
         np.savez(path_to_str(npz_name), mtx=mtx, dist=dist, newcameramtx=newcameramtx, roi=roi)
         log.info('Camera calibration done.')
         # Release the video stream
