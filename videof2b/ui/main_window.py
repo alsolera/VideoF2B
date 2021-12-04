@@ -316,6 +316,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         CalibratorReturnCodes.Undefined: 'Calibration never started.',
         CalibratorReturnCodes.Normal: 'Calibration finished normally.',
         CalibratorReturnCodes.UserCanceled: 'Calibration was canceled by user.',
+        CalibratorReturnCodes.NoValidFrames: 'No valid frames found. Ensure the calibration pattern is clearly visible in the video.',
+        CalibratorReturnCodes.InsufficientValidFrames: 'Too few valid frames found. Ensure the calibration pattern is clearly visible and the video is long enough.',
     }
 
     # Maps object names of figure checkboxes to the common.FigureType required by core.Drawing.
