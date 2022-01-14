@@ -21,8 +21,8 @@ Provides icons for the VideoF2B application.
 
 import logging
 
-# import qtawesome as qta
-from PySide6.QtGui import QIcon
+import qtawesome as qta
+from PySide6.QtGui import QIcon, QPixmap
 from videof2b.core.common import get_bundle_dir
 from videof2b.core.common.singleton import Singleton
 
@@ -35,22 +35,12 @@ class MyIcons(metaclass=Singleton):
     def __init__(self):
         '''Icons for use across the VideoF2B GUI.'''
         icons = {
-            # TODO: it would be easier to use qta, but its abstraction layer (QtPy) currently lacks support for PySide6.
-            # Check https://github.com/spyder-ide/qtpy/issues/233
-            # and https://github.com/spyder-ide/qtpy/pull/225 for updates.
-            # 'browse': {'icon': 'fa5.folder-open'},
-            # 'pause': {'icon': 'fa5.pause-circle'},  # and 'fa5s.pause-circle'
-            # 'play': {'icon': 'fa5.play-circle'},  # and 'fa5s.play-circle'
-            # # or 'fa5.arrow-alt-circle-down','fa5s.arrow-alt-circle-down','fa5s.arrow-circle-down' ?
-            # 'advance': {'icon': 'fa5s.arrow-down'},
-
-            # These should work until QtPy supports PySide6..
-            'browse': {'icon': 'folder-open-line.svg'},
-            'pause': {'icon': 'pause-circle-line.svg'},
-            'play': {'icon': 'play-circle-line.svg'},
-            'advance': {'icon': 'arrow-down-line.svg'},
-            'videof2b_icon': {'icon': 'videof2b.svg'},
+            'browse': {'icon': 'ri.folder-open-line'},
+            'pause': {'icon': 'ri.pause-circle-line'},
+            'play': {'icon': 'ri.play-circle-line'},
+            'advance': {'icon': 'ri.arrow-down-line'},
         }
+        self.videof2b_icon = QIcon()
         self._init_icons(icons)
 
     def _init_icons(self, icons):
@@ -59,8 +49,8 @@ class MyIcons(metaclass=Singleton):
         bundle_path = get_bundle_dir()
         log.debug(f'bundle_path: {bundle_path.resolve().absolute()}')
         for k, v in icons.items():
-            res_path = (bundle_path / 'resources' / 'art' / v['icon']).absolute()
-            setattr(self, k, QIcon(str(res_path)))
-            #
-            # TODO: this call is for when/if we can use qtawesome.
-            # setattr(self, k, qta.icon(v['icon']))
+            setattr(self, k, qta.icon(v['icon']))
+        # Main app icon
+        app_icon_path = (bundle_path / 'resources' / 'art' / 'videof2b.svg').absolute()
+        app_icon_pixmap = QPixmap(str(app_icon_path))
+        self.videof2b_icon.addPixmap(app_icon_pixmap, QIcon.Normal, QIcon.Off)
