@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2021-2022  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -589,8 +589,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             self._proc.load_flight(flight)
         except Exception as load_exc:
             self._output_msg('ERROR: Failed to load flight. Please check application logs.')
-            self._show_critical_msg(load_exc)
-            raise load_exc  # let it get handled by excepthook.
+            # Let it get handled by excepthook.
+            raise load_exc from RuntimeError('Problem in flight loader.')
         self._pre_processing()
         self.start_proc_thread()
 
@@ -639,9 +639,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # First, deal with any exceptions that the processor wants us to handle.
         if self._proc.exc is not None:
             proc_exc = self._proc.exc
-            self._show_critical_msg(proc_exc)
             # Re-raise the exception here on the main thread so that excepthook has a chance.
-            raise RuntimeError('Problem in VideoProcessor.') from proc_exc
+            raise proc_exc from RuntimeError('Problem in VideoProcessor.')
         # Second, let the user know that the video processing finished, and indicate the reason.
         self._output_msg(self._retcodes_msgs.get(retcode, f'Unknown return code: {retcode}'))
         # Finally, clean up the UI.
@@ -655,17 +654,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.video_time_lbl.hide()
         self.proc_progress_bar.hide()
         self.filename_label.setText('')
-
-    def _show_critical_msg(self, exc):
-        '''Display a simple messagebox when a critical unhandled exception occurs.'''
-        # TODO: Get rid of this after enabling ExceptionDialog.
-        QtWidgets.QMessageBox.critical(
-            self,
-            'Critical Error',
-            'A surprise error occurred.\n'
-            'It may be a bug. Please report this:\n'
-            f'{exc}'
-        )
 
     def on_proc_thread_finished(self):
         '''Handle cleanup when the processing thread finishes.'''
@@ -932,8 +920,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         '''
         if self._calibrator.exc is not None:
             cal_exc = self._calibrator.exc
-            self._show_critical_msg(cal_exc)
-            raise RuntimeError('Problem in CameraCalibrator.') from cal_exc
+            raise cal_exc from RuntimeError('Problem in CameraCalibrator.')
         self._output_msg(self._cal_retcodes_msgs.get(retcode, f'Unknown return code: {retcode}'))
         # Clean up the UI.
         self.act_file_load.setEnabled(True)

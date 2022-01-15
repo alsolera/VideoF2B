@@ -334,9 +334,10 @@ single-line-if-stmt=no
 
 [LOGGING]
 
-# Format style used to check logging format string. `old` means using %
-# formatting, `new` is for `{}` formatting,and `fstr` is for f-strings.
-logging-format-style=fstr
+# The `fstr` option for `logging-format-style` is gone and instead you need to
+# manually disable `logging-fstring-interpolation` if you want to use f-strings
+# for logging. See https://github.com/PyCQA/pylint/issues/3570
+logging-fstring-interpolation=no
 
 # Logging modules to check that the string format arguments are in logging
 # function parameter format.

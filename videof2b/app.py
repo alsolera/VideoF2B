@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2021-2022  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,6 @@ import argparse
 import logging
 import logging.handlers
 import sys
-from datetime import datetime
 from traceback import format_exception
 
 from PySide6 import QtCore, QtWidgets
@@ -29,9 +28,9 @@ from PySide6 import QtCore, QtWidgets
 from videof2b.core.common import PD, get_app_metadata
 from videof2b.core.common.settings import Settings
 from videof2b.core.common.store import Store
-from videof2b.ui.exception_form import ExceptionDialog
-from videof2b.ui.main_window import MainWindow
+from videof2b.ui.exception_dialog import ExceptionDialog
 from videof2b.ui.icons import MyIcons
+from videof2b.ui.main_window import MainWindow
 
 __all__ = ['VideoF2B', 'start']
 
@@ -63,33 +62,27 @@ class VideoF2B(QtCore.QObject):
         # We can't log.exception here because the last exception no longer exists, we're actually busy handling it.
         exc_msg = ''.join(format_exception(exc_type, value, traceback))
         log.critical(exc_msg)
-        # TODO: temporarily here until ExceptionDialog is ready.
-        raise Exception(exc_msg)
-
-        # TODO: enable the exception form here once its design is ready
-        # if not hasattr(self, 'exception_form'):
-        #     self.exception_form = ExceptionDialog()
-        # self.exception_form.exception_text_edit.setPlainText(
-        #     ''.join(format_exception(exc_type, value, traceback)))
-        # self.set_normal_cursor()
-        # self.exception_form.exec()
+        if not hasattr(self, 'exception_dialog'):
+            self.exception_dialog = ExceptionDialog(exc_msg)
+        self.set_normal_cursor()
+        self.exception_dialog.exec()
 
     # @staticmethod
     # def process_events():
     #     '''Wrapper to make ProcessEvents visible and named correctly.'''
     #     QtWidgets.QApplication.processEvents()
 
-    # @staticmethod
-    # def set_busy_cursor():
-    #     '''Sets the Busy Cursor for the Application.'''
-    #     QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.BusyCursor)
-    #     QtWidgets.QApplication.processEvents()
+    @staticmethod
+    def set_busy_cursor():
+        '''Sets the Busy Cursor for the Application.'''
+        QtWidgets.QApplication.setOverrideCursor(QtCore.Qt.BusyCursor)
+        QtWidgets.QApplication.processEvents()
 
-    # @staticmethod
-    # def set_normal_cursor():
-    #     '''Sets the Normal Cursor for the Application.'''
-    #     QtWidgets.QApplication.restoreOverrideCursor()
-    #     QtWidgets.QApplication.processEvents()
+    @staticmethod
+    def set_normal_cursor():
+        '''Sets the Normal Cursor for the Application.'''
+        QtWidgets.QApplication.restoreOverrideCursor()
+        QtWidgets.QApplication.processEvents()
 
 
 def parse_options():
@@ -129,6 +122,7 @@ def set_up_logging(log_path, level=logging.DEBUG):
     log.addHandler(file_handler)
     log.setLevel(level)
     log.info('Logger started.')
+
 
 def start():
     my_name, my_version = get_app_metadata()
