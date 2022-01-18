@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2021-2022  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,10 +35,12 @@ class MyIcons(metaclass=Singleton):
     def __init__(self):
         '''Icons for use across the VideoF2B GUI.'''
         icons = {
+            'advance': {'icon': 'ri.arrow-down-line'},
+            'exception': {'icon': 'ph.smiley-x-eyes'},
             'browse': {'icon': 'ri.folder-open-line'},
             'pause': {'icon': 'ri.pause-circle-line'},
             'play': {'icon': 'ri.play-circle-line'},
-            'advance': {'icon': 'ri.arrow-down-line'},
+            'save': {'icon': 'ri.save-3-line'},
         }
         self.videof2b_icon = QIcon()
         self._init_icons(icons)

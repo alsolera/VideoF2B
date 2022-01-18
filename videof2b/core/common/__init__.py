@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2020 - 2021  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2020 - 2022  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -111,6 +111,29 @@ def get_app_metadata() -> Tuple:
     '''
     result = metadata('videof2b')
     return result['Name'], result['Version']
+
+
+def get_lib_versions():
+    '''
+    Get User-friendly names and versions of libraries
+    that we care about for bug reports. This is just a sub-list
+    of `install_requires` items in our `setup.cfg`.
+    '''
+    libs = (
+        'PySide6',
+        'cv2',
+        'Numpy',
+        'scipy',
+    )
+    versions = {'Python': platform.python_version()}
+    for name in libs:
+        if name == 'cv2':
+            pkg = __import__(name)
+            ver = pkg.__version__
+        else:
+            ver = metadata(name)['Version']
+        versions[name] = ver
+    return versions
 
 
 def is_win() -> bool:

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2021-2022  Andrey Vasilik - basil96@users.noreply.github.com
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -33,6 +33,7 @@ class Settings(QSettings):
         'core/enable_fisheye': False,
         'mru/video_dir': Path('..'),
         'mru/cal_dir': Path('..'),
+        'mru/crashreport_dir': Path('..'),
         'ui/main_window_position': QPoint(0, 0),
         'ui/main_window_geometry': QByteArray(),
         'ui/main_window_state': QByteArray(),
