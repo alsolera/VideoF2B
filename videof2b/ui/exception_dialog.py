@@ -20,6 +20,7 @@
 import logging
 import os
 import platform
+from datetime import datetime
 from zipfile import ZipFile
 
 from PySide6 import QtCore, QtWidgets
@@ -82,9 +83,10 @@ class ExceptionDialog(QtWidgets.QDialog, StoreProperties):
         '''Save exception log and system information to a file.'''
         logs_path = PD.user_data_path
         while True:
+            file_name = datetime.strftime(datetime.now(), 'VideoF2B_CrashReport_%Y%m%d_%H%M%S.zip')
             file_path, _ = FileDialog.getSaveFileName(
                 self, 'Save Crash Report',
-                self.settings.value(self.settings_rpt_dir),
+                self.settings.value(self.settings_rpt_dir) / file_name,
                 'Zip archive (*.zip)')
             if file_path is None:
                 break
