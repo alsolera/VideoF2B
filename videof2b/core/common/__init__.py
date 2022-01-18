@@ -121,12 +121,18 @@ def get_lib_versions():
     '''
     libs = (
         'PySide6',
-        'opencv-python',
+        'cv2',
         'Numpy',
         'scipy',
     )
     versions = {'Python': platform.python_version()}
-    versions.update({name: metadata(name)['Version'] for name in libs})
+    for name in libs:
+        if name == 'cv2':
+            pkg = __import__(name)
+            ver = pkg.__version__
+        else:
+            ver = metadata(name)['Version']
+        versions[name] = ver
     return versions
 
 
