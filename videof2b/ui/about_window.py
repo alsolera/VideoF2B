@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Alberto Solera Rico - albertoavion(a)gmail.com
-# Copyright (C) 2021  Andrey Vasilik - basil96@users.noreply.github.com
+# Copyright (C) 2021  Alberto Solera Rico - videof2b.dev@gmail.com
+# Copyright (C) 2021  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -78,8 +78,8 @@ class AboutDialog(QtWidgets.QDialog):
         </li>
         </ul>
         <h2 id="license">License</h2>
-        <p>Copyright (C) 2021 Alberto Solera Rico - albertoavion(a)gmail.com<p>
-        <p>Copyright (C) 2021 Andrey Vasilik - basil96@users.noreply.github.com</p>
+        <p>Copyright (C) 2021 Alberto Solera Rico - videof2b.dev@gmail.com<p>
+        <p>Copyright (C) 2021 Andrey Vasilik - basil96</p>
         <p>This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by 
         the Free Software Foundation, either version 3 of the License, or (at your option) any later version.</p>
         <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of 

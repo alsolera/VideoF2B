@@ -40,7 +40,7 @@ class ExceptionDialog(QtWidgets.QDialog, StoreProperties):
     def __init__(self, exc_msg):
         super().__init__(None, QtCore.Qt.WindowSystemMenuHint | QtCore.Qt.WindowTitleHint)
         self.app_name, self.app_version = get_app_metadata()
-        self.mail_addr = 'someone@somewhere.com'
+        self.mail_addr = 'videof2b.dev@gmail.com'
         self.setup_ui()
         self.exception_text_edit.setPlainText(exc_msg)
         self.settings_rpt_dir = 'mru/crashreport_dir'
