@@ -64,9 +64,9 @@ class AboutDialog(QtWidgets.QDialog):
         </li>
         <li><p>Displays template figures on the surface of the AR sphere according to
         Section 4.2.15 - &quot;Description of Manoeuvres&quot; of the
-        <a href="https://www.fai.org/sites/default/files/ciam/sc4_vol_f2_controlline_21.pdf">FAI Sporting Code (Jan 2021)</a>.
+        <a href="https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_22.pdf">FAI Sporting Code (Jan 2022)</a>.
         Maneuvre diagrams are available in
-        <a href="https://www.fai.org/sites/default/files/ciam/sc4_vol_f2_controlline_annex_4j_21.pdf">Annex 4J (Jan 2021)</a>
+        <a href="https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_annex_4j_22.pdf">Annex 4J (Jan 2022)</a>
         The latest versions of these regulations are available at the
         <a href="https://www.fai.org/page/ciam-code">FAI Sporting Code page</a> under <strong>Section 4 (Aeromodelling)</strong>.</p>
         </li>
