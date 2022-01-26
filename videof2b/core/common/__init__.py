@@ -66,7 +66,6 @@ class FigureTypes(enum.Enum):
     OVERHEAD_EIGHTS = 13
     FOUR_LEAF_CLOVER = 14
     LANDING = 15
-    FOUR_LEAF_CLOVER_ALT = 16
 
 
 @enum.unique
