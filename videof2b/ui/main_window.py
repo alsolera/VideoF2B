@@ -27,13 +27,13 @@ from videof2b.core.calibration import CalibratorReturnCodes, CameraCalibrator
 from videof2b.core.common import FigureTypes, SphereManipulations
 from videof2b.core.common.store import StoreProperties
 from videof2b.core.processor import ProcessorReturnCodes, VideoProcessor
-from videof2b.ui import EXTENSIONS_VIDEO
 from videof2b.ui.about_window import AboutDialog
 from videof2b.ui.camera_cal_dialog import CameraCalibrationDialog
+from videof2b.ui.camera_director_dialog import CamDirectorDialog
 from videof2b.ui.icons import MyIcons
 from videof2b.ui.load_flight_dialog import LoadFlightDialog
 from videof2b.ui.video_window import VideoWindow
-from videof2b.ui.widgets import FileDialog, QHLine
+from videof2b.ui.widgets import QHLine
 
 log = logging.getLogger(__name__)
 
@@ -352,6 +352,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.act_restart_flight.triggered.connect(self.on_restart_flight)
         self.act_file_exit.triggered.connect(self.close)
         self.act_tools_cal_cam.triggered.connect(self.on_calibrate_cam)
+        self.act_tools_place_cam.triggered.connect(self.on_place_cam)
         self.act_next_figure.triggered.connect(self.on_next_figure)
         self.act_pause_resume.setEnabled(False)
         self._enable_figure_controls(False)
@@ -934,3 +935,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self.video_time_lbl.hide()
         self.proc_progress_bar.hide()
         self.filename_label.setText('')
+
+    def on_place_cam(self):
+        '''Open the camera placement dialog.'''
+        cam_dialog = CamDirectorDialog(self)
+        cam_dialog.exec()
