@@ -38,9 +38,10 @@ def cv_img_to_qimg(cv_img: np.ndarray) -> QImage:
     # https://github.com/almarklein/pyelastix/issues/14
     #
     # These extra requirements manifest themselves when we process calibrated flights.
-    # This can be verified by uncommenting the log messages around `np.ascontiguousarray()` call below,
-    # but leave them commented for production!
-    # Note that this extra step is not necessary for cv2 processing, only for converting to QImage for display.
+    # This can be verified by uncommenting the log messages around
+    # the `np.ascontiguousarray()` call below, # but leave them commented for production!
+    # Note that this extra step is not necessary for cv2 processing,
+    # only for converting to QImage for display.
 
     # TODO: profile this whole method for an idea of the performance hit involved here.
     # log.debug(f'Is `cv_img` C-contiguous before? {cv_img.flags["C_CONTIGUOUS"]}')

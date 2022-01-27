@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
 # Copyright (C) 2021  Alberto Solera Rico - videof2b.dev@gmail.com
-# Copyright (C) 2021  Andrey Vasilik - basil96
+# Copyright (C) 2021 - 2022  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -21,7 +21,8 @@ The dialog window for the "about" information.
 '''
 
 from PySide6 import QtCore, QtWidgets
-import videof2b.version as version
+from videof2b import version
+
 
 class AboutDialog(QtWidgets.QDialog):
     '''About window.'''
@@ -34,6 +35,7 @@ class AboutDialog(QtWidgets.QDialog):
             QtCore.Qt.WindowCloseButtonHint
         )
         self.setup_ui()
+        # pylint: disable=no-member
         self.start_btn.clicked.connect(self.accept)
         self.start_btn.clicked.connect(self.reject)
 
@@ -44,7 +46,7 @@ class AboutDialog(QtWidgets.QDialog):
         self.main_layout = QtWidgets.QVBoxLayout(self)
         self.main_layout.setObjectName('main_layout')
         self.content_lbl = QtWidgets.QLabel(self)
-        
+
         self.content_lbl.setText(f"""<html>
         <h1 id="videof2b">VideoF2B</h1>
         <p>Author&#39;s blog is <a href="http://videof2b.blogspot.com/">here</a></p>
@@ -105,4 +107,3 @@ class AboutDialog(QtWidgets.QDialog):
         self.main_layout.addWidget(self.scroll_area)
         self.main_layout.addSpacing(20)
         self.main_layout.addLayout(self.buttons_layout)
-        

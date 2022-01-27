@@ -43,6 +43,7 @@ class VideoF2B(QtCore.QObject):
     def __init__(self) -> None:
         super().__init__()
         self.main_window = None
+        self.exception_dialog = None
 
     def run(self, app):
         '''The main method. Makes the necessary preparations, then runs the given app.'''
@@ -57,8 +58,7 @@ class VideoF2B(QtCore.QObject):
         '''Exit hook.'''
         log.info('Exiting application.')
 
-    @staticmethod
-    def hook_exception(exc_type, value, traceback):
+    def hook_exception(self, exc_type, value, traceback):
         """
         Add an exception hook so that any uncaught exceptions
         are displayed in this window rather than someplace where
@@ -72,7 +72,7 @@ class VideoF2B(QtCore.QObject):
         # We're actually busy handling it.
         exc_msg = ''.join(format_exception(exc_type, value, traceback))
         log.critical(exc_msg)
-        if not hasattr(self, 'exception_dialog'):
+        if self.exception_dialog is None:
             self.exception_dialog = ExceptionDialog(exc_msg)
         self.set_normal_cursor()
         self.exception_dialog.exec()
@@ -165,7 +165,7 @@ def start():
     # Create the application
     app = VideoF2B()
     # Register the sys-level exception hook
-    sys.excepthook = VideoF2B.hook_exception
+    sys.excepthook = app.hook_exception
     # Start the application
     log.info(f'Starting {qt_app.applicationName()} {qt_app.applicationVersion()}')
     sys.exit(app.run(qt_app))

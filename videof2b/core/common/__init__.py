@@ -71,13 +71,13 @@ class FigureTypes(enum.Enum):
 @enum.unique
 class SphereManipulations(enum.Enum):
     '''Possible manipulations of the AR sphere during processing.'''
-    ResetCenter = 0
-    RotateCCW = 1
-    RotateCW = 2
-    MoveWest = 3
-    MoveEast = 4
-    MoveNorth = 5
-    MoveSouth = 6
+    RESET_CENTER = 0
+    ROTATE_CCW = 1
+    ROTATE_CW = 2
+    MOVE_WEST = 3
+    MOVE_EAST = 4
+    MOVE_NORTH = 5
+    MOVE_SOUTH = 6
 
 
 # Common instance of PlatformDir that helps us with various platform-specific paths
@@ -99,7 +99,7 @@ def get_bundle_dir():
     '''
     bundle_path = Path(videof2b.__file__).parent.parent
     if getattr(sys, 'frozen', False) and hasattr(sys, '_MEIPASS'):
-        bundle_path = Path(sys._MEIPASS)
+        bundle_path = Path(sys._MEIPASS)  # pylint:disable=protected-access
     return bundle_path
 
 
@@ -160,4 +160,4 @@ def launch_document(path) -> None:
     if is_win():
         os.startfile(str(path))
     elif is_linux():
-        subprocess.run(['xdg-open', str(path)])
+        subprocess.run(['xdg-open', str(path)])  # pylint: disable=subprocess-run-check

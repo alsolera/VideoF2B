@@ -48,6 +48,7 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.flight = None
         self.setup_ui()
         self.setWindowTitle('Load a Flight')
+        # pylint: disable=no-member
         self.cancel_btn.clicked.connect(self.reject)
         self.load_btn.clicked.connect(self.accept)
 
@@ -58,7 +59,7 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.live_chk = QtWidgets.QCheckBox('&Live video', self)
         self.video_path_lbl = QtWidgets.QLabel('Video source:', self)
         self.video_path_txt = PathEdit(
-            self, PathEditType.Files,
+            self, PathEditType.FILES,
             'Select video file',
             self.settings.value('mru/video_dir')
         )
@@ -69,7 +70,7 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         #
         self.cal_path_lbl = QtWidgets.QLabel('Calibration file:', self)
         self.cal_path_txt = PathEdit(
-            self, PathEditType.Files,
+            self, PathEditType.FILES,
             'Select calibration file',
             self.settings.value('mru/cal_dir')
         )

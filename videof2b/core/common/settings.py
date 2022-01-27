@@ -57,9 +57,10 @@ class Settings(QSettings):
             setting = super().value(key, default_value)
         except TypeError:
             setting = default_value
-        return self._convert_value(setting, default_value)
+        return Settings._convert_value(setting, default_value)
 
-    def _convert_value(self, value, default_value):
+    @staticmethod
+    def _convert_value(value, default_value):
         '''Convert the given `value` to the type of `default_value`.
         Expand this logic for missing types as needed.
         '''

@@ -61,7 +61,7 @@ class ExceptionDialog(QtWidgets.QDialog, StoreProperties):
         '''Create an exception report.'''
         description = self.description_text_edit.toPlainText()
         traceback = self.exception_text_edit.toPlainText()
-        system = ('Platform: {platform}\n').format(platform=platform.platform())
+        system = f'Platform: {platform.platform()}\n'
         library_versions = get_lib_versions()
         libraries = '\n'.join([
             f'{library}: {version}'
@@ -146,6 +146,7 @@ class ExceptionDialog(QtWidgets.QDialog, StoreProperties):
 
     def setup_ui(self):
         '''Set up the UI.'''
+        # pylint: disable=no-member
         self.setObjectName('exception_dialog')
         self.setWindowIcon(MyIcons().videof2b_icon)
         self.exception_layout = QtWidgets.QVBoxLayout(self)
@@ -212,7 +213,8 @@ class ExceptionDialog(QtWidgets.QDialog, StoreProperties):
             f'{exception_text}'
             f'<strong>No email app? No internet?</strong> You can <strong>save</strong> this '
             f'information to a <strong>file</strong> and<br>'
-            f'send it later from your <strong>browser email</strong> via an <strong>attachment.</strong>{newlines}'
+            f'send it later from your <strong>browser email</strong> '
+            f'via an <strong>attachment.</strong>{newlines}'
             f'<strong>Thank you</strong> for helping to improve VideoF2B!<br>'
         )
         self.save_report_button.setText('Save to File')

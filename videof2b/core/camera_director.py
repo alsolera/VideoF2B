@@ -24,9 +24,9 @@ from math import asin, atan2, cos, degrees, nan, radians, sin
 from typing import Iterable
 
 import numpy as np
-import videof2b.core.geometry as geom
 from scipy.optimize import fsolve
 from videof2b.core.common import QUART_PI
+from videof2b.core.geometry import angle
 
 log = logging.getLogger(__name__)
 
@@ -127,7 +127,7 @@ class CamDirector:
         '''
         u = m[1] - m[0]
         v = m[2] - m[0]
-        return geom.angle(u, v)
+        return angle(u, v)
 
     @staticmethod
     def _get_elevation_angle(p):
@@ -140,6 +140,8 @@ class CamDirector:
         # circle is at origin, so `d = c - p` is just `-p`
         d = -np.atleast_1d(p)
         d_norm = np.linalg.norm(d)
+        if d_norm < self._R:
+            return None
         a = asin(self._R / d_norm)
         b = atan2(d[1], d[0])
         t = b - a
@@ -160,9 +162,8 @@ class CamDirector:
 
         def func(x):
             p0 = np.r_[x, self._C]
-            try:
-                p1 = self._get_tangent_point(p0)
-            except:
+            p1 = self._get_tangent_point(p0)
+            if p1 is None:
                 return 1e6
             p2 = [0, self._G]
             P = np.vstack((p0, p1, p2))
@@ -185,7 +186,7 @@ class CamDirector:
         p2 = [0, self._G]
         # 45deg tangent line equation
         b = R * (sin(QUART_PI) + cos(QUART_PI))
-        # Find `x_max` (where tangent line intersects the camera height)
+        # Find `x_max` (where 45deg tangent line intersects the camera height)
         x_max = h - b
         p0_max = [x_max, h]
         p1_max = self._get_tangent_point(p0_max)
@@ -194,10 +195,10 @@ class CamDirector:
         # `x_min` is limited by sphere radius at one extreme
         # and by self.A on the other.
         x_min_for_alpha = self._solve_closest_d()
-        log.debug('x_min_for_alpha (initial) = %s' % x_min_for_alpha)
+        log.debug('x_min_for_alpha (initial) = %s', x_min_for_alpha)
         if x_min_for_alpha > 0.:
             x_min_for_alpha *= -1.0
-            log.debug('x_min_for_alpha (flipped) = %s' % x_min_for_alpha)
+            log.debug('x_min_for_alpha (flipped) = %s', x_min_for_alpha)
         # Both x_min candidate values are negative, so take the min of the two.
         x_min = min(-R, x_min_for_alpha)
         # Use absolute value for the user because it's just a distance.
@@ -223,10 +224,10 @@ class CamDirector:
                   '    R=%.3f\n'
                   '    C=%.3f\n'
                   '    G=%.3f\n'
-                  '    A=%.2f\n' %
-                  (self._R, self._C, self._G, self._A))
+                  '    A=%.2f\n',
+                  self._R, self._C, self._G, self._A)
         log.debug('outputs:\n'
                   '    D limits=%s\n'
                   '    V limits=%s\n'
-                  '    T limits=%s\n' %
-                  (self.cam_distance_limits, self.cam_view_limits, self.cam_tangent_elev_limits))
+                  '    T limits=%s\n',
+                  self.cam_distance_limits, self.cam_view_limits, self.cam_tangent_elev_limits)

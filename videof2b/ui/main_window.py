@@ -38,13 +38,14 @@ from videof2b.ui.widgets import QHLine
 log = logging.getLogger(__name__)
 
 
-class Ui_MainWindow:
+class UIMainWindow:
     '''Define the UI layout.'''
 
     # pylint: disable=too-many-instance-attributes
 
     def setup_ui(self, main_window: QtWidgets.QMainWindow):
         '''Create the UI here.'''
+        # pylint: disable=attribute-defined-outside-init,no-member
         main_window.setObjectName('MainWindow')
         main_window.setDockNestingEnabled(True)
         main_window.setWindowTitle(
@@ -284,7 +285,7 @@ class Ui_MainWindow:
         self.setLayout(self.main_layout)
 
 
-class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
+class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
     '''The main UI window of the VideoF2B application.'''
 
     # Signals
@@ -301,22 +302,26 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     # Mapping of processor retcodes to user-friendly messages.
     # Keep this dict in sync with all current definitions in ProcessorReturnCodes.
     _retcodes_msgs = {
-        ProcessorReturnCodes.ExceptionOccurred: 'Critical unhandled error occurred.',
-        ProcessorReturnCodes.Undefined: 'Video processing never started.',
-        ProcessorReturnCodes.Normal: 'Video processing finished normally.',
-        ProcessorReturnCodes.UserCanceled: 'Video processing was canceled by user.',
-        ProcessorReturnCodes.PoseEstimationFailed: 'Failed to locate the camera!',
-        ProcessorReturnCodes.TooManyEmptyFrames: 'Encountered too many consecutive empty frames.',
+        ProcessorReturnCodes.EXCEPTION_OCCURRED: 'Critical unhandled error occurred.',
+        ProcessorReturnCodes.UNDEFINED: 'Video processing never started.',
+        ProcessorReturnCodes.NORMAL: 'Video processing finished normally.',
+        ProcessorReturnCodes.USER_CANCELED: 'Video processing was canceled by user.',
+        ProcessorReturnCodes.POSE_ESTIMATION_FAILED: 'Failed to locate the camera!',
+        ProcessorReturnCodes.TOO_MANY_EMPTY_FRAMES: 'Encountered too many consecutive empty frames.',
     }
 
     # Mapping of camera calibrator retcodes to user-friendly messages.
     _cal_retcodes_msgs = {
-        CalibratorReturnCodes.ExceptionOccurred: 'Critical unhandled error occurred.',
-        CalibratorReturnCodes.Undefined: 'Calibration never started.',
-        CalibratorReturnCodes.Normal: 'Calibration finished normally.',
-        CalibratorReturnCodes.UserCanceled: 'Calibration was canceled by user.',
-        CalibratorReturnCodes.NoValidFrames: 'No valid frames found. Ensure the calibration pattern is clearly visible in the video.',
-        CalibratorReturnCodes.InsufficientValidFrames: 'Too few valid frames found. Ensure the calibration pattern is clearly visible and the video is long enough.',
+        CalibratorReturnCodes.EXCEPTION_OCCURRED: 'Critical unhandled error occurred.',
+        CalibratorReturnCodes.UNDEFINED: 'Calibration never started.',
+        CalibratorReturnCodes.NORMAL: 'Calibration finished normally.',
+        CalibratorReturnCodes.USER_CANCELED: 'Calibration was canceled by user.',
+        CalibratorReturnCodes.NO_VALID_FRAMES:
+            'No valid frames found. Ensure the calibration pattern '
+            'is clearly visible in the video.',
+        CalibratorReturnCodes.INSUFFICIENT_VALID_FRAMES:
+            'Too few valid frames found. Ensure the calibration pattern '
+            'is clearly visible and the video is long enough.',
     }
 
     # Maps object names of figure checkboxes to the common.FigureType required by core.Drawing.
@@ -344,6 +349,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         self._proc_thread = None
         self._last_flight = None
         self._calibrator = None
+        # pylint: disable=no-member
         # Set up signals and slots that are NOT related to VideoProcessor
         self.act_file_load.triggered.connect(self.on_load_flight)
         # TODO: The restart action is currently undocumented
@@ -523,6 +529,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # NOTE: all of these must be disconnected in self._deinit_proc(),
         # or we will end up with multiple connections after more than one
         # flight is loaded during one application session.
+        # pylint: disable=no-member
         self.act_stop_proc.triggered.connect(self.on_stop_proc)
         self.act_clear_track.triggered.connect(self.on_clear_track)
         for fig_chk in self.fig_chk_boxes:
@@ -557,6 +564,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # destroy it when the processing thread exits.  This should not be a performance hit
         # for users since the UI currently allows one video to be processed at a time anyway.
         # ==================================================================================
+        # pylint: disable=no-member
         self.act_stop_proc.triggered.disconnect(self.on_stop_proc)
         self.act_clear_track.triggered.disconnect(self.on_clear_track)
         self.act_rotate_left.triggered.disconnect(self.on_rotate_ccw)
@@ -678,6 +686,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # According to PySide6 docs:
         # "Note that this is currently not available with release builds on Windows."
         # See https://doc.qt.io/qtforpython/PySide6/QtCore/QThread.html#managing-threads
+        # pylint: disable=no-member
         self._proc_thread.setObjectName('VideoProcessorThread')
         self._proc.moveToThread(self._proc_thread)
         self._proc_thread.started.connect(self._proc.run)
@@ -775,37 +784,37 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
     def on_rotate_ccw(self):
         '''Rotate AR sphere CCW.'''
         log.debug('User says: rotate CCW')
-        self.manipulate_sphere.emit(SphereManipulations.RotateCCW)
+        self.manipulate_sphere.emit(SphereManipulations.ROTATE_CCW)
 
     def on_rotate_cw(self):
         '''Rotate AR sphere CW.'''
         log.debug('User says: rotate CW')
-        self.manipulate_sphere.emit(SphereManipulations.RotateCW)
+        self.manipulate_sphere.emit(SphereManipulations.ROTATE_CW)
 
     def on_move_north(self):
         '''Move AR sphere North.'''
         log.debug('User says: move NORTH')
-        self.manipulate_sphere.emit(SphereManipulations.MoveNorth)
+        self.manipulate_sphere.emit(SphereManipulations.MOVE_NORTH)
 
     def on_move_south(self):
         '''Move AR sphere South.'''
         log.debug('User says: move SOUTH')
-        self.manipulate_sphere.emit(SphereManipulations.MoveSouth)
+        self.manipulate_sphere.emit(SphereManipulations.MOVE_SOUTH)
 
     def on_move_west(self):
         '''Move AR sphere West.'''
         log.debug('User says: move WEST')
-        self.manipulate_sphere.emit(SphereManipulations.MoveWest)
+        self.manipulate_sphere.emit(SphereManipulations.MOVE_WEST)
 
     def on_move_east(self):
         '''Move AR sphere East.'''
         log.debug('User says: move EAST')
-        self.manipulate_sphere.emit(SphereManipulations.MoveEast)
+        self.manipulate_sphere.emit(SphereManipulations.MOVE_EAST)
 
     def on_move_reset(self):
         '''Reset AR sphere's center to world origin.'''
         log.debug('User says: RESET to center')
-        self.manipulate_sphere.emit(SphereManipulations.ResetCenter)
+        self.manipulate_sphere.emit(SphereManipulations.RESET_CENTER)
 
     def on_figure_start(self):
         '''Mark the start of a figure in 3D.'''
@@ -867,6 +876,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
             self.video_window.update_frame, QtCore.Qt.QueuedConnection)
         # Actions and signals that are within the UI thread.
         # NOTE: disconnect all of these in self._deinit_calibrator()
+        # pylint: disable=no-member
         self.act_stop_proc.triggered.connect(self.on_stop_proc)
 
     def _deinit_calibrator(self):
@@ -874,6 +884,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         # This is the companion method to `_init_calibrator`. Make sure that any signal connections
         # that are made there are disconnected here, except for those directly referencing
         # `self._calibrator`. Disconnect only the UI thread's actions here.
+        # pylint: disable=no-member
         self.act_stop_proc.triggered.disconnect(self.on_stop_proc)
         self._calibrator = None
 
@@ -894,6 +905,7 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
 
     def start_cal_thread(self):
         '''Starts the calibrator on a worker thread.'''
+        # pylint: disable=no-member
         self._proc_thread = QtCore.QThread()
         self._proc_thread.setObjectName('CalibratorThread')
         self._calibrator.moveToThread(self._proc_thread)

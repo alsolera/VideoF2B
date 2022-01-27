@@ -47,6 +47,7 @@ class CameraCalibrationDialog(QtWidgets.QDialog, StoreProperties):
         self.cal_doc_path = self.assets_path / 'pattern_10x7.pdf'
         self.cal_vid_th_path = self.assets_path / 'sample_vid_th.png'
         self.setup_ui()
+        # pylint: disable=no-member
         self.cal_path_txt.path_changed.connect(self.on_path_changed)
         self.fisheye_chk.stateChanged.connect(self.on_fisheye_changed)
         self.cancel_btn.clicked.connect(self.reject)
@@ -54,6 +55,7 @@ class CameraCalibrationDialog(QtWidgets.QDialog, StoreProperties):
 
     def setup_ui(self):
         '''Designs the UI.'''
+        # pylint: disable=no-member
         self.setWindowTitle('Calibrate your camera')
         self.setContentsMargins(5, 5, 5, 5)
         self.content_lbl_1 = QtWidgets.QLabel(self)
@@ -88,7 +90,7 @@ class CameraCalibrationDialog(QtWidgets.QDialog, StoreProperties):
         #
         self.cal_path_lbl = QtWidgets.QLabel('Choose video file:', self)
         self.cal_path_txt = PathEdit(
-            self, PathEditType.Files,
+            self, PathEditType.FILES,
             'Choose a calibration video file',
             self.settings.value('mru/cal_dir')
         )

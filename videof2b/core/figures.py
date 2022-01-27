@@ -51,7 +51,7 @@ def find_min_gss(f, a, b, eps=1e-4):
     n_iter = int(np.ceil(-2.0780869 * np.log(eps / np.abs(b - a))))
     c = b - (b - a) * R
     d = a + (b - a) * R
-    for i in range(n_iter):
+    for _ in range(n_iter):
         if f(c) < f(d):
             b = d
         else:
@@ -99,12 +99,21 @@ class Figure:
         else:
             self.phi0 = 0.
 
+        # Initial guess vector of independent variables. Override in derived classes.
+        self.p0 = []
+
+        self.u = None
+
         '''Suggested count of nominal points for a reasonably smooth-looking figure.
         Override in subclasses as needed. This is primarily used for drawing.'''
         self.num_nominal_pts = 100
 
         # Reference to each subclassed Figure's parametric function
         self.paramfunc = self._parmfn()
+
+    def _parmfn(self):
+        '''Override this in subclasses to provide concrete parametric function.'''
+        raise NotImplementedError('Implement `_parmfn` in derived Figure class')
 
     @staticmethod
     def create(which_figure, R=None, actuals=None, **kwargs):
@@ -116,9 +125,8 @@ class Figure:
         fig_type_constructor = mapper.get(which_figure, None)
         if fig_type_constructor:
             return fig_type_constructor(R=R, actuals=actuals, **kwargs)
-        else:
-            raise NotImplementedError(
-                f'*** T O D O ***: Figure type {which_figure} is not implemented.')
+        raise NotImplementedError(
+            f'*** T O D O ***: Figure type {which_figure} is not implemented.')
 
     def fit(self):
         '''Perform best fit of actual points against the nominals of the figure.'''

@@ -98,9 +98,9 @@ class Flight(QObject):
         self._load_stream()
         # Log some more to report the stream's status.
         if self.is_ready:
-            log.info(f'Video stream is ready.')
+            log.info('Video stream is ready.')
         else:
-            log.warn(f'Video stream IS NOT ready.')
+            log.warning('Video stream IS NOT ready.')
 
     def _load_stream(self):
         '''Load this flight's video stream.'''
@@ -114,7 +114,7 @@ class Flight(QObject):
             self.is_ready = False
             # TODO: Using filename only for now. Maybe use a sanitized path?
             log.error(f'Failed to load video source {self.video_path.name}')
-            self.cap.release()
+            self.cap.stop()
             self.cap = None
 
     def restart(self):

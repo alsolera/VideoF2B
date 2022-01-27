@@ -30,8 +30,8 @@ from videof2b.ui.icons import MyIcons
 @enum.unique
 class PathEditType(enum.Enum):
     '''Specifies the type of browser in a PathEdit.'''
-    Files = 1
-    Directories = 2
+    FILES = 1
+    DIRECTORIES = 2
 
 
 class FileDialog(QtWidgets.QFileDialog):
@@ -108,13 +108,13 @@ class PathEdit(QtWidgets.QWidget):
     path_changed = QtCore.Signal(Path)
 
     def __init__(self, parent=None,
-                 path_type=PathEditType.Files,
+                 path_type=PathEditType.FILES,
                  caption=None,
                  initial_path=None):
         '''Create the PathEdit widget.
 
         :param QtWidget.QWidget | None parent: The parent of this widget.
-        :param PathEditType path_type: the type 
+        :param PathEditType path_type: the type
         :param str caption: Used to customise the caption in the QFileDialog.
         :rtype: None
         '''
@@ -139,11 +139,12 @@ class PathEdit(QtWidgets.QWidget):
         widget_layout.addWidget(self.browse_button)
         self.setLayout(widget_layout)
         # Signals and Slots
+        # pylint: disable=no-member
         self.browse_button.clicked.connect(self.on_browse_button_clicked)
         self.line_edit.editingFinished.connect(self.on_line_edit_editing_finished)
         self.update_button_tool_tips()
 
-    @QtCore.Property('QVariant')
+    @property
     def path(self):
         '''Returns the selected path.
 
@@ -188,7 +189,7 @@ class PathEdit(QtWidgets.QWidget):
 
         :rtype: None
         '''
-        if self._path_type == PathEditType.Directories:
+        if self._path_type == PathEditType.DIRECTORIES:
             self.browse_button.setToolTip('Browse for directory')
         else:
             self.browse_button.setToolTip('Browse for file')
@@ -201,12 +202,12 @@ class PathEdit(QtWidgets.QWidget):
         '''
         caption = self.caption
         path = None
-        if self._path_type == PathEditType.Directories:
+        if self._path_type == PathEditType.DIRECTORIES:
             if not caption:
                 caption = 'Select Directory'
             path = FileDialog.getExistingDirectory(
                 self, caption, self._path, FileDialog.ShowDirsOnly)
-        elif self._path_type == PathEditType.Files:
+        elif self._path_type == PathEditType.FILES:
             if not caption:
                 caption = self.caption = 'Select File'
             path, _ = FileDialog.getOpenFileName(self, caption, self._initial_path, self.filters)

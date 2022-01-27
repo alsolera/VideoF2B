@@ -21,7 +21,6 @@ The main flight processor in VideoF2B.
 
 import enum
 import logging
-import platform
 import sys
 import time
 from datetime import timedelta
@@ -57,17 +56,17 @@ class ProcessorReturnCodes(enum.IntEnum):
     # should be updated to include a user-friendly message for the new code.
     # =============================================================================================
     # An exception occurred. Caller should check .exc for details.
-    ExceptionOccurred = -2
+    EXCEPTION_OCCURRED = -2
     # This is the code at init before the loop starts.
-    Undefined = -1
+    UNDEFINED = -1
     # The loop exited normally.
-    Normal = 0
+    NORMAL = 0
     # User canceled the loop early.
-    UserCanceled = 1
+    USER_CANCELED = 1
     # Pose estimation failed
-    PoseEstimationFailed = 2
+    POSE_ESTIMATION_FAILED = 2
     # Too many consecutive empty frames encountered
-    TooManyEmptyFrames = 3
+    TOO_MANY_EMPTY_FRAMES = 3
 
 
 class ProcessorSettings:
@@ -125,7 +124,7 @@ class VideoProcessor(QObject, StoreProperties):
         # Exception object, if any occurred during the main loop.
         self.exc: Exception = None
         # Return code that indicates our status when the proc loop exits.
-        self.ret_code: ProcessorReturnCodes = ProcessorReturnCodes.Undefined
+        self.ret_code: ProcessorReturnCodes = ProcessorReturnCodes.UNDEFINED
         # Flags
         self._keep_processing: bool = False
         self._keep_locating: bool = False
@@ -152,12 +151,19 @@ class VideoProcessor(QObject, StoreProperties):
         self._video_fps: float = None
         # Time per video frame (seconds per frame). Inverse of FPS. Used to avoid repetitive division.
         self._video_spf: float = None
+        self.num_input_frames: int = -1
         self._is_size_restorable: bool = False
         self._detector: Detector = None
         self._azimuth: float = None
         self._sphere_offset = None
         self._data_writer = None
-        self._fig_tracker = None
+        self._fig_tracker: figtrack.FigureTracker = None
+        self._is_fig_in_progress = False
+        self._fig_img_pts = []
+        self._fit_img_pts = []
+        self._draw_fit_flag: bool = False
+        self._max_draw_fit_frames: int = 1
+        self._num_draw_fit_frames: int = 0
         self._video_name = None
         self._frame_delta = None
         self.is_paused = False
@@ -308,9 +314,9 @@ class VideoProcessor(QObject, StoreProperties):
         for v in range(self._inp_height):
             t1 = time.process_time()
             for u in range(self._inp_width):
-                world_pts = projection.projectImagePointToSphere(
+                world_pts = projection.project_image_point_to_sphere(
                     self._frame,
-                    self.cam, self.flight.flight_radius,
+                    self.cam, self.flight.flight_radius, self._sphere_offset,
                     (u, v), writer
                 )
                 if world_pts is not None:
@@ -330,7 +336,7 @@ class VideoProcessor(QObject, StoreProperties):
     def _track_in_3d(self):
         '''Try to track the aircraft in world coordinates.'''
         if self._detector.pts_scaled[0] is not None:
-            act_pts = projection.projectImagePointToSphere(
+            act_pts = projection.project_image_point_to_sphere(
                 self._frame, self.cam,
                 self.flight.flight_radius, self._artist.center,
                 self._detector.pts_scaled[0], self._data_writer
@@ -439,7 +445,7 @@ class VideoProcessor(QObject, StoreProperties):
         is_pose_good = self.cam.locate(self.flight)
         if not is_pose_good:
             log.error('Pose estimation failed. Cannot process video.')
-            self.ret_code = ProcessorReturnCodes.PoseEstimationFailed
+            self.ret_code = ProcessorReturnCodes.POSE_ESTIMATION_FAILED
             return False
         # Finally, locate the artist.
         self._artist.locate(self.cam, self.flight, center=self._sphere_offset)
@@ -458,7 +464,7 @@ class VideoProcessor(QObject, StoreProperties):
         if self.flight is not None:
             self.flight.add_locator_point(point)
 
-    def pop_locator_point(self, _p):
+    def pop_locator_point(self, _):
         '''Remove the last locator point, if one exists.'''
         # Thin wrapper for the same method in Flight.
         if self.flight is not None:
@@ -487,7 +493,7 @@ class VideoProcessor(QObject, StoreProperties):
     def update_figure_diags(self, val: bool) -> None:
         '''Update figure diags state in the drawing.'''
         if self.flight.is_located:  # protect artist
-            self._artist.DrawDiags = val
+            self._artist.draw_diags = val
             self._update_during_pause_flag = True
 
     def mark_figure(self, is_start: bool) -> None:
@@ -512,13 +518,13 @@ class VideoProcessor(QObject, StoreProperties):
             self._fig_tracker.finish_figure()
             self._is_fig_in_progress = False
             # Uniform t along the figure path
-            # t = np.linspace(0., 1., self._fig_tracker._curr_figure_fitter.num_nominal_pts)
+            # t = np.linspace(0., 1., self._fig_tracker.curr_figure_fitter.num_nominal_pts)
             # The figure's chosen t distribution (initial, final)
-            t = (self._fig_tracker._curr_figure_fitter.diag.u0,
-                 self._fig_tracker._curr_figure_fitter.u)
+            t = (self._fig_tracker.curr_figure_fitter.diag.u0,
+                 self._fig_tracker.curr_figure_fitter.u)
             log.debug(f'figure finish: shape of u0 vs. u final: {t[0].shape, t[1].shape}')
             # Trim our detected points according to the fit
-            trims = self._fig_tracker._curr_figure_fitter.diag.trim_indexes
+            trims = self._fig_tracker.curr_figure_fitter.diag.trim_indexes
             log.debug(f'_fig_img_pts before: size = {len(self._fig_img_pts)}')
             log.debug(f'trims: shape = {trims.shape}')
             self._fig_img_pts = list(tuple(pair)
@@ -526,8 +532,8 @@ class VideoProcessor(QObject, StoreProperties):
             log.debug(f'_fig_img_pts after: size = {len(self._fig_img_pts)}')
             # The last item is the tuple of (initial, final) fit params
             for i, fp in enumerate(self._fig_tracker.figure_params[-1]):
-                nom_pts = projection.projectSpherePointsToImage(
-                    self.cam, self._fig_tracker._curr_figure_fitter.get_nom_point(*fp, *t[i]))
+                nom_pts = projection.project_sphere_points_to_image(
+                    self.cam, self._fig_tracker.curr_figure_fitter.get_nom_point(*fp, *t[i]))
                 self._fit_img_pts.append(tuple(map(tuple, nom_pts.tolist())))
             # log.debug(f't ({len(t)} pts)')
             log.debug(f'_fit_img_pts[initial] ({len(self._fit_img_pts[0])} pts)')
@@ -569,44 +575,44 @@ class VideoProcessor(QObject, StoreProperties):
         if not self.flight.is_located:
             return
         self._update_during_pause_flag = True
-        if command == SphereManipulations.RotateCCW:
+        if command == SphereManipulations.ROTATE_CCW:
             # Rotate sphere CCW on Z axis
             self._azimuth += ProcessorSettings.sphere_rot_delta
             self._artist.set_azimuth(self._azimuth)
-        elif command == SphereManipulations.RotateCW:
+        elif command == SphereManipulations.ROTATE_CW:
             # Rotate sphere CW on Z axis
             self._azimuth -= ProcessorSettings.sphere_rot_delta
             self._artist.set_azimuth(self._azimuth)
-        elif command == SphereManipulations.MoveEast:
+        elif command == SphereManipulations.MOVE_EAST:
             # Move sphere right (+X)
             log.debug(
                 f'User moves sphere center X by {ProcessorSettings.sphere_xy_delta} '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
-            self._artist.MoveCenterX(ProcessorSettings.sphere_xy_delta)
-        elif command == SphereManipulations.MoveWest:
+            self._artist.move_center_x(ProcessorSettings.sphere_xy_delta)
+        elif command == SphereManipulations.MOVE_WEST:
             # Move sphere left (-X)
             log.debug(
                 f'User moves sphere center X by {-ProcessorSettings.sphere_xy_delta} '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
-            self._artist.MoveCenterX(-ProcessorSettings.sphere_xy_delta)
-        elif command == SphereManipulations.MoveNorth:
+            self._artist.move_center_x(-ProcessorSettings.sphere_xy_delta)
+        elif command == SphereManipulations.MOVE_NORTH:
             # Move sphere away from camera (+Y)
             log.debug(
                 f'User moves sphere center Y by {ProcessorSettings.sphere_xy_delta} '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
-            self._artist.MoveCenterY(ProcessorSettings.sphere_xy_delta)
-        elif command == SphereManipulations.MoveSouth:
+            self._artist.move_center_y(ProcessorSettings.sphere_xy_delta)
+        elif command == SphereManipulations.MOVE_SOUTH:
             # Move sphere toward camera (-Y)
             log.debug(
                 f'User moves sphere center Y by {-ProcessorSettings.sphere_xy_delta} '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
-            self._artist.MoveCenterY(-ProcessorSettings.sphere_xy_delta)
-        elif command == SphereManipulations.ResetCenter:
+            self._artist.move_center_y(-ProcessorSettings.sphere_xy_delta)
+        elif command == SphereManipulations.RESET_CENTER:
             # Reset sphere center to world origin
             log.debug(
                 f'User resets sphere center '
                 f'after frame {self.frame_idx} ({timedelta(seconds=self.frame_time)})')
-            self._artist.ResetCenter()
+            self._artist.reset_center()
 
     def _calc_size(self):
         '''Calculate sizing information.'''
@@ -625,7 +631,7 @@ class VideoProcessor(QObject, StoreProperties):
     def stop(self):
         '''Respond to a "nice" request to stop our processing loop.'''
         log.debug('Entering `VideoProcessor.stop()`')
-        self.ret_code = ProcessorReturnCodes.UserCanceled
+        self.ret_code = ProcessorReturnCodes.USER_CANCELED
         # Stop all of our event loops.
         # TODO: I think there is a cleaner way to do this with QEventLoop..
         self._keep_processing = False
@@ -644,14 +650,14 @@ class VideoProcessor(QObject, StoreProperties):
             log.critical('Exception details follow:')
             log.critical(exc)
             self.exc = exc
-            self.ret_code = ProcessorReturnCodes.ExceptionOccurred
+            self.ret_code = ProcessorReturnCodes.EXCEPTION_OCCURRED
             self.finished.emit(self.ret_code)
 
     def _process(self):
         '''The main processing loop.'''
         log.debug('Entering `VideoProcessor._process()`')
         self._keep_processing = True
-        self.ret_code = ProcessorReturnCodes.Normal
+        self.ret_code = ProcessorReturnCodes.NORMAL
         # --- Prepare for processing
         out_video_path = self.flight.video_path.with_name(f'{self._video_name}_out.mp4')
         # Prepare the output video file
@@ -678,7 +684,7 @@ class VideoProcessor(QObject, StoreProperties):
                 num_consecutive_empty_frames += 1
                 if num_consecutive_empty_frames > max_consecutive_empty_frames:
                     # GoPro videos show empty frames, quick fix
-                    self.ret_code = ProcessorReturnCodes.TooManyEmptyFrames
+                    self.ret_code = ProcessorReturnCodes.TOO_MANY_EMPTY_FRAMES
                     log.warning(
                         f'Failed to read frame from input! '
                         f'frame_idx={self.frame_idx}/{self.num_input_frames}, '
@@ -711,11 +717,12 @@ class VideoProcessor(QObject, StoreProperties):
                         # Note that `self._locate()`` handles `self.ret_code` appropriately.
                         break
 
-                ''' CAUTION: not for production use.
+                # ===========================================================
+                # CAUTION: not for production use.
                 # EXPERIMENTAL: Map the whole image frame to world sphere.
-                if self.frame_idx == 1:
-                    self._map_img_to_sphere(self._data_writer)
-                # '''
+                # ===========================================================
+                # if self.frame_idx == 1:
+                #     self._map_img_to_sphere(self._data_writer)
 
             if self.is_paused:
                 self._fps.pause()
@@ -784,7 +791,7 @@ class VideoProcessor(QObject, StoreProperties):
         elapsed_time_str = f'Elapsed time: {elapsed_time:.1f} s  [{timedelta(seconds=elapsed_time)}]'
         mean_fps_str = f'Approx. FPS: {self._fps.fps():.1f}'
         proc_extent = 'partial'
-        if self.ret_code == ProcessorReturnCodes.Normal:
+        if self.ret_code == ProcessorReturnCodes.NORMAL:
             proc_extent = 'full'
         log.info(f'Finished {proc_extent} processing of {self.flight.video_path.name}')
         log.info(f'Result video written to {out_video_path.name}')

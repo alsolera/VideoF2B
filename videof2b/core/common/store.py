@@ -30,12 +30,12 @@ class Store(metaclass=Singleton):
     '''An object store.  This is a singleton that provides access
     to object references that are shared within a process.'''
 
-    log.debug('Store loading')
+    # pylint: disable=no-member,protected-access
 
     @classmethod
     def create(cls):
         '''The constructor for the Store.'''
-        log.debug('Store initializing')
+        log.debug('Initializing Store')
         store = cls()
         store._items = {}
         return store
@@ -44,6 +44,7 @@ class Store(metaclass=Singleton):
         '''Get the specified object from the store.'''
         if key in self._items:
             return self._items[key]
+        return None
 
     def add(self, key, item):
         '''Add an item to the store.'''

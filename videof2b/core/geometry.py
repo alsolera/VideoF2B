@@ -36,13 +36,13 @@ class Fillet:
     calculate the parameters of the fillet.
     If degrees is True, `psi` is in degrees, otherwise it is in radians (default).'''
 
-    def __init__(self, R, r, psi, degrees=False):
+    def __init__(self, R, r, psi, is_degrees=False):
         # Values that define the fillet
         self.R = R
         self.r = r
         self.psi = psi
-        self.degrees = degrees
-        if self.degrees:
+        self.is_degrees = is_degrees
+        if self.is_degrees:
             self.psi = radians(psi)
         # Values we calculate based on the defining values above
         self.alpha = None
@@ -119,9 +119,8 @@ def get_arc(r, alpha, rho=100):
     '''
     nom_step = TWO_PI / rho
     num_pts = int(alpha / nom_step)
-    if num_pts < 3:
-        # Prevent degenerate arcs
-        num_pts = 3
+    # Prevent degenerate arcs
+    num_pts = max(num_pts, 3)
     act_step = alpha / num_pts
     if act_step > nom_step:
         num_pts += 1
@@ -190,8 +189,8 @@ def get_cone_delta(alpha, theta=None, beta=None):
     '''
     delta = np.nan
     aux = np.nan
-    known_str = 'UNDEFINED'
-    aux_str = 'UNDEFINED'
+    known_str = 'UNDEFINED'  # pylint: disable=unused-variable
+    aux_str = 'UNDEFINED'  # pylint: disable=unused-variable
     known_theta = theta is not None and beta is None
     known_beta = theta is None and beta is not None
     if known_theta:
@@ -209,7 +208,7 @@ def get_cone_delta(alpha, theta=None, beta=None):
     # Azimuth of cone axis when cone is at final elevation
     phi = atan2(tan(alpha), cos(beta))
     # Components of unit vector of the axis in Cartesian coords
-    ux, uy, uz = spherical_to_cartesian((1.0, theta, phi))
+    ux, _, uz = spherical_to_cartesian((1.0, theta, phi))
     uxx_uyy_sqrt = cos(theta)  # nice simplification of ux^2+uy^2 due to spherical coords
     uxx_uyy = uxx_uyy_sqrt**2
     # Result

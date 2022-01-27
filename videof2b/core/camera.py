@@ -38,6 +38,7 @@ class CalCamera(QObject):
 
     def __init__(self, frame_size, flight: Flight):
         '''Create a CalCamera for a given image frame size and a given Flight.'''
+        super().__init__()
         # We expect a properly populated Flight instance.
         self._flight = flight
         self.frame_size = frame_size
@@ -66,7 +67,7 @@ class CalCamera(QObject):
         if self._flight.is_calibrated:
             try:
                 self.load_calibration(self._flight.calibration_path)
-            except Exception as load_err:
+            except IOError as load_err:
                 log.error(f'Error loading calibration file: {load_err}')
                 self._flight.is_calibrated = False
                 return
@@ -141,6 +142,7 @@ class CalCamera(QObject):
             # The values of scaled_cam_mat is to scale with image dimension.
             scaled_cam_mat = self.cam_mat * dim1[0] / 1920.  # TODO: need more generic scaling here
             scaled_cam_mat[2][2] = 1.0  # Except that mat[2][2] is always 1.0
+            # pylint: disable=no-member
             final_cam_mat = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
                 scaled_cam_mat, self.dist, dim2, np.eye(3), balance=self.balance)
             map1, map2 = cv2.fisheye.initUndistortRectifyMap(
