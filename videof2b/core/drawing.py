@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
 # Copyright (C) 2018  Alberto Solera Rico - videof2b.dev@gmail.com
-# Copyright (C) 2020 - 2021  Andrey Vasilik - basil96
+# Copyright (C) 2020 - 2022  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -377,8 +377,6 @@ class Drawing:
         sc_ovr_eight = self._init_ovr_eight()
         # Clover
         sc_clover = self._init_clover()
-        # Clover, alt bottom entry
-        sc_clover_alt = self._init_clover_alt()
         # =============== END OF Figures ================================
         # Put them all together
         self._scenes = {
@@ -392,7 +390,6 @@ class Drawing:
             FigureTypes.HOURGLASS: sc_hourglass,
             FigureTypes.OVERHEAD_EIGHTS: sc_ovr_eight,
             FigureTypes.FOUR_LEAF_CLOVER: sc_clover,
-            FigureTypes.FOUR_LEAF_CLOVER_ALT: sc_clover_alt
         }
         self._sync_scene_diags()
 
@@ -946,61 +943,7 @@ class Drawing:
         return self._get_figure_scene(self._get_clover_pts())
 
     def _get_clover_pts(self):
-        '''Helper method for generating the new four-leaf clover,
-        entry from the 40.79 deg latitude (along the 45-deg tilted great arc).'''
-        # Rotation of base cone to achieve its tangency to equator
-        beta = EIGHTH_PI
-        # Each cone's half-angle
-        alpha = atan(sin(beta))
-        # Helper angles
-        delta, theta = geom.get_cone_delta(alpha, beta=beta)
-        # # Radius of each loop
-        r = self.R * sin(alpha)
-        # # Distance from sphere center to center of each loop
-        d = self.R * cos(alpha)
-        d_offset = [0., d, 0.]
-        tilt_angle_top = beta + QUART_PI
-        # Template full loop with center at equator, start/end pt at bottom.
-        loop = self._get_base_loop_pts(alpha)
-        # Template arc: almost 3/4 loop
-        base_arc = geom.get_arc(r, 1.5*pi-delta, rho=self._point_density)
-        # Template for loops 2 & 3, CCW. Axis on y-axis. Start pt at right.
-        arc_ccw = ROT.from_euler('x', HALF_PI).apply(base_arc) + d_offset
-        # Template for loop 4, CW. Axis on y-axis. Start pt at left, rotated by `delta`.
-        arc_cw = ROT.from_euler('zyx', [delta+HALF_PI, pi, HALF_PI]).apply(base_arc) + d_offset
-        # Template arc for the connecting paths: centered azimuthally, lying in the XY plane, CCW
-        conn_arc = ROT.from_euler(
-            'z', QUART_PI+EIGHTH_PI).apply(geom.get_arc(self.R, QUART_PI, rho=self._point_density))
-        # clover loops in the order they are performed
-        points = (
-            # Loop 1
-            ROT.from_euler('x', tilt_angle_top).apply(
-                ROT.from_euler('z', -alpha).apply(
-                    ROT.from_euler('y', -delta).apply(loop)
-                )
-            ),
-            # Connector: Loop 1 -> 2
-            ROT.from_euler('x', QUART_PI).apply(conn_arc),
-            # Loop 2
-            ROT.from_euler('yzx', [-delta - HALF_PI, alpha, beta]).apply(arc_ccw),
-            # Connector: Loop 2 -> 3
-            ROT.from_euler('yx', [HALF_PI, QUART_PI]).apply(conn_arc),
-            # Loop 3
-            ROT.from_euler('zx', [alpha, tilt_angle_top]).apply(arc_ccw),
-            # Connector: Loop 3 -> 4
-            ROT.from_euler('yx', [pi, QUART_PI]).apply(conn_arc),
-            # Loop 4
-            ROT.from_euler('zx', [-alpha, beta]).apply(arc_cw)
-        )
-        return points
-
-    def _init_clover_alt(self):
-        '''Initialize the scene of the four-leaf clover, alternative bottom entry.'''
-        return self._get_figure_scene(self._get_clover_alt_pts())
-
-    def _get_clover_alt_pts(self):
-        '''Helper method for generating the new four-leaf clover alternative,
-        entry from the bottom along the vertical centerline of figure.'''
+        '''Helper method for generating the four-leaf clover.'''
         # Rotation of base cone to achieve its tangency to equator
         beta = EIGHTH_PI
         # Each cone's half-angle

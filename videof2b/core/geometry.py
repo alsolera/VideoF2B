@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Andrey Vasilik - basil96
+# Copyright (C) 2021 - 2022  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -17,7 +17,8 @@
 
 '''General geometry related to F2B figures.'''
 
-from math import acos, asin, atan, cos, degrees, pi, radians, sin, sqrt, tan
+from math import (acos, asin, atan, atan2, cos, degrees, pi, radians, sin,
+                  sqrt, tan)
 
 import numpy as np
 import numpy.linalg as LA
@@ -205,7 +206,7 @@ def get_cone_delta(alpha, theta=None, beta=None):
     else:
         raise ArgumentError('Invalid combination of input arguments')
     # Azimuth of cone axis when cone is at final elevation
-    phi = atan(tan(alpha)/cos(beta))
+    phi = atan2(tan(alpha), cos(beta))
     # Components of unit vector of the axis in Cartesian coords
     ux, uy, uz = spherical_to_cartesian((1.0, theta, phi))
     uxx_uyy_sqrt = cos(theta)  # nice simplification of ux^2+uy^2 due to spherical coords
@@ -312,6 +313,6 @@ def cartesian_to_spherical(p):
     '''
     x, y, z = p[0], p[1], p[2]
     r = sqrt(x*x + y*y + z*z)
-    theta = atan(z / sqrt(x*x + y*y))
-    phi = atan(y/x)
+    theta = atan2(z, sqrt(x*x + y*y))
+    phi = atan2(y, x)
     return np.array([r, theta, phi])

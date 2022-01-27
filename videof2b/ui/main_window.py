@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021-2022  Andrey Vasilik - basil96
+# Copyright (C) 2021 - 2022  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -76,8 +76,6 @@ class Ui_MainWindow:
         self.chk_over_eight.setObjectName('chk_over_eight')
         self.chk_clover = QtWidgets.QCheckBox('Four-leaf clover', main_window)
         self.chk_clover.setObjectName('chk_clover')
-        self.chk_clover_alt = QtWidgets.QCheckBox('Four-leaf clover (ALT)', main_window)
-        self.chk_clover_alt.setObjectName('chk_clover_alt')
         # All figure checkboxes, excluding the diag checkbox.
         self.fig_chk_boxes = (
             self.chk_loops,
@@ -89,7 +87,6 @@ class Ui_MainWindow:
             self.chk_hourglass,
             self.chk_over_eight,
             self.chk_clover,
-            self.chk_clover_alt
         )
         for fig_chk in self.fig_chk_boxes:
             self.pnl_chk.addWidget(fig_chk)
@@ -331,7 +328,6 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow, StoreProperties):
         'chk_hourglass': FigureTypes.HOURGLASS,
         'chk_over_eight': FigureTypes.OVERHEAD_EIGHTS,
         'chk_clover': FigureTypes.FOUR_LEAF_CLOVER,
-        'chk_clover_alt': FigureTypes.FOUR_LEAF_CLOVER_ALT
     }
 
     def __init__(self):
