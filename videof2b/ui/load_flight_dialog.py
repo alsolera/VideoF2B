@@ -57,6 +57,10 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.main_layout = QtWidgets.QVBoxLayout(self)
         self.main_layout.setObjectName('main_layout')
         self.live_chk = QtWidgets.QCheckBox('&Live video', self)
+
+        # TODO: include the "Live video" checkbox when we support live video
+        self.live_chk.setVisible(False)
+
         self.video_path_lbl = QtWidgets.QLabel('Video source:', self)
         self.video_path_txt = PathEdit(
             self, PathEditType.FILES,
