@@ -39,29 +39,33 @@ class CamDirectorDialog(QtWidgets.QDialog):
         super().__init__(parent)
         self.setup_model()
         self.setup_ui()
+        # pylint: disable=no-member
         # Signals
         self.inputs_model.dataChanged.connect(self.on_new_solution)
 
     def setup_model(self):
+        '''Create the models.'''
         self.domain_obj = CamDirector()
         self.inputs_model = CamDirectorInputsModel(self.domain_obj)
         self.results_model = CamDirectorResultsModel(self.domain_obj)
 
     def setup_ui(self):
+        '''Create the UI.'''
         self.setWindowTitle('Camera placement calculator')
         # Components
         self.inputs_label = QtWidgets.QLabel('<strong>Inputs</strong>', self)
         self.inputs_view = QtWidgets.QTableView(self)
         self.inputs_view.setModel(self.inputs_model)
-        self.inputs_view.resizeColumnsToContents()
+        self._size_table(self.inputs_view)
+        url = 'https://www.scantips.com/lights/fieldofview.html#top'
         self.fov_link_label = QtWidgets.QLabel(
-            'Calculate your camera\'s FOV <a href="https://www.scantips.com/lights/fieldofview.html#top">here</a>.', self)
+            f'Calculate your camera\'s FOV <a href="{url}">here</a>.', self)
         self.fov_link_label.setTextInteractionFlags(QtCore.Qt.LinksAccessibleByMouse)
         self.fov_link_label.setOpenExternalLinks(True)
         self.results_label = QtWidgets.QLabel('<strong>Results</strong>', self)
         self.results_view = QtWidgets.QTableView(self)
         self.results_view.setModel(self.results_model)
-        self.results_view.resizeColumnsToContents()
+        self._size_table(self.results_view)
         self.diag_widget = QtWidgets.QWidget(self)
         self.diag_layout = QtWidgets.QVBoxLayout(self.diag_widget)
         self.diagram = QtWidgets.QLabel()
@@ -74,11 +78,11 @@ class CamDirectorDialog(QtWidgets.QDialog):
         self.data_widget = QtWidgets.QWidget(self)
         self.data_layout = QtWidgets.QVBoxLayout(self.data_widget)
         self.data_layout.addWidget(self.inputs_label)
-        self.data_layout.addWidget(self.inputs_view)
-        self.data_layout.addWidget(self.fov_link_label)
+        self.data_layout.addWidget(self.inputs_view, alignment=QtCore.Qt.AlignHCenter)
+        self.data_layout.addWidget(self.fov_link_label, alignment=QtCore.Qt.AlignHCenter)
         self.data_layout.addWidget(QHLine())
         self.data_layout.addWidget(self.results_label)
-        self.data_layout.addWidget(self.results_view)
+        self.data_layout.addWidget(self.results_view, alignment=QtCore.Qt.AlignHCenter)
         self.data_layout.addStretch(1)
         self.data_widget.setSizePolicy(QtWidgets.QSizePolicy.MinimumExpanding,
                                        QtWidgets.QSizePolicy.MinimumExpanding)
@@ -88,14 +92,25 @@ class CamDirectorDialog(QtWidgets.QDialog):
         self.main_layout.addWidget(self.diag_widget, 1)
         self.setLayout(self.main_layout)
 
-    def on_new_solution(self, *args):
+    def _size_table(self, table: QtWidgets.QTableView):
+        table.setSizePolicy(QtWidgets.QSizePolicy.Minimum, QtWidgets.QSizePolicy.Minimum)
+        table.setVerticalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        table.setHorizontalScrollBarPolicy(QtCore.Qt.ScrollBarAlwaysOff)
+        table.resizeColumnsToContents()
+        table.setFixedSize(
+            table.horizontalHeader().length() + table.verticalHeader().width(),
+            table.verticalHeader().length() + table.horizontalHeader().height()
+        )
+
+    def on_new_solution(self, _):
         '''Update results view when a new solution is available.'''
-        self.inputs_view.resizeColumnsToContents()
-        self.results_view.resizeColumnsToContents()
+        self._size_table(self.inputs_view)
+        self._size_table(self.results_view)
         self.results_view.reset()
 
 
 class CamDirectorInputsModel(QtCore.QAbstractListModel):
+    '''Model that represents the cam director's inputs.'''
 
     _row_names = (
         'Flight radius [R]',
@@ -145,6 +160,7 @@ class CamDirectorInputsModel(QtCore.QAbstractListModel):
                 return self._row_names[section]
             if orientation == QtCore.Qt.Horizontal:
                 return self._col_names[section]
+        return None
 
     def rowCount(self, parent: Union[QtCore.QModelIndex, QtCore.QPersistentModelIndex] = ...) -> int:
         return len(self._row_names)
@@ -158,25 +174,30 @@ class CamDirectorInputsModel(QtCore.QAbstractListModel):
             return QtCore.Qt.AlignRight + QtCore.Qt.AlignVCenter
         if role == QtCore.Qt.ToolTipRole:
             return self._tooltips[index.row()]
+        return None
 
     def flags(self, index: Union[QtCore.QModelIndex, QtCore.QPersistentModelIndex]) -> QtCore.Qt.ItemFlags:
         return QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled | QtCore.Qt.ItemIsEditable
 
-    def setData(self, index: Union[QtCore.QModelIndex, QtCore.QPersistentModelIndex], value: Any, role: int = ...) -> bool:
+    def setData(self,
+                index: Union[QtCore.QModelIndex, QtCore.QPersistentModelIndex],
+                value: Any, role: int = ...) -> bool:
         if role == QtCore.Qt.EditRole:
             if value == '':
                 return False
             try:
-                log.debug('attr=\'%s\' value=%s' % (self._biz_props[index.row()], value))
+                log.debug('attr=\'%s\' value=%s', self._biz_props[index.row()], value)
                 self.biz_obj.__setattr__(self._biz_props[index.row()], float(value))
+                # pylint: disable=no-member
                 self.dataChanged.emit(index, index)
                 return True
             except Exception as exc:
-                log.critical('Failed to set data on %s: %s' % (index.row(), exc))
+                log.critical('Failed to set data on %s: %s', index.row(), exc)
         return False
 
 
 class CamDirectorResultsModel(QtCore.QAbstractTableModel):
+    '''Model that represents the cam director's results.'''
 
     _row_names = (
         'Camera distance',
@@ -232,6 +253,7 @@ class CamDirectorResultsModel(QtCore.QAbstractTableModel):
         if role == QtCore.Qt.ToolTipRole:
             if orientation == QtCore.Qt.Horizontal:
                 return self._col_tooltips[section]
+        return None
 
     def rowCount(self, parent: Union[QtCore.QModelIndex, QtCore.QPersistentModelIndex] = ...) -> int:
         return len(self._row_names)
@@ -256,6 +278,7 @@ class CamDirectorResultsModel(QtCore.QAbstractTableModel):
             if row == 2 and (data - 45.0) > 1e-6:
                 tooltip_text.append('*** WARNING: Tangent elevation is higher than 45 degrees. ***')
             return '\n'.join(tooltip_text)
+        return None
 
     def flags(self, index: Union[QtCore.QModelIndex, QtCore.QPersistentModelIndex]) -> QtCore.Qt.ItemFlags:
         return QtCore.Qt.ItemIsSelectable | QtCore.Qt.ItemIsEnabled
