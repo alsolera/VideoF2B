@@ -28,7 +28,6 @@ logger = logging.getLogger(__name__)
 
 class UserError(Exception):
     '''Class for exception that occur during Figure tracking due to user errors.'''
-    pass
 
 
 class FigureTracker:
@@ -69,7 +68,7 @@ class FigureTracker:
         self.figure_params = []
         self.R = None
         self._callback = callback
-        self._curr_figure_fitter = None
+        self.curr_figure_fitter = None
         self._figure_actuals = None
         self._figure_indexes = None
 
@@ -87,7 +86,7 @@ class FigureTracker:
     def finish_figure(self):
         '''Finish trfig_type_constructorhe currently tracked figure.'''
         if not self.is_figure_in_progress:
-            self._callback(f"Cannot finish a figure as no figure is in progress.")
+            self._callback("Cannot finish a figure as no figure is in progress.")
             return
         self.is_figure_in_progress = False
         self.actuals.append(np.asarray(self._figure_actuals))
@@ -96,17 +95,19 @@ class FigureTracker:
             f'Finished tracking Figure {self.figure_idx} '
             f'({len(self._figure_actuals)} points)')
         # logger.debug(
-        #     f'Figure {self.figure_idx} points:\n{self.actuals[self.figure_idx]} shape = {self.actuals[self.figure_idx].shape}')
+        #     f'Figure {self.figure_idx} points:\n'
+        #     f'{self.actuals[self.figure_idx]}'
+        #     f' shape = {self.actuals[self.figure_idx].shape}')
         self._figure_actuals = None
         self._figure_indexes = None
 
         fig_type = FigureTracker.FIGURE_MAP.get(self.figure_idx)
         if fig_type is not None and self.R is not None:
-            self._curr_figure_fitter = Figure.create(
+            self.curr_figure_fitter = Figure.create(
                 fig_type, R=self.R, actuals=self.actuals[self.figure_idx], enable_diags=self.enable_diags)
             self.figure_params.append(
                 # tuple of (initial, final) fit parameters
-                (self._curr_figure_fitter.p0, self._curr_figure_fitter.fit())
+                (self.curr_figure_fitter.p0, self.curr_figure_fitter.fit())
             )
 
         self.figure_idx = len(self.actuals)
@@ -129,7 +130,10 @@ class FigureTracker:
         Arrays are labeled "fig0", "fig1", etc.'''
         d = {
             f'fig{i}':
-            np.asarray([np.hstack(x) for x in zip(self.indexes[i], act)]) for i, act in enumerate(self.actuals)
+            np.asarray(
+                [np.hstack(x) for x in zip(self.indexes[i], act)]
+            )
+            for i, act in enumerate(self.actuals)
         }
         np.savez(path, **d)
         logger.debug(f'Exported {len(self.actuals)} figure(s) to "{path}".')

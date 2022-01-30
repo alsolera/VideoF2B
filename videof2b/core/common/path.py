@@ -65,8 +65,7 @@ def path_to_str(path=None):
         raise TypeError("parameter 'path' must be of type Path or NoneType")
     if path is None:
         return ''
-    else:
-        return str(path)
+    return str(path)
 
 
 def str_to_path(string):
@@ -97,3 +96,4 @@ def files_to_paths(file_names):
     '''
     if file_names:
         return [str_to_path(file_name) for file_name in file_names]
+    return []

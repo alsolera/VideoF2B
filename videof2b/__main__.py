@@ -30,7 +30,7 @@ ERROR_LOG_FILE = None
 
 def tear_down_fault_handling():
     '''On exit, release the file we were using for the faulthandler.'''
-    global ERROR_LOG_FILE  # pylint: disable=global-statement
+    global ERROR_LOG_FILE  # pylint: disable=global-statement,global-variable-not-assigned
     ERROR_LOG_FILE.close()
 
 
@@ -54,8 +54,8 @@ def set_up_fault_handling():
 def main():
     '''Start the app.'''
     set_up_fault_handling()
-    # TODO if needed: # Add support for using multiprocessing from frozen Windows executable (built using PyInstaller),
-    # # see https://docs.python.org/3/library/multiprocessing.html#multiprocessing.freeze_support
+    # TODO add support for multiprocessing from frozen EXE (built using PyInstaller).
+    # see https://docs.python.org/3/library/multiprocessing.html#multiprocessing.freeze_support
     # if is_win():
     #     multiprocessing.freeze_support()
     start()

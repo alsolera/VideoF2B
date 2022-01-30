@@ -16,6 +16,10 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+'''
+This module contains representations of cameras.
+'''
+
 import logging
 
 import cv2
@@ -29,10 +33,12 @@ log = logging.getLogger(__name__)
 class CalCamera(QObject):
     '''Represents a real-world camera whose intrinsic and extrinsic optical properties are known.'''
 
-    # TODO: implement a `Calibrate()`` method here with all the functionality of CamCalibration.py to encapsulate all CalCamera-related functionality in one place.
+    # TODO: implement a `Calibrate()`` method here with all the functionality of CamCalibration.py
+    #       to encapsulate all CalCamera-related functionality in one place.
 
     def __init__(self, frame_size, flight: Flight):
         '''Create a CalCamera for a given image frame size and a given Flight.'''
+        super().__init__()
         # We expect a properly populated Flight instance.
         self._flight = flight
         self.frame_size = frame_size
@@ -61,7 +67,7 @@ class CalCamera(QObject):
         if self._flight.is_calibrated:
             try:
                 self.load_calibration(self._flight.calibration_path)
-            except Exception as load_err:
+            except IOError as load_err:
                 log.error(f'Error loading calibration file: {load_err}')
                 self._flight.is_calibrated = False
                 return
@@ -72,7 +78,8 @@ class CalCamera(QObject):
                     self.locate(self._flight)
                 except Exception as loc_err:
                     log.error(
-                        'Failed to auto-locate camera even though its flight is located. This should not have happened.\n'
+                        'Failed to auto-locate camera even though its flight is located.'
+                        ' This should not have happened.\n'
                         f'The problem was: {loc_err}'
                     )
                     raise loc_err
@@ -99,11 +106,14 @@ class CalCamera(QObject):
         This is a valid calculation when the camera's POV
         does not move from frame to frame.'''
         # Recalculate matrix and roi in case video from this camera was scaled after recording.
-        # FIXME: I suspect this approach doesn't actually work for rescaled videos. Currently, it results in incorrectly scaled AR geometry.
-        # If `self.frame_size` is the same size as the original video recording, this call has no side effects.
+        # FIXME: I suspect this approach doesn't actually work for rescaled videos.
+        #           Currently, it results in incorrectly scaled AR geometry.
+        #           If `self.frame_size` is the same size as the original video recording,
+        #           this call has no side effects.
         newcameramtx, roi = cv2.getOptimalNewCameraMatrix(
             self.mtx, self.dist, self.frame_size, 1)
-        # For diagnostics only. If video was not scaled after recording, these comparisons should be exactly equal.
+        # For diagnostics only. If video was not scaled after recording,
+        # these comparisons should be exactly equal.
         # print(f'as recorded newcameramtx =\n{self.newcameramtx}')
         # print(f'scaled newcameramtx = \n{newcameramtx}')
         # print(f'as recorded roi =\n{self.roi}')
@@ -118,7 +128,8 @@ class CalCamera(QObject):
         '''Undistort a given image according to the camera's calibration.'''
         x, y, w, h = self.roi
         if self.is_fisheye:
-            # img = cv2.fisheye.undistortImage(img, self.mtx, self.dist, None, self.newcameramtx) # kinda works, but something's still off...
+            # kinda works, but something's still off...
+            # img = cv2.fisheye.undistortImage(img, self.mtx, self.dist, None, self.newcameramtx)
             #
             # try the other approach
             dim1 = img.shape[:2][::-1]  # dim1 is the dimension of input image to un-distort
@@ -131,6 +142,7 @@ class CalCamera(QObject):
             # The values of scaled_cam_mat is to scale with image dimension.
             scaled_cam_mat = self.cam_mat * dim1[0] / 1920.  # TODO: need more generic scaling here
             scaled_cam_mat[2][2] = 1.0  # Except that mat[2][2] is always 1.0
+            # pylint: disable=no-member
             final_cam_mat = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
                 scaled_cam_mat, self.dist, dim2, np.eye(3), balance=self.balance)
             map1, map2 = cv2.fisheye.initUndistortRectifyMap(

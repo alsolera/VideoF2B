@@ -27,13 +27,14 @@ import numpy as np
 logger = logging.getLogger(__name__)
 
 
-def projectSpherePointsToImage(cam, world_pts, frame=None):
+def project_sphere_points_to_image(cam, world_pts, frame=None):
+    '''Project the given sphere points to image space.'''
     img_pts, _ = cv2.projectPoints(world_pts, cam.rvec, cam.tvec, cam.newcameramtx, cam.dist)
     img_pts = np.int32(img_pts).reshape(-1, 2)
     return img_pts
 
 
-def projectImagePointToSphere(frame, cam, radius, center, img_point, data_writer):
+def project_image_point_to_sphere(frame, cam, radius, center, img_point, data_writer):
     '''Project image point to world sphere given a calibrated camera and frame.
 
     :param frame: the image frame of interest.
@@ -71,7 +72,10 @@ def projectImagePointToSphere(frame, cam, radius, center, img_point, data_writer
     )
     logger.debug(f'coeffs = {coeffs}')
     # logger.debug(f'coeffs = {coeffs}')
-    # Value of determinant (b^2 - 4ac) determines type of solution (no intersection, tangent point, or two points)
+    # Value of determinant (b^2 - 4ac) determines type of solution:
+    # * no intersection
+    # * tangent point
+    # * two points
     # determinant = coeffs[1]**2 - 4.*coeffs[0]*coeffs[2]
     roots = np.roots(coeffs)
     logger.debug(f'roots = {roots}')
@@ -87,12 +91,12 @@ def projectImagePointToSphere(frame, cam, radius, center, img_point, data_writer
         logger.debug(f'norms_world = {norms_world}')
 
         # sanity check 2: project pts_world back into video and compare against img_point
-        imgPtsCheck, _ = cv2.projectPoints(pts_world, cam.rvec, cam.tvec,
-                                           cam.newcameramtx, cam.dist)
-        imgPtsCheck = np.int32(imgPtsCheck).reshape(-1, 2)
-        # logger.debug(f'imgPtsCheck = {imgPtsCheck}')
-        logger.debug(f'imgPtsCheck - img_point =\n{imgPtsCheck - img_point}')
-        for ipt, img_pt_check in enumerate(imgPtsCheck):
+        img_pts_check, _ = cv2.projectPoints(pts_world, cam.rvec, cam.tvec,
+                                             cam.newcameramtx, cam.dist)
+        img_pts_check = np.int32(img_pts_check).reshape(-1, 2)
+        # logger.debug(f'img_pts_check = {img_pts_check}')
+        logger.debug(f'img_pts_check - img_point =\n{img_pts_check - img_point}')
+        for ipt, img_pt_check in enumerate(img_pts_check):
             # logger.debug(f'img_pt_check - img_point = {img_pt_check - img_point}')
             if ipt == 0:
                 p_rad = 9

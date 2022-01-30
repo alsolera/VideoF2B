@@ -16,17 +16,22 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+'''
+This module performs motion detection in video.
+'''
+
 from collections import deque
 
 import cv2
-import imutils
 from numpy import asarray
 from numpy.linalg import norm
 
 
-class Detector(object):
+class Detector:
+    '''The primary motion detector in VideoF2B.'''
+
     def __init__(self, maxlen, scale):
-        # Create Background subtractor object
+        '''Create the Detector object.'''
         self.subtractor = cv2.createBackgroundSubtractorMOG2(
             history=4, varThreshold=15, detectShadows=False)
         self.pts = deque(maxlen=maxlen)
@@ -36,6 +41,7 @@ class Detector(object):
         self.scale = scale
 
     def process(self, img):
+        '''Detect a moving object in a given image frame.'''
         blurred = cv2.GaussianBlur(img, (7, 7), 0)
         mask = self.subtractor.apply(blurred)
         mask = cv2.erode(mask, None, iterations=1)
@@ -53,12 +59,12 @@ class Detector(object):
             # find the largest contour in the mask, then use it to compute the centroid
             c = max(cnts, key=cv2.contourArea)
             #((x, y), radius) = cv2.minEnclosingCircle(c)
-            M = cv2.moments(c)
-            if M["m00"] != 0:
-                center = (int(M["m10"] / M["m00"]), int(M["m01"] / M["m00"]))
+            m = cv2.moments(c)
+            if m["m00"] != 0:
+                center = (int(m["m10"] / m["m00"]), int(m["m01"] / m["m00"]))
 
-                center_scaled = (int(self.scale * M["m10"] / M["m00"]),
-                                 int(self.scale * M["m01"] / M["m00"]))
+                center_scaled = (int(self.scale * m["m10"] / m["m00"]),
+                                 int(self.scale * m["m01"] / m["m00"]))
             else:
                 center = None
                 center_scaled = None
@@ -74,6 +80,7 @@ class Detector(object):
         self.pts_scaled.appendleft(center_scaled)
 
     def clear(self):
+        '''Clear the currently detected track.'''
         self.pts.clear()
         self.pts_scaled.clear()
         self.pts.append(None)

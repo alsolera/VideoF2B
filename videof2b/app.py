@@ -38,31 +38,41 @@ log = logging.getLogger()
 
 
 class VideoF2B(QtCore.QObject):
+    '''The main application runner for VideoF2B.'''
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.main_window = None
+        self.exception_dialog = None
 
     def run(self, app):
-        app.aboutToQuit.connect(self._quitting)
+        '''The main method. Makes the necessary preparations, then runs the given app.'''
+        app.aboutToQuit.connect(VideoF2B._quitting)
         self.main_window = MainWindow()
         self.main_window.load_settings()
         self.main_window.show()
         return app.exec()
 
-    def _quitting(self):
+    @staticmethod
+    def _quitting():
         '''Exit hook.'''
         log.info('Exiting application.')
 
     def hook_exception(self, exc_type, value, traceback):
         """
-        Add an exception hook so that any uncaught exceptions are displayed in this window rather than somewhere where
+        Add an exception hook so that any uncaught exceptions
+        are displayed in this window rather than someplace where
         users cannot see it and cannot report when we encounter these problems.
 
         :param exc_type: The class of exception.
         :param value: The actual exception object.
         :param traceback: A traceback object with the details of where the exception occurred.
         """
-        # We can't log.exception here because the last exception no longer exists, we're actually busy handling it.
+        # We can't log.exception here because the last exception no longer exists.
+        # We're actually busy handling it.
         exc_msg = ''.join(format_exception(exc_type, value, traceback))
         log.critical(exc_msg)
-        if not hasattr(self, 'exception_dialog'):
+        if self.exception_dialog is None:
             self.exception_dialog = ExceptionDialog(exc_msg)
         self.set_normal_cursor()
         self.exception_dialog.exec()
@@ -125,6 +135,9 @@ def set_up_logging(log_path, level=logging.DEBUG):
 
 
 def start():
+    '''
+    Programmatic entry point of VideoF2B.
+    '''
     my_name, my_version = get_app_metadata()
     args = parse_options()
     if args and args.version:

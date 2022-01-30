@@ -21,14 +21,13 @@
 import logging
 import math
 from collections import defaultdict
-from math import (acos, asin, atan, atan2, cos, degrees, pi, radians, sin,
-                  sqrt, tan)
+from math import asin, atan, atan2, cos, pi, sin, sqrt, tan
 
 import cv2
 import numpy as np
-import videof2b.core.geometry as geom
 from scipy.spatial.transform import Rotation as ROT
 from videof2b.core import common
+from videof2b.core import geometry as geom
 from videof2b.core.camera import CalCamera
 from videof2b.core.common import (DEFAULT_TURN_RADIUS, EIGHTH_PI, HALF_PI,
                                   QUART_PI, TWO_PI, FigureTypes)
@@ -73,7 +72,7 @@ class Plot:
         # Optimization cache
         self._cache = {}
 
-    def _calculate(self, key, rvec, tvec, cameraMatrix, distCoeffs):
+    def _calculate(self, key, rvec, tvec, camera_matrix, dist_coeffs):
         '''Calculate image points for the given optimization key.
         The key is a tuple of (z_angle, translation) such that object points are
         transformed according to:
@@ -89,7 +88,7 @@ class Plot:
                     self._obj_pts) + translation
             else:
                 obj_pts = self._obj_pts
-            tmp, _ = cv2.projectPoints(obj_pts, rvec, tvec, cameraMatrix, distCoeffs)
+            tmp, _ = cv2.projectPoints(obj_pts, rvec, tvec, camera_matrix, dist_coeffs)
             self._cache[key] = tmp.astype(int).reshape(-1, 2)
         self._img_pts = self._cache[key]
 
@@ -97,16 +96,13 @@ class Plot:
         '''Call this method from derived classes before drawing the image points.'''
         rvec = kwargs.pop('rvec')
         tvec = kwargs.pop('tvec')
-        cameraMatrix = kwargs.pop('cameraMatrix')
-        distCoeffs = kwargs.pop('distCoeffs')
-        self._calculate(key, rvec, tvec, cameraMatrix, distCoeffs)
+        camera_matrix = kwargs.pop('cameraMatrix')
+        dist_coeffs = kwargs.pop('distCoeffs')
+        self._calculate(key, rvec, tvec, camera_matrix, dist_coeffs)
 
 
 class Scatter(Plot):
     '''Defines a collection of scattered points.'''
-
-    def __init__(self, obj_pts, **kwargs):
-        super().__init__(obj_pts, **kwargs)
 
     def draw(self, img, key, **kwargs):
         '''Draw scatter points as solid-filled circles using their attributes.'''
@@ -121,9 +117,6 @@ class Scatter(Plot):
 class Polyline(Plot):
     '''Defines a polyline.'''
 
-    def __init__(self, obj_pts, **kwargs):
-        super().__init__(obj_pts, **kwargs)
-
     def draw(self, img, key, **kwargs):
         '''Draw this polyline using its attributes.'''
         super().draw(key, **kwargs)
@@ -137,9 +130,6 @@ class Polyline(Plot):
 
 class DashedPolyline(Plot):
     '''Defines a polyline that is drawn dashed.'''
-
-    def __init__(self, obj_pts, **kwargs):
-        super().__init__(obj_pts, **kwargs)
 
     def draw(self, img, key, **kwargs):
         '''Draw this polyline using its attributes.'''
@@ -175,10 +165,11 @@ class EdgePolyline(Polyline):
         self.R = R
         self.cam_pos = cam_pos
 
-    def _calculate(self, key, rvec, tvec, cameraMatrix, distCoeffs):
+    def _calculate(self, key, rvec, tvec, camera_matrix, dist_coeffs):
         '''This class must provide a custom `_calculate()` method
         because the calculation is more complex than that for ordinary world points.'''
-        # The visible edge is independent of sphere rotation. Hence this calculation is keyed on translation only.
+        # The visible edge is independent of sphere rotation.
+        # Hence this calculation is keyed on translation only.
         _, translation = key
         key = translation
         if key not in self._cache:
@@ -220,12 +211,9 @@ class EdgePolyline(Polyline):
             # Also, this is always a 180-degree arc, and 35 points (rho=70) looks smooth enough.
             obj_pts = ROT.from_matrix(np.array([u, v, n]).T).apply(
                 geom.get_arc(r, pi, rho=70)) + c
-            tmp, _ = cv2.projectPoints(obj_pts, rvec, tvec, cameraMatrix, distCoeffs)
+            tmp, _ = cv2.projectPoints(obj_pts, rvec, tvec, camera_matrix, dist_coeffs)
             self._cache[key] = tmp.astype(int).reshape(-1, 2)
         self._img_pts = self._cache[key]
-
-    def draw(self, img, key, **kwargs):
-        return super().draw(img, key, **kwargs)
 
 
 class Scene:
@@ -237,12 +225,12 @@ class Scene:
         self._diags_on = False
 
     @property
-    def DiagsOn(self):
+    def diags_on(self):
         '''Boolean flag that controls drawing of diagnostics.'''
         return self._diags_on
 
-    @DiagsOn.setter
-    def DiagsOn(self, value):
+    @diags_on.setter
+    def diags_on(self, value):
         self._diags_on = value
 
     def add(self, item):
@@ -267,14 +255,15 @@ class DummyScene:
     '''Placeholder object for an empty scene.'''
 
     def draw(self, *args, **kwargs):
-        pass
+        '''No-op method.'''
 
 
 DEFAULT_SCENE = DummyScene()
 
 
 class Drawing:
-    '''Container that performs all the drawing of AR sphere, track, figures, etc., in any given image frame.'''
+    '''Container that performs all the drawing
+    of AR sphere, track, figures, etc., in any given image frame.'''
     # Default point density per 2*pi (360 degrees) of arc.
     DEFAULT_N = 100
 
@@ -326,11 +315,12 @@ class Drawing:
         self.locate(self._cam, flight, **kwargs)
 
     @property
-    def DrawDiags(self):
+    def draw_diags(self):
+        '''Controls the drawing of diagnostics.'''
         return self._draw_diags
 
-    @DrawDiags.setter
-    def DrawDiags(self, val):
+    @draw_diags.setter
+    def draw_diags(self, val):
         if val == self._draw_diags:
             # Don't waste our time
             return
@@ -348,7 +338,8 @@ class Drawing:
             self.marker_radius = flight.marker_radius
             self.marker_height = flight.marker_height
             center = kwargs.pop('center', common.DEFAULT_CENTER.copy())
-            # Ensure it's a numpy array (allow tuple, list as input). TODO: maybe it is safer to use `np.atleast_1d(center)` ?
+            # Ensure it's a numpy array (allow tuple, list as input).
+            # TODO: maybe it is safer to use `np.atleast_1d(center)` ?
             self.center = np.float32(center)
             self._evaluate_center()
             self.figure_state['base'] = True
@@ -396,7 +387,7 @@ class Drawing:
     def _sync_scene_diags(self):
         '''Sync the scene diagnostics flag with our flag.'''
         for scene in self._scenes.values():
-            scene.DiagsOn = self._draw_diags
+            scene.diags_on = self._draw_diags
 
     def _get_base_scene(self):
         '''Base scene: main hemisphere and markers.'''
@@ -417,12 +408,12 @@ class Drawing:
         # --- The coordinate axis reference at sphere center
         if self.axis:
             # XYZ sphere axes
-            p = np.float32([
+            p = np.array([
                 [0, 0, 0],
                 [2, 0, 0],
                 [0, 2, 0],
                 [0, 0, 5]
-            ])
+            ], dtype=np.float32)
             result.add(Polyline((p[0], p[1]), size=1, color=Colors.RED))
             result.add(Polyline((p[0], p[2]), size=1, color=Colors.GREEN))
             result.add(Polyline((p[0], p[3]), size=1, color=Colors.BLUE))
@@ -430,7 +421,8 @@ class Drawing:
         r45 = self.R * cos(QUART_PI)
         elev_circle = geom.get_arc(r45, TWO_PI, rho=self._point_density) + (0, 0, r45)
         result.add(Polyline(elev_circle, size=1, color=Colors.GREEN))
-        # --- The upper & lower limits of base flight envelope. Nominally these are 0.30m above and below the equator.
+        # --- The upper & lower limits of base flight envelope.
+        # Nominally these are 0.30m above and below the equator.
         tol = 0.3
         # Radius of the tolerance circles is equivalent to the axis height of a cone whose radius is `tol`.
         r_tol = geom.get_cone_d(self.R, tol)
@@ -450,15 +442,21 @@ class Drawing:
         # Sphere reference points (fixed in object space)
         pts_ref = Scatter(
             np.array([
-                # Points on sphere centerline: sphere center, pilot's feet, top of sphere.
+                # --- Points on sphere centerline:
+                # sphere center
                 [0, 0, 0],
+                # pilot's feet
                 [0, 0, -self.marker_height],
+                # top of sphere
                 [0, 0, self.R],
-                # Points on equator: bottom of right & left marker, right & left antipodes, front & rear antipodes
+                # --- Points on equator:
+                # bottom of right & left marker
                 [r45, r45, 0],
                 [-r45, r45, 0],
+                # right & left antipodes
                 [self.marker_radius, 0, 0],
                 [-self.marker_radius, 0, 0],
+                # front & rear antipodes
                 [0, -self.marker_radius, 0],
                 [0, self.marker_radius, 0]]),
             size=1, color=Colors.RED, is_fixed=True)
@@ -495,17 +493,20 @@ class Drawing:
         return result
 
     def set_azimuth(self, azimuth):
+        '''Set the aximuth of the AR sphere, in degrees.'''
         self._azimuth = azimuth
 
-    def MoveCenterX(self, delta):
+    def move_center_x(self, delta):
+        '''Move sphere center by `delta` along world X direction, in meters.'''
         self.center[0] += delta
         self._evaluate_center()
 
-    def MoveCenterY(self, delta):
+    def move_center_y(self, delta):
+        '''Move sphere center by `delta` along world Y direction, in meters.'''
         self.center[1] += delta
         self._evaluate_center()
 
-    def ResetCenter(self):
+    def reset_center(self):
         '''Reset sphere center to default.'''
         self.center = common.DEFAULT_CENTER.copy()
         self._evaluate_center()
@@ -595,7 +596,8 @@ class Drawing:
         points += [0., d, 0.]
         return points
 
-    def _add_diag_connections(self, scene, pieces):
+    @staticmethod
+    def _add_diag_connections(scene, pieces):
         '''This results in "donuts" of green/red color at each connection.
         If points at a connection do not meet, then that donut's ID/OD
         will not appear concentric. Use for visual diagnostics.'''
@@ -612,9 +614,9 @@ class Drawing:
             scene.add_diag(Scatter(conns[0::4], size=3, color=Colors.RED))
         if len(pieces) > 2:
             scene.add_diag(Scatter(conns[1::4], size=3, color=Colors.GREEN))
-        return
 
-    def _get_figure_scene(self, pieces):
+    @staticmethod
+    def _get_figure_scene(pieces):
         '''Helper method for creating any figure from the given contiguous pieces.'''
         course = np.vstack(pieces)
         result = Scene(
@@ -622,12 +624,12 @@ class Drawing:
             Polyline(course, size=3, color=Colors.WHITE)
         )
         # Diagnostics: tangency points
-        self._add_diag_connections(result, pieces)
+        Drawing._add_diag_connections(result, pieces)
         return result
 
     def _init_loop(self):
         '''Initialize the scene of the basic loop.'''
-        return self._get_figure_scene(self._get_loop_pts())
+        return Drawing._get_figure_scene(self._get_loop_pts())
 
     def _get_loop_pts(self):
         '''Helper method for generating the basic loop.'''
@@ -636,7 +638,7 @@ class Drawing:
 
     def _init_square_loop(self):
         '''Initialize the scene of the square loop.'''
-        return self._get_figure_scene(self._get_square_loop_pts())
+        return Drawing._get_figure_scene(self._get_square_loop_pts())
 
     def _get_square_loop_pts(self):
         '''Helper method for generating the square loop and square eight.'''
@@ -660,7 +662,8 @@ class Drawing:
         # Elevation of centers of the top corners
         theta = QUART_PI - alpha
         # `delta`: Helper angle for determining the included angle of top corners
-        # `omega`: Rotation of corner base cone from equator around x-axis by `omega` such that elevation of C_r = theta
+        # `omega`: Rotation of corner base cone from equator around x-axis
+        #          by `omega` such that elevation of C_r = theta
         delta, omega = geom.get_cone_delta(alpha, theta=theta)
         # Included angle of top corners
         beta = HALF_PI - delta
@@ -735,7 +738,7 @@ class Drawing:
 
     def _init_tri_loop(self):
         '''Initialize the scene of the triangular loop.'''
-        return self._get_figure_scene(self._get_tri_loop_pts())
+        return Drawing._get_figure_scene(self._get_tri_loop_pts())
 
     def _get_tri_loop_pts(self):
         '''Helper method for generating the triangular loop.'''
@@ -794,20 +797,15 @@ class Drawing:
 
     def _init_hor_eight(self):
         '''Initialize the scene of the horizontal eight.'''
-        return self._get_figure_scene(self._get_hor_eight_pts())
-        # TODO: move this chunk to a test case when we are ready for drawing tests. Verify all connections between the pieces.
-        # right_loop, left_loop = points
-        # print(np.linalg.norm(right_loop[0] - right_loop[-1]))
-        # print(np.linalg.norm(right_loop[-1] - left_loop[0]))
-        # print(np.linalg.norm(left_loop[0] - left_loop[-1]))
+        return Drawing._get_figure_scene(self._get_hor_eight_pts())
 
     def _get_hor_eight_pts(self):
         '''Helper method for generating the horizontal eight.'''
         # Start with a 45-deg loop whose axis is the y-axis, start/end at left
         loop_pts = ROT.from_euler('y', HALF_PI).apply(self._get_base_loop_pts())
         # Loop radius and distance
-        r_loop = self.R * sin(EIGHTH_PI)
-        d = geom.get_cone_d(self.R, r_loop)
+        # r_loop = self.R * sin(EIGHTH_PI)
+        # d = geom.get_cone_d(self.R, r_loop)
         # The elevation angle of each loop to satisfy tangency for a horizontal eight.
         theta = asin(tan(EIGHTH_PI))
         points = (
@@ -821,7 +819,7 @@ class Drawing:
 
     def _init_sq_eight(self):
         '''Initialize the scene of the horizontal square eight.'''
-        return self._get_figure_scene(self._get_sq_eight_pts())
+        return Drawing._get_figure_scene(self._get_sq_eight_pts())
 
     def _get_sq_eight_pts(self):
         '''Helper method for generating the horizontal square eight.'''
@@ -836,7 +834,7 @@ class Drawing:
 
     def _init_ver_eight(self):
         '''Initialize the scene of the vertical eight.'''
-        return self._get_figure_scene(self._get_ver_eight_pts())
+        return Drawing._get_figure_scene(self._get_ver_eight_pts())
 
     def _get_ver_eight_pts(self):
         '''Helper method for generating the vertical eight.'''
@@ -849,7 +847,7 @@ class Drawing:
 
     def _init_hourglass(self):
         '''Initialize the scene of the hourglass.'''
-        return self._get_figure_scene(self._get_hourglass_pts())
+        return Drawing._get_figure_scene(self._get_hourglass_pts())
 
     def _get_hourglass_pts(self):
         '''Helper method for generating the hourglass.
@@ -928,7 +926,7 @@ class Drawing:
 
     def _init_ovr_eight(self):
         '''Initialize the scene of the overhead eight.'''
-        return self._get_figure_scene(self._get_ovr_eight_pts())
+        return Drawing._get_figure_scene(self._get_ovr_eight_pts())
 
     def _get_ovr_eight_pts(self):
         '''Helper method for generating the overhead eight.'''
@@ -940,7 +938,7 @@ class Drawing:
 
     def _init_clover(self):
         '''Initialize the scene of the four-leaf clover.'''
-        return self._get_figure_scene(self._get_clover_pts())
+        return Drawing._get_figure_scene(self._get_clover_pts())
 
     def _get_clover_pts(self):
         '''Helper method for generating the four-leaf clover.'''
@@ -949,15 +947,13 @@ class Drawing:
         # Each cone's half-angle
         alpha = atan(sin(beta))
         # Helper angles
-        delta, theta = geom.get_cone_delta(alpha, beta=beta)
+        delta, _ = geom.get_cone_delta(alpha, beta=beta)
         # # Radius of each loop
         r = self.R * sin(alpha)
         # # Distance from sphere center to center of each loop
         d = self.R * cos(alpha)
         d_offset = [0., d, 0.]
         tilt_angle_top = beta + QUART_PI
-        # Template full loop with center at equator, start/end pt at bottom.
-        loop = self._get_base_loop_pts(alpha)
         # Template arc: almost 3/4 loop
         base_arc = geom.get_arc(r, 1.5*pi-delta, rho=self._point_density)
         # Template for loops 2 & 3, CCW. Axis on y-axis. Start pt at right.

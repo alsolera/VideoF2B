@@ -3,7 +3,10 @@
 # A comma-separated list of package or module names from where C extensions may
 # be loaded. Extensions are loading into the active Python interpreter and may
 # run arbitrary code.
-extension-pkg-whitelist=
+extension-pkg-allow-list=
+    cv2,
+    cv2.fisheye,
+    PySide6,
 
 # Add files or directories to the blacklist. They should be base names, not
 # paths.
@@ -139,13 +142,18 @@ disable=print-statement,
         deprecated-sys-function,
         exception-escape,
         comprehension-escape,
-        too-few-public-methods
+        too-few-public-methods,
+        c-extension-no-member,
+        # The `fstr` option for `logging-format-style` is gone and instead you need to
+        # manually disable `logging-fstring-interpolation` if you want to use f-strings
+        # for logging. See https://github.com/PyCQA/pylint/issues/3570
+        logging-fstring-interpolation,
 
 # Enable the message, report, category or checker with the given id(s). You can
 # either give multiple identifier separated by comma (,) or put this option
 # multiple time (only on the command line, not in the configuration file where
 # it should appear only once). See also the "--disable" option for examples.
-enable=c-extension-no-member
+# enable=c-extension-no-member
 
 
 [REPORTS]
@@ -192,7 +200,7 @@ argument-naming-style=snake_case
 
 # Regular expression matching correct argument names. Overrides argument-
 # naming-style.
-#argument-rgx=
+argument-rgx=^[a-z][a-z0-9]*((_[a-z0-9]+)*)?$
 
 # Naming style matching correct attribute names.
 attr-naming-style=snake_case
@@ -292,7 +300,7 @@ variable-naming-style=snake_case
 
 # Regular expression matching correct variable names. Overrides variable-
 # naming-style.
-#variable-rgx=
+variable-rgx=^[a-z][a-z0-9]*((_[a-z0-9]+)*)?$
 
 
 [FORMAT]
@@ -333,11 +341,6 @@ single-line-if-stmt=no
 
 
 [LOGGING]
-
-# The `fstr` option for `logging-format-style` is gone and instead you need to
-# manually disable `logging-fstring-interpolation` if you want to use f-strings
-# for logging. See https://github.com/PyCQA/pylint/issues/3570
-logging-fstring-interpolation=no
 
 # Logging modules to check that the string format arguments are in logging
 # function parameter format.
@@ -510,7 +513,7 @@ valid-metaclass-classmethod-first-arg=cls
 max-args=5
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=7
+max-attributes=20
 
 # Maximum number of boolean expressions in an if statement (see R0916).
 max-bool-expr=5

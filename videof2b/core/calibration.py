@@ -42,17 +42,17 @@ log = logging.getLogger(__name__)
 class CalibratorReturnCodes(enum.IntEnum):
     '''Definition of the return codes from CameraCalibrator's processing loop.'''
     # An exception occurred. Caller should check .exc for details.
-    ExceptionOccurred = -2
+    EXCEPTION_OCCURRED = -2
     # This is the code at init before the loop starts.
-    Undefined = -1
+    UNDEFINED = -1
     # The loop exited normally.
-    Normal = 0
+    NORMAL = 0
     # User canceled the loop early.
-    UserCanceled = 1
+    USER_CANCELED = 1
     # No valid frames found.
-    NoValidFrames = 2
+    NO_VALID_FRAMES = 2
     # Insufficient valid frames found.
-    InsufficientValidFrames = 3
+    INSUFFICIENT_VALID_FRAMES = 3
 
 
 class CameraCalibrator(QObject):
@@ -84,7 +84,7 @@ class CameraCalibrator(QObject):
         # Exception object, if any occurred during the main loop.
         self.exc: Exception = None
         # Return code that indicates our status when the proc loop exits.
-        self.ret_code: CalibratorReturnCodes = CalibratorReturnCodes.Undefined
+        self.ret_code: CalibratorReturnCodes = CalibratorReturnCodes.UNDEFINED
         # Flags
         self._keep_running: bool = False
         # Video frame rate in frames per second.
@@ -93,6 +93,7 @@ class CameraCalibrator(QObject):
         self._video_spf: float = None
         self.frame_idx: int = None
         self.frame_time: float = None
+        self.num_input_frames: int = -1
         self.progress: int = None
         self._cap: cv2.VideoCapture = None
 
@@ -124,13 +125,13 @@ class CameraCalibrator(QObject):
             log.critical('Exception details follow:')
             log.critical(exc)
             self.exc = exc
-            self.ret_code = CalibratorReturnCodes.ExceptionOccurred
+            self.ret_code = CalibratorReturnCodes.EXCEPTION_OCCURRED
             self.finished.emit(self.ret_code)
 
     def stop(self):
         '''Cancel the calibration procedure.'''
         log.debug('Entering `CameraCalibrator.stop()`')
-        self.ret_code = CalibratorReturnCodes.UserCanceled
+        self.ret_code = CalibratorReturnCodes.USER_CANCELED
         self._keep_running = False
 
     @staticmethod
@@ -150,16 +151,16 @@ class CameraCalibrator(QObject):
         success = True
         progress_msg = None
         # Check if loop exited early
-        if self.ret_code == CalibratorReturnCodes.UserCanceled:
+        if self.ret_code == CalibratorReturnCodes.USER_CANCELED:
             log.info('Quitting calibration early.')
             progress_msg = 'Canceling camera calibration.'
             success = False
-        if self.ret_code == CalibratorReturnCodes.NoValidFrames:
+        if self.ret_code == CalibratorReturnCodes.NO_VALID_FRAMES:
             msg = 'No frames found for calibration. Quitting.'
             log.error(msg)
             progress_msg = f'ERROR: {msg}'
             success = False
-        if self.ret_code == CalibratorReturnCodes.InsufficientValidFrames:
+        if self.ret_code == CalibratorReturnCodes.INSUFFICIENT_VALID_FRAMES:
             msg = 'Insufficient information for calibration. Quitting.'
             log.error(msg)
             progress_msg = f'ERROR: {msg}'
@@ -223,11 +224,11 @@ class CameraCalibrator(QObject):
             # Breathe, dawg
             QCoreApplication.processEvents()
         # Check for failures. UserCanceled has priority.
-        if self.ret_code != CalibratorReturnCodes.UserCanceled:
+        if self.ret_code != CalibratorReturnCodes.USER_CANCELED:
             if 0 < num_used < min_num_used:
-                self.ret_code = CalibratorReturnCodes.InsufficientValidFrames
+                self.ret_code = CalibratorReturnCodes.INSUFFICIENT_VALID_FRAMES
             if num_images == 0 or num_used == 0:
-                self.ret_code = CalibratorReturnCodes.NoValidFrames
+                self.ret_code = CalibratorReturnCodes.NO_VALID_FRAMES
         # Validate us before diving into calibration
         if not self._validate():
             return
@@ -281,7 +282,7 @@ class CameraCalibrator(QObject):
         self._cap.release()
         self.progress = 100
         self.progress_updated.emit((self.frame_time, self.progress, 'Camera calibration complete.'))
-        self.ret_code = CalibratorReturnCodes.Normal
+        self.ret_code = CalibratorReturnCodes.NORMAL
         self.finished.emit(self.ret_code)
 
     def _bump_progress(self, bump_interval=10, msg=''):
@@ -313,6 +314,7 @@ class CameraCalibrator(QObject):
                 https://medium.com/@kennethjiang/calibrate-fisheye-lens-using-opencv-333b05afa0b0
                 https://medium.com/@kennethjiang/calibrate-fisheye-lens-using-opencv-part-2-13990f1b157f
         '''
+        # pylint: disable=no-member
         cal_dir = self.path.parent
         chessboard_dim = (7, 10)
         subpix_criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.1)
@@ -330,7 +332,7 @@ class CameraCalibrator(QObject):
         )
         objp = np.zeros((1, chessboard_dim[0]*chessboard_dim[1], 3), np.float32)
         objp[0, :, :2] = np.mgrid[:chessboard_dim[0], :chessboard_dim[1]].T.reshape(-1, 2)
-        _img_shape = None
+        img_shape = None
         objpoints = []  # 3d point in real world space
         imgpoints = []  # 2d points in image plane.
 
@@ -344,16 +346,16 @@ class CameraCalibrator(QObject):
         num_images = 0
 
         while self._keep_running:
-            for i in range(frame_skip_count):
+            for _ in range(frame_skip_count):
                 _, img = cap.read()
                 if num_images == 0:
                     image_1 = img
             if img is None:
                 break
-            if _img_shape is None:
-                _img_shape = img.shape[:2]
+            if img_shape is None:
+                img_shape = img.shape[:2]
             else:
-                assert _img_shape == img.shape[:2], "All images must share the same size."
+                assert img_shape == img.shape[:2], "All images must share the same size."
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             # Find the chessboard corners
@@ -381,7 +383,7 @@ class CameraCalibrator(QObject):
         dist_coeffs = np.zeros((4, 1))
         rvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(num_used)]
         tvecs = [np.zeros((1, 1, 3), dtype=np.float64) for i in range(num_used)]
-        rms, _, _, _, _ = cv2.fisheye.calibrate(
+        _, _, _, _, _ = cv2.fisheye.calibrate(
             objpoints,
             imgpoints,
             gray.shape[::-1],
@@ -392,7 +394,7 @@ class CameraCalibrator(QObject):
             calibration_flags,
             calibration_criteria
         )
-        img_dims = _img_shape[::-1]
+        img_dims = img_shape[::-1]
         log.debug(f"img_dims = {img_dims}")
         log.debug(f"cam_mat =\n{cam_mat}")
         log.debug(f"dist_coeffs =\n{dist_coeffs}")
@@ -414,7 +416,9 @@ class CameraCalibrator(QObject):
         scaled_cam_mat = cam_mat * dim1[0] / img_dims[0]
         scaled_cam_mat[2][2] = 1.0  # Except that K[2][2] is always 1.0
 
-        # This is how scaled_cam_mat, dim2 and balance are used to determine final_cam_mat used to un-distort image. OpenCV document failed to make this clear!
+        # This is how scaled_cam_mat, dim2 and balance are used
+        # to determine final_cam_mat used to un-distort image.
+        # OpenCV document failed to make this clear!
         final_cam_mat = cv2.fisheye.estimateNewCameraMatrixForUndistortRectify(
             scaled_cam_mat, dist_coeffs, dim2, np.eye(3), balance=balance)
         map1, map2 = cv2.fisheye.initUndistortRectifyMap(
