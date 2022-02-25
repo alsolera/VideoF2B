@@ -345,7 +345,8 @@ class Figure:
 class InsideLoops(Figure):
     '''Represents three consecutive inside loops per F2B Rule 4.2.15.5 and Diagram 4.J.3 in the Annex.
     kwargs:
-        `enable_diags` : enables diagnostic output and plotting of various behind-the-scenes stuff.
+
+    :param enable_diags: enables diagnostic output and plotting of various behind-the-scenes stuff.
     '''
 
     def __init__(self, R=None, actuals=None, **kwargs):

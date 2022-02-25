@@ -1,0 +1,52 @@
+% \documentclass[tikz,border=3pt]{standalone}
+% \usepackage{tikz-3dplot}
+% \begin{document}
+
+% Viewing angles
+\def\viewTheta{65}
+\def\viewPhi{110}
+
+\tdplotsetmaincoords{\viewTheta}{\viewPhi}
+\begin{tikzpicture}
+    [scale=8,
+        tdplot_main_coords,
+        axis/.style={->,black,thick},
+        vector/.style={-stealth,red,very thick},
+        vector guide/.style={dashed,red,thin},
+        geodesic/.style={dashed,gray,thin},
+        azim/.style={black,thick},
+        elev/.style={black,thick}]
+    
+    \colorlet{azimcolor}{green!50!black}
+    \colorlet{elevcolor}{blue}
+
+    % Standard tikz coordinate definition using x, y, z coords
+    \coordinate (O) at (0,0,0);
+    
+    % Coordinates of point P in spherical POLAR coords
+    \def\pR{.95}
+    \def\pTheta{45}
+    \def\pPhi{60}
+
+    % Point P: tikz-3dplot coordinate definition using r, theta, phi coords
+    \tdplotsetcoord{P}{\pR}{\pTheta}{\pPhi}
+
+    % Draw axes
+    \draw[axis] (0,0,0) -- (1,0,0) node[anchor=north east]{$x$};
+    \draw[axis] (0,0,0) -- (0,1,0) node[anchor=north west]{$y$};
+    \draw[axis] (0,0,0) -- (0,0,1) node[anchor=south]{$z$};
+
+    % Draw a vector from O to P
+    \draw[vector] (O) -- (P) node[midway,anchor=south east]{};
+    \node [anchor=south west,color=red] at (P) {$P(x,y,z)$};
+    \fill [red] (P) circle (.2pt);
+
+    % Draw guide lines to components
+    % \draw[vector guide] (O) -- (Pxy)  node[midway,sloped,anchor=south west]{};
+    \draw[vector guide,color=elevcolor] (Pxy) -- (P)  node[midway,left]{$z$};
+    \draw[vector guide] (Px) -- (Pxy) node[midway,below]{$y$};
+    \draw[vector guide] (Py) -- (Pxy) node[midway,below]{$x$};
+
+\end{tikzpicture}
+
+% \end{document}
