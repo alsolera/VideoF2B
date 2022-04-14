@@ -33,14 +33,14 @@ def replace_params(args, kwargs, params):
     :rtype: tuple[tuple, dict]
 
     Usage:
-        Given a method with the following signature,
-        assume we want to apply the `str` function to `arg2`:
-            `def method(arg1=None, arg2=None, arg3=None)`
+    Given a method with the following signature,
+    assume we want to apply the `str` function to `arg2`:
+    `def method(arg1=None, arg2=None, arg3=None)`
 
-        Since `arg2 can be specified positionally as the
-        second argument (1 with a zero index) or as a keyword,
-        we would call this function as follows:
-            `replace_params(args, kwargs, ((1, 'arg2', str),))`
+    Since `arg2 can be specified positionally as the
+    second argument (1 with a zero index) or as a keyword,
+    we would call this function as follows:
+    `replace_params(args, kwargs, ((1, 'arg2', str),))`
     '''
     args = list(args)
     for position, key_word, transform in params:
@@ -55,8 +55,8 @@ def path_to_str(path=None):
     '''Convert a Path object or NoneType to a string equivalent.
 
     :param Path | None path: The value to convert to a string
-    :return: An empty string if :param:`path` is None,
-             else a string representation of the :param:`path`
+    :return: An empty string if `path` is None,
+             else a string representation of the `path`
     :rtype: str
     '''
     if isinstance(path, str):
@@ -76,8 +76,8 @@ def str_to_path(string):
     current working directory, which is not desirable.
 
     :param str string: The string to convert
-    :return: None if :param:`string` is empty,
-             or a Path object representation of :param:`string`
+    :return: None if `string` is empty,
+             or a Path object representation of `string`
     :rtype: Path | None
     '''
     if not isinstance(string, str):

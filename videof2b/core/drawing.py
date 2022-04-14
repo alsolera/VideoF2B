@@ -52,13 +52,16 @@ class Plot:
     '''Base class for plotting primitives.
     * Call `draw()` to draw the Plot instance in your image.
     kwargs:
-        size: the line thickness or point radius.
-        color: the color of the primitives in this Plot.
-        is_fixed: bool indicating whether this Plot is fixed in object space or not.
-                  If True, world transforms do not affect the object coordinates.
-                  If False (default), then world transforms will
-                    rotate, scale, and translate the object coordinates according
-                    to the rules in the `_calculate()` method.
+
+    size: the line thickness or point radius.
+
+    color: the color of the primitives in this Plot.
+
+    is_fixed: bool indicating whether this Plot is fixed in object space or not.
+                If True, world transforms do not affect the object coordinates.
+                If False (default), then world transforms will
+                rotate, scale, and translate the object coordinates according
+                to the rules in the `_calculate()` method.
     '''
 
     def __init__(self, obj_pts, **kwargs):

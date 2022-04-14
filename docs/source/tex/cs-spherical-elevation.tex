@@ -1,0 +1,73 @@
+% \documentclass[tikz,border=3pt]{standalone}
+% \usepackage{tikz-3dplot}
+% \begin{document}
+
+% Based on the author's tutorial of tikz-3dplot at https://latex.net/tikz-3dplot/
+
+% Viewing angles
+\def\viewTheta{65}
+\def\viewPhi{110}
+
+\tdplotsetmaincoords{\viewTheta}{\viewPhi}
+\begin{tikzpicture}
+    [scale=8,
+        tdplot_main_coords,
+        axis/.style={->,black,thick},
+        vector/.style={-stealth,red,very thick},
+        vector guide/.style={dashed,red,thin},
+        geodesic/.style={dashed,gray,thin},
+        azim/.style={black,thick},
+        elev/.style={black,thick}]
+    
+    \colorlet{azimcolor}{green!50!black}
+    \colorlet{elevcolor}{blue}
+
+    % Standard tikz coordinate definition using x, y, z coords
+    \coordinate (O) at (0,0,0);
+    
+    % Coordinates of point P in spherical POLAR coords
+    \def\pR{.95}
+    \def\pTheta{45}
+    \def\pPhi{60}
+    %\pgfmathparse{\pR*sin(\pTheta)}
+    %\def\pLatRadius{\pgfmathresult}
+    \def\pLatRadius{0.671751}
+
+    % Point P: tikz-3dplot coordinate definition using r, theta, phi coords
+    \tdplotsetcoord{P}{\pR}{\pTheta}{\pPhi}
+    % \tdplottransform
+    
+    % Draw axes
+    \draw[axis] (0,0,0) -- (1,0,0) node[anchor=north east]{$x$};
+    \draw[axis] (0,0,0) -- (0,1,0) node[anchor=north west]{$y$};
+    \draw[axis] (0,0,0) -- (0,0,1) node[anchor=south]{$z$};
+    
+    % Draw a vector from O to P
+    \draw[vector] (O) -- (P) node[midway,anchor=south east]{$\color{black}r$};
+    \node [right,color=red] at (P) {$P(r, \theta, \phi)$};
+    \fill [red] (P) circle (.2pt);
+    
+    % Draw guide lines to components
+    \draw[vector guide] (O) -- (Pxy)  node[midway,sloped,anchor=south west]{$r\cos\theta$};
+    \draw[vector guide,color=elevcolor] (Pxy) -- (P)  node[midway,left]{$\color{elevcolor}r\sin\theta$};
+    \draw[vector guide] (Px) -- (Pxy) node[midway,sloped,below]{$r\cos\theta \color{azimcolor}\sin\phi$};
+    \draw[vector guide] (Py) -- (Pxy) node[near end,sloped,below]{$r\cos\theta \color{azimcolor}\cos\phi$};
+
+    % Azimuth label
+    \tdplotdrawarc[azim]{(O)}{.15}{0}{\pPhi}{anchor=north}{$\phi$}
+
+    % Define the rotated coordinate frame to lie in the "theta plane"
+    \tdplotsetthetaplanecoords{\pPhi}
+    % Label the elevation angle
+    \tdplotdrawarc[tdplot_rotated_coords,elev]{(O)}{.30}{90}{\pTheta}
+        {anchor=south west}{$\theta$}
+    % Draw point P's meridian
+    \tdplotdrawarc[tdplot_rotated_coords,geodesic]{(O)}{\pR}{90}{0}{}{}
+    % Draw point P's latitude
+    \tdplotdrawarc[tdplot_main_coords,geodesic]{(Pz)}{\pLatRadius}{0}{120}{}{}
+    % Draw the equator
+    \tdplotdrawarc[tdplot_main_coords, geodesic]{(O)}{\pR}{0}{90}{}{}
+
+\end{tikzpicture}
+
+% \end{document}

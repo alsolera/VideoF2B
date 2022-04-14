@@ -35,22 +35,24 @@ class FigureTracker:
     May be used for fitting the actual flight path to the nominal figure to determine a score.
 
     All FAI figures, per "F2, Annex 4J -- F2B Manoeuvre Diagrams" for reference.
+
     Not all may be easy to track:
-        * 4.J.1  Take-off (Rule 4.2.15.3)
-        * 4.J.2  Reverse wingover (Rule 4.2.15.4)
-        * 4.J.3  Three consecutive inside loops (Rule 4.2.15.5)
-        * 4.J.4  Two consecutive laps of inverted level flight (Rule 4.2.15.6)
-        * 4.J.5  Three consecutive outside loops (Rule 4.2.15.7)
-        * 4.J.6  Two consecutive inside square loops (Rule 4.2.15.8)
-        * 4.J.7  Two consecutive outside square loops (Rule 4.2.15.9)
-        * 4.J.8  Two consecutive inside triangular loops (Rule 4.2.15.10)
-        * 4.J.9  Two consecutive horizontal eight (Rule 4.2.15.11)
-        * 4.J.10 Two consecutive horizontal square eight (Rule 4.2.15.12)
-        * 4.J.11 Two consecutive vertical eight (Rule 4.2.15.13)
-        * 4.J.12 Hourglass (Rule 4.2.15.14)
-        * 4.J.13 Two consecutive overhead eight (Rule 4.2.15.15)
-        * 4.J.14 Four-leaf clover manoeuvre (Rule 4.2.15.16)
-        * 4.J.15 Landing manoeuvre (Rule 4.2.15.17)
+
+    * 4.J.1  Take-off (Rule 4.2.15.3)
+    * 4.J.2  Reverse wingover (Rule 4.2.15.4)
+    * 4.J.3  Three consecutive inside loops (Rule 4.2.15.5)
+    * 4.J.4  Two consecutive laps of inverted level flight (Rule 4.2.15.6)
+    * 4.J.5  Three consecutive outside loops (Rule 4.2.15.7)
+    * 4.J.6  Two consecutive inside square loops (Rule 4.2.15.8)
+    * 4.J.7  Two consecutive outside square loops (Rule 4.2.15.9)
+    * 4.J.8  Two consecutive inside triangular loops (Rule 4.2.15.10)
+    * 4.J.9  Two consecutive horizontal eight (Rule 4.2.15.11)
+    * 4.J.10 Two consecutive horizontal square eight (Rule 4.2.15.12)
+    * 4.J.11 Two consecutive vertical eight (Rule 4.2.15.13)
+    * 4.J.12 Hourglass (Rule 4.2.15.14)
+    * 4.J.13 Two consecutive overhead eight (Rule 4.2.15.15)
+    * 4.J.14 Four-leaf clover manoeuvre (Rule 4.2.15.16)
+    * 4.J.15 Landing manoeuvre (Rule 4.2.15.17)
     '''
 
     # Maps figure index to figure type
