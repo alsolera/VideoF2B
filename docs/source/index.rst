@@ -40,15 +40,6 @@ If you find any errors, omissions, opportunities for improvement, etc., let us k
     faq
 
 .. toctree::
-    :numbered:
-    :caption: Developer Guide
-    :hidden:
-
-    dev_guide
-    figure_geometry
-    figure_tracking
-
-.. toctree::
     :caption: API Documentation
     :hidden:
 
