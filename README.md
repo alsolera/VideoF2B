@@ -1,6 +1,6 @@
 # VideoF2B
 
-[![Documentation Status](https://readthedocs.org/projects/videof2b-amv/badge/?version=latest)](https://videof2b-amv.readthedocs.io/en/latest/?badge=latest)
+[![Documentation Status](https://readthedocs.org/projects/videof2b/badge/?version=latest)](https://videof2b.readthedocs.io/en/latest/?badge=latest)
 
 Author's blog is [here](http://videof2b.blogspot.com/)
 
@@ -15,7 +15,7 @@ Authors: Alberto Solera, Andrey Vasilik
 
 ## Documentation
 
-Online documentation is [here](http://videof2b-amv.readthedocs.io/).
+Online documentation is [here](http://videof2b.readthedocs.io/).
 
 ## Features
 

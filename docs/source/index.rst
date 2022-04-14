@@ -11,12 +11,12 @@ Hello everyone!
 To get started, navigate the **table of contents** or follow one of these links:
 
 .. image:: images/read_online.svg
-   :target: https://videof2b-amv.readthedocs.io/en/latest/installing.html
+   :target: https://videof2b.readthedocs.io/en/latest/installing.html
    :alt: `Read Online`
    :width: 20%
 
 .. image:: images/download_pdf.svg
-   :target: https://videof2b-amv.readthedocs.io/_/downloads/en/latest/pdf/
+   :target: https://videof2b.readthedocs.io/_/downloads/en/latest/pdf/
    :alt: `Download PDF`
    :width: 20%
 
