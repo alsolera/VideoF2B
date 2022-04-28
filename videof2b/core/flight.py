@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Andrey Vasilik - basil96
+# Copyright (C) 2021 - 2022  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -51,6 +51,8 @@ class Flight(QObject):
 
             `kwargs` are additional parameters when cal_path is specified.
             These are as follows:
+            `skip_locate`: indicates whether to skip the camera locating procedure
+                           in a calibrated Flight. Defaults to False.
             `flight_radius`: radius of the flight hemisphere.
             `marker_radius`: radius of the circle where the markers are located.
             `marker_height`: elevation of the marker circle above the center marker.
@@ -70,6 +72,7 @@ class Flight(QObject):
         self.is_calibrated = cal_path is not None and cal_path.exists()
         self.is_located = False
         self.is_ar_enabled = True
+        self.skip_locate = kwargs.pop('skip_locate', False)
         self.flight_radius = kwargs.pop('flight_radius', common.DEFAULT_FLIGHT_RADIUS)
         self.marker_radius = kwargs.pop('marker_radius', common.DEFAULT_MARKER_RADIUS)
         self.marker_height = kwargs.pop('marker_height', common.DEFAULT_MARKER_HEIGHT)

@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Andrey Vasilik - basil96
+# Copyright (C) 2021 - 2022  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -49,6 +49,7 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.setup_ui()
         self.setWindowTitle('Load a Flight')
         # pylint: disable=no-member
+        self.skip_locate_chk.stateChanged.connect(self.on_skip_locate_changed)
         self.cancel_btn.clicked.connect(self.reject)
         self.load_btn.clicked.connect(self.accept)
 
@@ -79,6 +80,7 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
             self.settings.value('mru/cal_dir')
         )
         self.cal_path_txt.filters = 'Calibration files (*.npz);;All files (*)'
+        self.skip_locate_chk = QtWidgets.QCheckBox('&Skip camera location', self)
         # Measurement inputs
         self.flight_radius_lbl = QtWidgets.QLabel(
             'Flight radius (m)', self)
@@ -109,6 +111,7 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
         self.main_layout.addWidget(self.video_path_txt)
         self.main_layout.addWidget(self.cal_path_lbl)
         self.main_layout.addWidget(self.cal_path_txt)
+        self.main_layout.addWidget(self.skip_locate_chk)
         self.main_layout.addLayout(self.meas_grid)
         self.main_layout.addSpacerItem(QtWidgets.QSpacerItem(20, 20))
         self.main_layout.addLayout(self.bottom_layout)
@@ -123,6 +126,7 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
             self.video_path_txt.path,
             cal_path=self.cal_path_txt.path,
             is_live=self.live_chk.isChecked(),
+            skip_locate=self.skip_locate_chk.isChecked(),
             # TODO: use proper validation for these numeric fields!
             flight_radius=float(self.flight_radius_txt.text()),
             marker_radius=float(self.marker_radius_txt.text()),
@@ -143,6 +147,16 @@ class LoadFlightDialog(QtWidgets.QDialog, StoreProperties):
             )
             return None  # Keeps the window up
         return super().accept()
+
+    def on_skip_locate_changed(self):
+        '''Enable/disable the measurement widgets when the "skip locate" checkbox changes.'''
+        enable = not self.sender().isChecked()
+        self.flight_radius_lbl.setEnabled(enable)
+        self.flight_radius_txt.setEnabled(enable)
+        self.marker_radius_lbl.setEnabled(enable)
+        self.marker_radius_txt.setEnabled(enable)
+        self.marker_height_lbl.setEnabled(enable)
+        self.marker_height_txt.setEnabled(enable)
 
     def _validate(self) -> bool:
         '''Validate user inputs.'''

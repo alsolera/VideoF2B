@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021  Andrey Vasilik - basil96
+# Copyright (C) 2021 - 2022  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -705,7 +705,7 @@ class VideoProcessor(QObject, StoreProperties):
                 self._frame = self.cam.undistort(self._frame)
                 # log.debug(f'frame.shape after undistort: {self._frame.shape}')
                 # log.debug(f'frame.data = {self._frame.data}')
-                if not self.flight.is_located and self.flight.is_ar_enabled:
+                if not self.flight.is_located and not self.flight.skip_locate and self.flight.is_ar_enabled:
                     log.debug('Locating the flight...')
                     self._frame_loc = self._frame
                     ret = self._locate()
