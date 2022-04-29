@@ -640,6 +640,11 @@ class VideoProcessor(QObject, StoreProperties):
 
     def run(self):
         '''Run the processor.'''
+        # ===== FOR DEBUGGING ONLY. DO NOT ENABLE IN PRODUCTION. =============================
+        # Allows debugging of QThreads. See https://stackoverflow.com/a/56095987/472566
+        # import pydevd; pydevd.settrace(suspend=False)  # `pip install pydevd` as needed.
+        # ====================================================================================
+
         log.debug('Entering `VideoProcessor.run()...`')
         # This exception handler is necessary because an exception
         # does not propagate from a thread to its calling thread.

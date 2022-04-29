@@ -183,39 +183,40 @@ class EdgePolyline(Polyline):
             d = np.linalg.norm(p)
             if d <= R or d < 0.001:
                 # We are on the surface of the sphere, or inside its volume.
-                # Also guard against DBZ errors.
-                return
-            d_inv = 1. / d
-            # Unit vector of p: points from sphere center back to cam.
-            # This is the normal of the "visible edge" arc.
-            n = p * d_inv
-            # Azimuth angle of the normal.
-            # Accounts correctly for the sign (CCW positive around +Z from +X axis)
-            phi = atan2(n[1], n[0])
-            # Choose two linearly independent arbitrary vectors `u` and `v` that span the arc.
-            # `u` is chosen such that it is perpendicular to `n` and lies in the world XY plane.
-            u = np.array((-sin(phi), cos(phi), 0.))
-            # `v` follows from `n` and `u`.
-            v = np.cross(n, u)
-            # Helper quantity
-            R_sq = R * R
-            # Vector from sphere center to center of the "visible edge" arc.
-            c = (R_sq * d_inv) * n + translation
-            # Determinant for calculating the arc's radius
-            det = d*d - R_sq
-            if det < 0.:
-                # guard against negative arg of sqrt
-                r = 0.0
+                # There's nothing to draw, so use an empty array.
+                self._cache[key] = np.empty(0)
             else:
-                r = R * d_inv * np.sqrt(det)
-            # `u`, `v`, and `n` form the basis vectors for the arc.
-            # Arrange them as columns in a matrix to orient the arc.
-            # Add `c` to place its center correctly.
-            # Also, this is always a 180-degree arc, and 35 points (rho=70) looks smooth enough.
-            obj_pts = ROT.from_matrix(np.array([u, v, n]).T).apply(
-                geom.get_arc(r, pi, rho=70)) + c
-            tmp, _ = cv2.projectPoints(obj_pts, rvec, tvec, camera_matrix, dist_coeffs)
-            self._cache[key] = tmp.astype(int).reshape(-1, 2)
+                d_inv = 1. / d
+                # Unit vector of p: points from sphere center back to cam.
+                # This is the normal of the "visible edge" arc.
+                n = p * d_inv
+                # Azimuth angle of the normal.
+                # Accounts correctly for the sign (CCW positive around +Z from +X axis)
+                phi = atan2(n[1], n[0])
+                # Choose two linearly independent arbitrary vectors `u` and `v` that span the arc.
+                # `u` is chosen such that it is perpendicular to `n` and lies in the world XY plane.
+                u = np.array((-sin(phi), cos(phi), 0.))
+                # `v` follows from `n` and `u`.
+                v = np.cross(n, u)
+                # Helper quantity
+                R_sq = R * R
+                # Vector from sphere center to center of the "visible edge" arc.
+                c = (R_sq * d_inv) * n + translation
+                # Determinant for calculating the arc's radius
+                det = d*d - R_sq
+                if det < 0.:
+                    # guard against negative arg of sqrt
+                    r = 0.0
+                else:
+                    r = R * d_inv * np.sqrt(det)
+                # `u`, `v`, and `n` form the basis vectors for the arc.
+                # Arrange them as columns in a matrix to orient the arc.
+                # Add `c` to place its center correctly.
+                # Also, this is always a 180-degree arc, and 35 points (rho=70) looks smooth enough.
+                obj_pts = ROT.from_matrix(np.array([u, v, n]).T).apply(
+                    geom.get_arc(r, pi, rho=70)) + c
+                tmp, _ = cv2.projectPoints(obj_pts, rvec, tvec, camera_matrix, dist_coeffs)
+                self._cache[key] = tmp.astype(int).reshape(-1, 2)
         self._img_pts = self._cache[key]
 
 
