@@ -596,6 +596,10 @@ class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
             return
         try:
             self._proc.load_flight(flight)
+        except PermissionError as err_permissions:
+            self._output_msg(f'ERROR: No permission to write to file {err_permissions.filename}.'
+                             ' Is it read-only?')
+            return
         except Exception as load_exc:
             self._output_msg('ERROR: Failed to load flight. Please check application logs.')
             # Let it get handled by excepthook.
