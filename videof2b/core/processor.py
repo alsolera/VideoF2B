@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 # VideoF2B - Draw F2B figures from video
-# Copyright (C) 2021 - 2022  Andrey Vasilik - basil96
+# Copyright (C) 2021 - 2023  Andrey Vasilik - basil96
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -30,9 +30,10 @@ from typing import Tuple
 import cv2
 import numpy as np
 from imutils import resize
-from imutils.video import FPS
+from imutils.video import FPS, FileVideoOutputStream
 from PySide6.QtCore import QCoreApplication, QObject, Signal
 from PySide6.QtGui import QImage
+
 from videof2b.core import figure_tracker as figtrack
 from videof2b.core import projection
 from videof2b.core.camera import CalCamera
@@ -236,11 +237,11 @@ class VideoProcessor(QObject, StoreProperties):
         if not self.flight.is_live:
             if self._is_size_restorable:
                 log.info(f'Output size: {self._full_frame_size}')
-                result = cv2.VideoWriter(
+                result = FileVideoOutputStream(
                     str(path_out),
                     self._fourcc, self._video_fps,
                     self._full_frame_size
-                )
+                ).start()
                 # The resized width if we resize height to full size
                 w_final = int(self._full_frame_size[1] / self._inp_height * self._inp_width)
                 self._resize_kwarg = {'height': self._full_frame_size[1]}
@@ -253,21 +254,21 @@ class VideoProcessor(QObject, StoreProperties):
                 self._crop_idx = (self._crop_offset[0] + self._full_frame_size[0],
                                   self._crop_offset[1] + self._full_frame_size[1])
             else:
-                result = cv2.VideoWriter(
+                result = FileVideoOutputStream(
                     str(path_out),
                     self._fourcc, self._video_fps,
                     (int(self._inp_width), int(self._inp_height))
-                )
+                ).start()
         else:
             live_dir_path = ProcessorSettings.live_videos
             if not live_dir_path.exists():
                 live_dir_path.mkdir(parents=True)
             timestr = time.strftime("%Y%m%d-%H%M")
-            result = cv2.VideoWriter(
+            result = FileVideoOutputStream(
                 live_dir_path / f'out_{timestr}.mp4',
                 self._fourcc, self._video_fps,
                 (int(self._inp_width), int(self._inp_height))
-            )
+            ).start()
         return result
 
     def _prep_fig_tracking(self):
@@ -810,7 +811,8 @@ class VideoProcessor(QObject, StoreProperties):
             self._fig_tracker = None
 
         # Clean up
-        stream_out.release()
+        if stream_out is not None:
+            stream_out.stop()
         if self.flight.is_located and ProcessorSettings.perform_3d_tracking:
             self._data_writer.close()
 
