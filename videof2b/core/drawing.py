@@ -312,11 +312,16 @@ class Drawing:
         self._point_density = kwargs.pop('point_density', Drawing.DEFAULT_N)
         # Defines the turn radius of all applicable figures.
         self.turn_r = kwargs.pop('turn_r', DEFAULT_TURN_RADIUS)
+        # The width of the track in pixels.
+        self._track_width = 1
         # Indicates whether to draw diagnostics or not.
         self._draw_diags = False
         # Collection of all necessary scenes, keyed on type.
         self._scenes = {}
-        self.locate(self._cam, flight, **kwargs)
+        if self._cam is not None:
+            if self._cam.frame_size[1] > 720:
+                self._track_width = 2
+            self.locate(self._cam, flight, **kwargs)
 
     @property
     def draw_diags(self):
@@ -540,7 +545,7 @@ class Drawing:
                     cv2.circle(img, pt, 1, Drawing._get_track_color(i, maxlen), -1)
                 continue
             # draw the lines
-            cv2.line(img, pts[i - 1], pts[i], Drawing._get_track_color(i, maxlen), 1)
+            cv2.line(img, pts[i - 1], pts[i], Drawing._get_track_color(i, maxlen), self._track_width)
         return img
 
     def draw(self, img):
