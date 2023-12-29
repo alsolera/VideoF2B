@@ -50,7 +50,9 @@ If you find any errors, omissions, opportunities for improvement, etc., let us k
     producing-uncalibrated
     camera-calibration
     field-setup
+    camera-placement
     producing-calibrated
+    cheatsheet
 
 
 .. toctree::
