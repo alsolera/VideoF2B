@@ -6,6 +6,8 @@ For a full list of configuration options, see the documentation:
 https://www.sphinx-doc.org/en/master/usage/configuration.html
 '''
 
+import datetime
+
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -20,7 +22,7 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 # -- Project information -----------------------------------------------------
 
 project = 'VideoF2B'
-copyright = f'2022, {project} Documentation Authors'
+copyright = f'2022-{datetime.datetime.today().year}, {project} Documentation Authors'
 author = 'Alberto Solera'
 
 
