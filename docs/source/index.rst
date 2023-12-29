@@ -45,6 +45,7 @@ If you find any errors, omissions, opportunities for improvement, etc., let us k
     :maxdepth: 1
     :hidden:
 
+    interface
     using
     producing-uncalibrated
     camera-calibration
