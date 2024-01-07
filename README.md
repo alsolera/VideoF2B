@@ -25,9 +25,9 @@ Online documentation is [here](http://videof2b.readthedocs.io/).
 
 - Displays template figures on the surface of the AR sphere according to
 Section 4.2.15 - "Description of Manoeuvres" of the
-[FAI Sporting Code (Jan 2022)](https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_22.pdf).
+[FAI Sporting Code (Edition 2024)](https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_24.pdf).
 Manoeuvre diagrams are available in
-[Annex 4J (Jan 2022)](https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_annex_4j_22.pdf)
+[Annex 4J (Edition 2024)](https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_annex_4j_24.pdf)
 The latest versions of these regulations are available at the
 [FAI Sporting Code page](https://www.fai.org/page/ciam-code) under **Section 4 (Aeromodelling)**.
 
