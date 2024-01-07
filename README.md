@@ -111,4 +111,4 @@ Verify that the online documentation reflects your changes.
 
 See **setup.cfg**.
 
-**IMPORTANT:** at this time the `imutils` and `sphinxcontrib-tikz` packages used for development are modified forks of the official packages.
+**IMPORTANT:** at this time the `imutils` package used for development is a modified fork of the official package.
