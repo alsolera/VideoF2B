@@ -65,6 +65,14 @@ If you find any errors, omissions, opportunities for improvement, etc., let us k
 
 
 .. toctree::
+    :caption: Annex
+    :maxdepth: 1
+    :hidden:
+
+    glossary
+
+
+.. toctree::
     :caption: API Documentation
     :hidden:
 

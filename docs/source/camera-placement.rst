@@ -3,17 +3,18 @@ Placing the Camera
 ##################
 
 Camera placement is important for capturing quality video of a Stunt flight. While it is acceptable to place
-the camera farther than recommended and capturing the entire flight hemisphere, it is generally preferable to
-capture as much of the core of maneuver space as possible by placing the camera closer. This approach
-sacrifices the outer edges of the base; but takeoff, level/inverted flight, and landing are not easy to
-evaluate in video anyway. The other maneuvers should be the primary focus of video recording.
+the camera farther than recommended and capturing the entire :term:`flight hemisphere`, it is generally
+preferable to capture as much of the core of :term:`maneuver` space as possible by placing the camera closer.
+This approach sacrifices the outer edges of the :term:`base`; but takeoff, level/inverted flight, and landing
+maneuvers are not easy to evaluate in video anyway. The other maneuvers should be the primary focus of video
+recording.
 
 General Procedure
 -----------------
 
-#. Select a location outside the flight circle upwind of the expected maneuvers. This is typically where the
-   contest judges stand.  The correct distance of the camera from the center of the circle depends on the
-   focal length of your optical system.  Details are discussed :ref:`below <cam-distance-calc>`.
+#. Select a location outside the :term:`flight circle` upwind of the expected maneuvers. This is typically
+   where the contest judges stand.  The correct distance of the camera from the center of the circle depends
+   on the focal length of your optical system.  Details are discussed :ref:`below <cam-distance-calc>`.
 #. Deploy your tripod at the selected location. Weigh it down if possible so that it remains stable.
 #. Mount the camera on the tripod. The result video must be in landscape orientation. If using a mobile
    device, this means that you must orient the device horizontally.
@@ -22,8 +23,8 @@ General Procedure
    will likely be different from that of the video, resulting in incorrect alignment.
 #. Point the camera approximately at the center of the circle.
 #. Tilt the camera upward so that there is a visible margin between the pilot's feet at the center of the
-   circle and the bottom edge of the frame.  During this adjustment make sure that the camera is level. Most
-   modern cameras have a built-in leveling guide — take advantage of it.
+   circle and the bottom edge of the frame.  During this adjustment make sure that the camera is
+   :term:`level`. Most modern cameras have a built-in leveling guide — take advantage of it.
 #. Pan the camera so that the frame's vertical centerline aligns with the center of the flight circle.
 
 When the above steps are followed, you will find that the top of the flight hemisphere is near the top of the
@@ -109,6 +110,6 @@ With the above precautions in mind, you are ready to produce
        aircraft passing across this boundary during the overhead eight, the calculator ensures that the point
        labeled as "Tangent elevation" on the diagram is never above the 45° elevation of the flight
        hemisphere.  In recorded videos, this criterion enforces a visible gap between the circle of 45°
-       elevation (drawn in bright green) and the visible edge of the sphere (drawn in magenta):
+       elevation (drawn in bright green) and the visible edge of the flight hemisphere (drawn in magenta):
 
        .. image:: images/camera-placement-gap-criterion-sample.png

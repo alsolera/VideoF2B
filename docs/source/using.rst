@@ -2,8 +2,8 @@
 Ways to use VideoF2B
 ####################
 
-The most prominent feature of VideoF2B is the drawing, or **tracing**, of a path behind a Control Line aircraft in
-video. These traces help us to visualize the figures that a Stunt pilot performs during a flight.
+The most prominent feature of VideoF2B is the drawing, or **tracing**, of a path behind a Control Line
+aircraft in video. These traces help us to visualize the figures that a Stunt pilot performs during a flight.
 
 There are two general ways in which you can use VideoF2B to produce videos: `Basic`_, and `Augmented
 Reality`_.
@@ -22,7 +22,8 @@ Augmented Reality
 -----------------
 
 In this mode, VideoF2B draws the traced path as well as reference geometry that includes a wireframe of the
-flight hemisphere and all F2B Stunt figures of the correct shape and size per the current FAI rules.
+:term:`flight hemisphere` and all F2B Stunt :term:`figures <figure>` of the correct shape and size per the
+current FAI rules.
 
 .. image:: images/calibrated-example.png
 
