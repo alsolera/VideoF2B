@@ -50,10 +50,11 @@ move and tilt the printed pattern in front of the camera.
     actual flights. This means that your choice of **lens**, its **focal length**, and **video resolution**
     all **must be the same** during calibration and during field recordings. If the focal length is adjustable
     (also known as a "zoom lens"), then you must make sure to set the focal length to the same value during
-    field recordings as you did during calibration. When using the camera of a mobile phone, always orient the
-    phone in **landscape** mode (horizontally) and make sure you always choose the same zoom factor and video
-    resolution as you did during calibration. If you neglect to follow this rule, you will get unexpected
-    results in your Augmented-Reality videos. This rule does not apply to the frame rate of the video.
+    field recordings as you did during calibration. When using the camera of a mobile device, always orient
+    the device in **landscape** mode (horizontally) and make sure you always choose the same zoom factor and
+    video resolution as you did during calibration. If you neglect to follow this rule, you will get
+    unexpected results in your Augmented-Reality videos. This rule does not apply to the frame rate of the
+    video.
 
 If you chose the **Display** option for the pattern in **Step 1**, press the :kbd:`Esc` key to return to the
 calibration window after recording the video.
@@ -109,7 +110,7 @@ you will record with your camera. You may also share it with others who have the
     30 pixels from the top and bottom of the original frame. It is important to keep this in mind when placing
     the camera in the field. Give yourself some room, especially at the bottom of the frame, to account for
     the lost pixels. VideoF2B will "upsize" calibrated video to the size of the original input video whenever
-    possible, but some of the pixels around the border of the original video will be lost due to calibration.
+    possible, but some pixels around the border of the original video will be lost due to calibration.
 
 Congratulations, you are ready to record Control Line Stunt videos! The next
 step is :doc:`field setup <field-setup>`.

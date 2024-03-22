@@ -4,4 +4,5 @@
 FAQ
 ###
 
-**TODO**: list answers to the most common questions and issues that we are aware of.
+..
+    TODO: list answers to the most common questions and issues that we are aware of.
