@@ -52,6 +52,7 @@ If you find any errors, omissions, opportunities for improvement, etc., let us k
     field-setup
     camera-placement
     producing-calibrated
+    user-controls
     cheatsheet
 
 

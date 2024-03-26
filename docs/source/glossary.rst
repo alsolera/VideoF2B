@@ -15,10 +15,13 @@ Glossary
         overhead eight maneuver is not referred to as a figure.
 
     Flight circle
-        A horizontal circle whose radius is equal to the flight radius.
+        A horizontal circle whose radius is equal to the :term:`flight radius`.
 
     Flight hemisphere
         A half-globe shape whose base is level above the ground.
+
+    Flight radius
+        The distance from the pilot's chest to the centerline of the model aircraft.
 
     Great circle
         The circular intersection of a :term:`sphere` and a plane passing through the sphere's center point.
