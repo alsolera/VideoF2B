@@ -76,37 +76,37 @@ def test_figure_connections(caloc_artist):
     '''Test for gaps between components of figures.'''
     # Verify connections in all figures
     # Plain loop
-    loop_pts = caloc_artist._get_loop_pts()
+    loop_pts, _ = caloc_artist._get_loop_pts()
     _verify_figure_gaps(loop_pts, is_closed=True)
     # Square loop
-    sq_loop_pts = caloc_artist._get_square_loop_pts()
+    sq_loop_pts, _ = caloc_artist._get_square_loop_pts()
     _verify_figure_gaps(sq_loop_pts, is_closed=True)
     # Triangular loop
-    tri_loop_pts = caloc_artist._get_tri_loop_pts()
+    tri_loop_pts, _ = caloc_artist._get_tri_loop_pts()
     _verify_figure_gaps(tri_loop_pts, is_closed=True)
     # Horizontal eight
-    hor_eight_pts = caloc_artist._get_hor_eight_pts()
+    hor_eight_pts, _ = caloc_artist._get_hor_eight_pts()
     _verify_figure_gaps(hor_eight_pts, is_closed=True)
     # Square eight
-    sq_eight_pts = caloc_artist._get_sq_eight_pts()
+    sq_eight_pts, _ = caloc_artist._get_sq_eight_pts()
     _verify_figure_gaps(sq_eight_pts, is_closed=True)
     # Vertical eight
-    ver_eight_pts = caloc_artist._get_ver_eight_pts()
+    ver_eight_pts, _ = caloc_artist._get_ver_eight_pts()
     _verify_figure_gaps(ver_eight_pts, is_closed=True)
     # Hourglass
-    hourglass_pts = caloc_artist._get_hourglass_pts()
+    hourglass_pts, _ = caloc_artist._get_hourglass_pts()
     _verify_figure_gaps(hourglass_pts, is_closed=True)
-    ovr_eight_pts = caloc_artist._get_ovr_eight_pts()
+    ovr_eight_pts, _ = caloc_artist._get_ovr_eight_pts()
     _verify_figure_gaps(ovr_eight_pts, is_closed=True)
     # Four-leaf clover
-    clover_pts = caloc_artist._get_clover_pts()
+    clover_pts, _ = caloc_artist._get_clover_pts()
     _verify_figure_gaps(clover_pts)
 
 
 def test_clover_tangencies(caloc_artist):
     '''Verify the elevation and azimuth angles of the four main
     tangency points of the four-leaf clover.'''
-    clover_pts = caloc_artist._get_clover_pts()
+    clover_pts, _ = caloc_artist._get_clover_pts()
     # Point 1: at bottom of vertical, tangent to vertical and to bottom loops.
     pt1 = clover_pts[0][0]
     _, pt1_theta, pt1_phi = geom.cartesian_to_spherical(pt1)

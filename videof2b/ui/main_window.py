@@ -104,6 +104,9 @@ class UIMainWindow:
         # Horizontal separator 1
         self.pnl_chk.addWidget(QHLine())
         self.pnl_chk.addSpacerItem(get_vspacer())
+        # Start/end points checkbox
+        self.chk_start_end_pts = QtWidgets.QCheckBox('Draw Start/End points', main_window)
+        self.pnl_chk.addWidget(self.chk_start_end_pts)
         # Diags checkbox
         self.chk_diag = QtWidgets.QCheckBox('Draw Diagnostics', main_window)
         self.pnl_chk.addWidget(self.chk_diag)
@@ -294,6 +297,7 @@ class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
     clear_track = QtCore.Signal()
     figure_state_changed = QtCore.Signal(FigureTypes, bool)
     figure_diags_changed = QtCore.Signal(bool)
+    maneuver_endpts_changed = QtCore.Signal(bool)
     relocate_cam = QtCore.Signal()
     manipulate_sphere = QtCore.Signal(SphereManipulations)
     figure_mark = QtCore.Signal(bool)
@@ -492,6 +496,10 @@ class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
         else:
             self.act_next_figure.setEnabled(True)
 
+    def on_chk_endpts_changed(self):
+        '''Tell the processor to toggle the drawn state of maneuver start/end points.'''
+        self.maneuver_endpts_changed.emit(self.sender().isChecked())
+
     def on_chk_diag_changed(self):
         '''Tell the processor to toggle the drawn state of figure diagnostics.'''
         self.figure_diags_changed.emit(self.sender().isChecked())
@@ -518,6 +526,7 @@ class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
         self.video_window.point_added.connect(self._proc.add_locator_point, QtCore.Qt.QueuedConnection)
         self.video_window.point_removed.connect(self._proc.pop_locator_point, QtCore.Qt.QueuedConnection)
         self.figure_state_changed.connect(self._proc.update_figure_state, QtCore.Qt.QueuedConnection)
+        self.maneuver_endpts_changed.connect(self._proc.update_maneuver_endpts, QtCore.Qt.QueuedConnection)
         self.figure_diags_changed.connect(self._proc.update_figure_diags, QtCore.Qt.QueuedConnection)
         self.pause_resume.connect(self._proc.pause_resume, QtCore.Qt.QueuedConnection)
         self._proc.paused.connect(self.on_paused_resumed, QtCore.Qt.QueuedConnection)
@@ -534,6 +543,7 @@ class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
         self.act_clear_track.triggered.connect(self.on_clear_track)
         for fig_chk in self.fig_chk_boxes:
             fig_chk.stateChanged.connect(self.on_chk_figure_changed)
+        self.chk_start_end_pts.stateChanged.connect(self.on_chk_endpts_changed)
         self.chk_diag.stateChanged.connect(self.on_chk_diag_changed)
         self.act_rotate_left.triggered.connect(self.on_rotate_ccw)
         self.act_rotate_right.triggered.connect(self.on_rotate_cw)
@@ -728,6 +738,7 @@ class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
         '''Enables/disables all the widgets that control drawn figure state.'''
         for fig_chk in self.fig_chk_boxes:
             fig_chk.setEnabled(enable)
+        self.chk_start_end_pts.setEnabled(enable)
         self.chk_diag.setEnabled(enable)
         self.act_next_figure.setEnabled(enable)
 

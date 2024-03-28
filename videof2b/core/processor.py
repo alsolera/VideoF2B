@@ -491,6 +491,12 @@ class VideoProcessor(QObject, StoreProperties):
             self._artist.figure_state[figure_type] = val
             self._update_during_pause_flag = True
 
+    def update_maneuver_endpts(self, val: bool) -> None:
+        '''Update maneuver endpoints in the drawing.'''
+        if self.flight.is_located:  # protect artist
+            self._artist.draw_endpts = val
+            self._update_during_pause_flag = True
+
     def update_figure_diags(self, val: bool) -> None:
         '''Update figure diags state in the drawing.'''
         if self.flight.is_located:  # protect artist

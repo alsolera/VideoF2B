@@ -26,6 +26,7 @@ from math import asin, atan, atan2, cos, pi, sin, sqrt, tan
 import cv2
 import numpy as np
 from scipy.spatial.transform import Rotation as ROT
+
 from videof2b.core import common
 from videof2b.core import geometry as geom
 from videof2b.core.camera import CalCamera
@@ -44,8 +45,10 @@ class Colors:
     RED = (0, 0, 255)
     GREEN = (0, 255, 0)
     BLUE = (255, 0, 0)
+    YELLOW = (0, 255, 255)
     CYAN = (255, 255, 0)
     MAGENTA = (255, 0, 255)
+    DarkGreen = (0, 204, 0)
 
 
 class Plot:
@@ -227,6 +230,17 @@ class Scene:
         self._items = list(items)
         self._diags = []
         self._diags_on = False
+        self._endpts = []
+        self._endpts_on: bool = False
+
+    @property
+    def endpts_on(self):
+        '''Boolean flag that controls drawing of maneuver endpoints.'''
+        return self._endpts_on
+
+    @endpts_on.setter
+    def endpts_on(self, value):
+        self._endpts_on = value
 
     @property
     def diags_on(self):
@@ -241,6 +255,10 @@ class Scene:
         '''Add an item to this scene.'''
         self._items.append(item)
 
+    def add_endpt(self, item):
+        '''Add an endpoint item to this scene.'''
+        self._endpts.append(item)
+
     def add_diag(self, item):
         '''Add a diagnostic item to this scene.'''
         self._diags.append(item)
@@ -252,6 +270,9 @@ class Scene:
         if self._diags_on:
             for diag in self._diags:
                 img = diag.draw(img, key, **kwargs)
+        if self._endpts_on:
+            for endpt in self._endpts:
+                img = endpt.draw(img, key, **kwargs)
         return img
 
 
@@ -265,11 +286,22 @@ class DummyScene:
 DEFAULT_SCENE = DummyScene()
 
 
+class ManeuverPoint:
+    '''Represents either endpoint of a maneuver (start or end).'''
+
+    def __init__(self, point, size: int, color) -> None:
+        self.point = point
+        self.size = size
+        self.color = color
+
+
 class Drawing:
     '''Container that performs all the drawing
     of AR sphere, track, figures, etc., in any given image frame.'''
     # Default point density per 2*pi (360 degrees) of arc.
     DEFAULT_N = 100
+    # Size of a center dot when drawing feature points of any size
+    _pt_size_dot = 1
 
     def __init__(self, detector, **kwargs):
         '''Initialize the Drawing artist instance.
@@ -303,7 +335,7 @@ class Drawing:
         # Radius of flight hemisphere, in m.
         self.R = None
         # Radius of the circle in which the markers are located, in m.
-        self.marker_radius = None
+        self.marker_radius: float = None
         # Coordinates of flight sphere relative to world coordinates, in m.
         self.center = None
         # Indicates whether we draw the axis (CSys marker at center)
@@ -314,14 +346,39 @@ class Drawing:
         self.turn_r = kwargs.pop('turn_r', DEFAULT_TURN_RADIUS)
         # The width of the track in pixels.
         self._track_width = 1
+        # Size of small feature points
+        self._pt_size_small = 4
+        # Size of large feature points
+        self._pt_size_large = 7
+        # Colors of start/end points of maneuvers
+        self._start_color = Colors.DarkGreen
+        self._end_color = Colors.RED
+        # Indicates whether to draw maneuver start/end points or not.
+        self._draw_endpts: bool = False
         # Indicates whether to draw diagnostics or not.
         self._draw_diags = False
         # Collection of all necessary scenes, keyed on type.
         self._scenes = {}
         if self._cam is not None:
-            if self._cam.frame_size[1] > 720:
+            if min(self._cam.frame_size) > 720:
                 self._track_width = 2
+                Drawing._pt_size_dot = 2
+                self._pt_size_small = 6
+                self._pt_size_large = 9
             self.locate(self._cam, flight, **kwargs)
+
+    @property
+    def draw_endpts(self):
+        '''Controls the drawing of maneuver endpoints.'''
+        return self._draw_endpts
+
+    @draw_endpts.setter
+    def draw_endpts(self, val):
+        if val == self._draw_endpts:
+            # Don't waste our time
+            return
+        self._draw_endpts = val
+        self._sync_scene_diags()
 
     @property
     def draw_diags(self):
@@ -396,6 +453,7 @@ class Drawing:
     def _sync_scene_diags(self):
         '''Sync the scene diagnostics flag with our flag.'''
         for scene in self._scenes.values():
+            scene.endpts_on = self._draw_endpts
             scene.diags_on = self._draw_diags
 
     def _get_base_scene(self):
@@ -613,19 +671,25 @@ class Drawing:
         # Grab first and last point of each piece
         conns = np.vstack([(egg[0], egg[-1]) for egg in pieces])
         if len(pieces) == 1:
-            scene.add_diag(Scatter(conns[1], size=7, color=Colors.GREEN))
+            scene.add_diag(Scatter(conns[1], size=7, color=Colors.YELLOW))
             scene.add_diag(Scatter(conns[0], size=3, color=Colors.RED))
         else:
             # Connection points at traversals: direction is red -> green
             scene.add_diag(Scatter(conns[2::4], size=7, color=Colors.RED))
-            scene.add_diag(Scatter(conns[3::4], size=7, color=Colors.GREEN))
+            scene.add_diag(Scatter(conns[3::4], size=7, color=Colors.YELLOW))
             # Connection points at corners: direction is red -> green
             scene.add_diag(Scatter(conns[0::4], size=3, color=Colors.RED))
         if len(pieces) > 2:
-            scene.add_diag(Scatter(conns[1::4], size=3, color=Colors.GREEN))
+            scene.add_diag(Scatter(conns[1::4], size=3, color=Colors.YELLOW))
 
     @staticmethod
-    def _get_figure_scene(pieces):
+    def _add_maneuver_pt(scene: Scene, endpt: ManeuverPoint):
+        '''Add a start/end point of a maneuver to a scene.'''
+        scene.add_endpt(Scatter(endpt.point, size=endpt.size, color=endpt.color))
+        scene.add_endpt(Scatter(endpt.point, size=Drawing._pt_size_dot, color=Colors.BLACK))
+
+    @staticmethod
+    def _get_figure_scene(pieces, endpts):
         '''Helper method for creating any figure from the given contiguous pieces.'''
         course = np.vstack(pieces)
         result = Scene(
@@ -634,20 +698,31 @@ class Drawing:
         )
         # Diagnostics: tangency points
         Drawing._add_diag_connections(result, pieces)
+        for endpt in endpts:
+            Drawing._add_maneuver_pt(result, endpt)
         return result
 
     def _init_loop(self):
         '''Initialize the scene of the basic loop.'''
-        return Drawing._get_figure_scene(self._get_loop_pts())
+        result = Drawing._get_figure_scene(*self._get_loop_pts())
+        return result
 
     def _get_loop_pts(self):
         '''Helper method for generating the basic loop.'''
         points = ROT.from_euler('x', EIGHTH_PI).apply(self._get_base_loop_pts())
-        return (points,)
+        endpts = (
+            # Both at same point: at bottom of loop
+            # End point
+            ManeuverPoint(points[0], self._pt_size_large, self._end_color),
+            # Start point
+            ManeuverPoint(points[0], self._pt_size_small, self._start_color),
+        )
+        return (points,), endpts
 
     def _init_square_loop(self):
         '''Initialize the scene of the square loop.'''
-        return Drawing._get_figure_scene(self._get_square_loop_pts())
+        result = Drawing._get_figure_scene(*self._get_square_loop_pts())
+        return result
 
     def _get_square_loop_pts(self):
         '''Helper method for generating the square loop and square eight.'''
@@ -743,11 +818,19 @@ class Drawing:
             # Arc4: bottom flat
             ROT.from_euler('z', 0.5*(pi - arc4_angle)).apply(arc4)
         )
-        return points
+        endpts = (
+            # Start/end points for inside loops: both at start of corner1
+            ManeuverPoint(corner1[0], self._pt_size_large, self._end_color),  # end
+            ManeuverPoint(corner1[0], self._pt_size_small, self._start_color),  # start
+            # Start/end points for outside loops: both at end of corner2
+            ManeuverPoint(corner2[-1], self._pt_size_large, self._end_color),  # end
+            ManeuverPoint(corner2[-1], self._pt_size_small, self._start_color),  # start
+        )
+        return points, endpts
 
     def _init_tri_loop(self):
         '''Initialize the scene of the triangular loop.'''
-        return Drawing._get_figure_scene(self._get_tri_loop_pts())
+        return Drawing._get_figure_scene(*self._get_tri_loop_pts())
 
     def _get_tri_loop_pts(self):
         '''Helper method for generating the triangular loop.'''
@@ -802,11 +885,16 @@ class Drawing:
             # bottom leg
             leg_points
         )
-        return points
+        endpts = (
+            # Start/end points. Both at start of corner1.
+            ManeuverPoint(corner1[0], self._pt_size_large, self._end_color),  # end
+            ManeuverPoint(corner1[0], self._pt_size_small, self._start_color)  # start
+        )
+        return points, endpts
 
     def _init_hor_eight(self):
         '''Initialize the scene of the horizontal eight.'''
-        return Drawing._get_figure_scene(self._get_hor_eight_pts())
+        return Drawing._get_figure_scene(*self._get_hor_eight_pts())
 
     def _get_hor_eight_pts(self):
         '''Helper method for generating the horizontal eight.'''
@@ -824,26 +912,38 @@ class Drawing:
             # Left loop (CCW, also starts & ends at tangency point between loops)
             ROT.from_euler('yzx', [pi, EIGHTH_PI, theta]).apply(loop_pts)
         )
-        return points
+        endpts = (
+            # Start/end points: both at intersection between the loops
+            ManeuverPoint(points[0][0], self._pt_size_large, self._end_color),  # end
+            ManeuverPoint(points[0][0], self._pt_size_small, self._start_color)  # start
+        )
+        return points, endpts
 
     def _init_sq_eight(self):
         '''Initialize the scene of the horizontal square eight.'''
-        return Drawing._get_figure_scene(self._get_sq_eight_pts())
+        return Drawing._get_figure_scene(*self._get_sq_eight_pts())
 
     def _get_sq_eight_pts(self):
         '''Helper method for generating the horizontal square eight.'''
-        points = self._get_square_loop_pts()
+        points, _ = self._get_square_loop_pts()
         # For this figure, rearrange the order of the paths a bit:
         # start at center vertical and finish at the bottom left corner.
         points = (*points[1:], points[0])
         points_right = [ROT.from_euler('z', -EIGHTH_PI).apply(arr) for arr in points]
         # Left side is a mirror about the YZ plane
         points_left = [arr*[-1, 1, 1] for arr in points_right]
-        return tuple((*points_right, *points_left))
+        endpts = (
+            # Start/end points of maneuver
+            # End point: at end of first vertical lateral (here, the lateral is first in the list)
+            ManeuverPoint(points_right[0][-1], self._pt_size_large, self._end_color),
+            # Start point: at start of first corner (here, the corner is last in the list)
+            ManeuverPoint(points_right[-1][0], self._pt_size_large, self._start_color),
+        )
+        return tuple((*points_right, *points_left)), endpts
 
     def _init_ver_eight(self):
         '''Initialize the scene of the vertical eight.'''
-        return Drawing._get_figure_scene(self._get_ver_eight_pts())
+        return Drawing._get_figure_scene(*self._get_ver_eight_pts())
 
     def _get_ver_eight_pts(self):
         '''Helper method for generating the vertical eight.'''
@@ -852,11 +952,16 @@ class Drawing:
         # Direction of bottom loop here is opposite (ccw), but let's not force it for drawing
         points_bot = ROT.from_euler('yx', [pi, EIGHTH_PI]).apply(base_pts)
         points_top = ROT.from_euler('x', 1.5*QUART_PI).apply(base_pts)
-        return (points_bot, points_top)
+        endpts = (
+            # Start/end points of maneuver: both at intersection between the loops
+            ManeuverPoint(points_bot[0], self._pt_size_large, self._end_color),  # end
+            ManeuverPoint(points_bot[0], self._pt_size_small, self._start_color)  # start
+        )
+        return (points_bot, points_top), endpts
 
     def _init_hourglass(self):
         '''Initialize the scene of the hourglass.'''
-        return Drawing._get_figure_scene(self._get_hourglass_pts())
+        return Drawing._get_figure_scene(*self._get_hourglass_pts())
 
     def _get_hourglass_pts(self):
         '''Helper method for generating the hourglass.
@@ -931,11 +1036,16 @@ class Drawing:
             corner4,
             arc_bot
         )
-        return points
+        endpts = (
+            # Start/end points: both at start of corner1
+            ManeuverPoint(corner1[0], self._pt_size_large, self._end_color),  # end
+            ManeuverPoint(corner1[0], self._pt_size_small, self._start_color),  # start
+        )
+        return points, endpts
 
     def _init_ovr_eight(self):
         '''Initialize the scene of the overhead eight.'''
-        return Drawing._get_figure_scene(self._get_ovr_eight_pts())
+        return Drawing._get_figure_scene(*self._get_ovr_eight_pts())
 
     def _get_ovr_eight_pts(self):
         '''Helper method for generating the overhead eight.'''
@@ -943,11 +1053,16 @@ class Drawing:
         base_pts = ROT.from_euler('yx', [-HALF_PI, HALF_PI]).apply(self._get_base_loop_pts())
         points_right = ROT.from_euler('zy', (pi, EIGHTH_PI)).apply(base_pts)
         points_left = ROT.from_euler('y', -EIGHTH_PI).apply(base_pts)
-        return (points_right, points_left)
+        endpts = (
+            # Start/end points: both at intersection between loops (overhead)
+            ManeuverPoint(points_left[0], self._pt_size_large, self._end_color),  # end
+            ManeuverPoint(points_left[0], self._pt_size_small, self._start_color)  # start
+        )
+        return (points_right, points_left), endpts
 
     def _init_clover(self):
         '''Initialize the scene of the four-leaf clover.'''
-        return Drawing._get_figure_scene(self._get_clover_pts())
+        return Drawing._get_figure_scene(*self._get_clover_pts())
 
     def _get_clover_pts(self):
         '''Helper method for generating the four-leaf clover.'''
@@ -991,4 +1106,11 @@ class Drawing:
             # Loop 4
             ROT.from_euler('zx', [-alpha, beta]).apply(arc_cw)
         )
-        return points
+        endpts = (
+            # Start/end points of maneuver
+            # End point: top of circle
+            ManeuverPoint((0, 0, self.R), self._pt_size_large, self._end_color),
+            # Start point: at end of connector: Loop 2 -> 3
+            ManeuverPoint(points[4][-1], self._pt_size_large, self._start_color)
+        )
+        return points, endpts
