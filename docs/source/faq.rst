@@ -4,6 +4,13 @@
 FAQ
 ###
 
+**Q: Can I record handheld videos?**
+
+**A:** **Absolutely not!**  Mount your recording device to a sturdy tripod or similar.  Do not move it or
+adjust it while recording a flight.  See :doc:`field-setup` for details.
+
+-----
+
 **Q: Why do I need markers?**
 
 **A:** F2B markers provide a base reference in the field for the pilot and for the judges.  For VideoF2B, they
@@ -33,13 +40,10 @@ in video.
 
 -----
 
-**Q: Why are parts of the motion trace sometimes missing?**
+**Q: Why are background objects tracked instead of the model aircraft?**
 
-**A:** The motion detector follows the silhouette of the largest moving object in the field of view.  When the
-only moving object in the FOV is the model aircraft, the trace remains continuous. However, when objects
-larger than the model aircraft move within the FOV (e.g., vehicles in the background, people, field insects,
-etc.), those objects "steal" the trace.  This is the current behavior of the motion detector in VideoF2B.  It
-may be improved in the future.
+**A:** VideoF2B currently does not distinguish between objects and just follows the larger moving object.  If
+possible, avoid having moving objects as background (e.g. a road).
 
 -----
 

@@ -1,0 +1,6 @@
+/* icons within text */
+img.inline {
+    display: inline;
+    height: 1.1em;
+    vertical-align: text-bottom;
+}

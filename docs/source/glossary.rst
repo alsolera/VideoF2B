@@ -4,9 +4,19 @@ Glossary
 
 .. glossary::
 
+    Augmented Reality
+    AR
+        An enhanced version of reality created by the use of technology to overlay digital information on an
+        image of something being viewed through a device. See `Augmented Reality
+        <https://en.wikipedia.org/wiki/Augmented_reality>`__.
+
     Base
         The equator of the :term:`flight hemisphere`.  This lies at a height of 1.5 m above the center of the
         :term:`flight circle`.
+
+    Field of view
+    FOV
+        The area visible through the lens of an optical instrument.
 
     Figure
         A shape, which makes up a separately recognizable complete part of a whole :term:`maneuver`. For
@@ -58,6 +68,11 @@ Glossary
         aircraft is required to be in a vertically-banked "knife-edge" attitude above the competitor's head
         during the two consecutive overhead eights maneuver is described in F2B Rules as "momentarily".
 
+    Nominal
+        A dimension, shape, or size that represents the true profile of a :term:`figure` or :term:`maneuver`,
+        and is used as the template against which actual shapes and sizes of figures or maneuvers are
+        compared.
+
     Parallel
         An imaginary line on the surface of the :term:`flight hemisphere` equidistant to the equator of the
         flight hemisphere and marking the latitude.
@@ -76,6 +91,9 @@ Glossary
 
     Straight line
         A :term:`great circle` path or part thereof.
+
+    Top of circle
+        A point at the top of the :term:`flight hemisphere`, vertically above the center of the hemisphere.
 
     Upright
         Condition when the model aircraft is flying in its "normal" upright attitude (that is: with its

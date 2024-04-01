@@ -41,18 +41,26 @@ If you find any errors, omissions, opportunities for improvement, etc., let us k
 
 
 .. toctree::
-    :caption: User Guide
+    :caption: Basics
     :maxdepth: 1
     :hidden:
 
     interface
     using
-    producing-uncalibrated
-    camera-calibration
     field-setup
     camera-placement
+    producing-uncalibrated
+
+.. toctree::
+    :caption: Augmented Reality
+    :maxdepth: 1
+    :hidden:
+
     producing-calibrated
-    user-controls
+    camera-calibration
+    loading-flight
+    locating-flight
+    user-controls-ar
     cheatsheet
 
 
@@ -78,3 +86,11 @@ If you find any errors, omissions, opportunities for improvement, etc., let us k
     :hidden:
 
     api/modules
+
+
+.. toctree::
+    :caption: Editors' Corner
+    :maxdepth: 1
+    :hidden:
+
+    editing-guide

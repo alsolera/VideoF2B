@@ -18,13 +18,13 @@ General Procedure
 #. Deploy your tripod at the selected location. Weigh it down if possible so that it remains stable.
 #. Mount the camera on the tripod. The result video must be in landscape orientation. If using a mobile
    device, this means that you must orient the device horizontally.
-#. Adjust the tripod so that the camera height is approximately between 1.0 — 1.5 m (about 3 — 5 ft).
+#. Adjust the tripod so that the camera height is approximately between 1.0—1.5 m (about 3—5 ft).
 #. Turn on the camera and make sure it is in video mode.  In photo mode the aspect ratio of the image frame
    will likely be different from that of the video, resulting in incorrect alignment.
 #. Point the camera approximately at the center of the circle.
 #. Tilt the camera upward so that there is a visible margin between the pilot's feet at the center of the
    circle and the bottom edge of the frame.  During this adjustment make sure that the camera is
-   :term:`level`. Most modern cameras have a built-in leveling guide — take advantage of it.
+   :term:`level`. Most modern cameras have a built-in leveling guide—take advantage of it.
 #. Pan the camera so that the frame's vertical centerline aligns with the center of the flight circle.
 
 When the above steps are followed, you will find that the top of the flight hemisphere is near the top of the
@@ -41,7 +41,9 @@ and error in the field.  However, if you know your system's focal length, we rec
 `Field of View calculator <https://www.scantips.com/lights/fieldofview.html#top>`__ to determine your camera
 system's **angle of view**.  Look for the value labeled "Height" in degrees, in the section "Angle of View":
 
-.. image:: images/fov-calc-sample.png
+.. figure:: images/fov-calc-sample.png
+
+    FOV calculator (via scantips.com).
 
 If documentation for your lens is available, verify that your result is reasonably close to the
 manufacturer's listed specifications.
@@ -49,7 +51,9 @@ manufacturer's listed specifications.
 VideoF2B includes a calculator for estimating the camera distance from circle center that will provide the
 best video coverage.  To use it, choose :menuselection:`Tools --> Place camera..` in the main menu:
 
-.. image:: images/camera-placement-calculator.png
+.. figure:: images/camera-placement-calculator.png
+
+    Camera placement calculator in VideoF2B.
 
 .. hint:: Hover the mouse cursor over the values in the tables for detailed explanations of each value.
 
@@ -86,14 +90,14 @@ distances for the camera.  Place the camera within this range for best results.
     the calculated "nearest" value of "camera distance" should **never** be less than the flight radius ``R``.
     If you encounter a calculation where this is not true, please submit a bug report with your input values.
 
-With the above precautions in mind, you are ready to produce
-:doc:`Augmented-Reality videos </producing-calibrated>`.
+With the above precautions in mind, you are ready to produce :doc:`Basic <producing-uncalibrated>` or
+:doc:`Augmented-Reality <loading-flight>` videos.
 
 .. admonition:: For the technically inclined…
 
     There are two criteria for camera placement.
     
-    The first may be obvious — the center of the flight circle must be visible in the FOV so that users may
+    The first may be obvious—the center of the flight circle must be visible in the FOV so that users may
     select it during AR processing.  This is shown in the calculator diagram by extending the bottom of the
     FOV angle ``A`` to the point on the ground at the pilot's feet.
     
@@ -109,7 +113,10 @@ With the above precautions in mind, you are ready to produce
     #. The **Overhead Eight** maneuver is critically close to the "dead zone". To minimize the chances of the
        aircraft passing across this boundary during the overhead eight, the calculator ensures that the point
        labeled as "Tangent elevation" on the diagram is never above the 45° elevation of the flight
-       hemisphere.  In recorded videos, this criterion enforces a visible gap between the circle of 45°
-       elevation (drawn in bright green) and the visible edge of the flight hemisphere (drawn in magenta):
+       hemisphere.  This criterion enforces a visible gap in video between the circle of 45° elevation (drawn
+       in bright green) and the visible edge of the flight hemisphere (drawn in magenta):
 
        .. image:: images/camera-placement-gap-criterion-sample.png
+
+    **TODO:** an example AR sphere due to a badly placed camera (too far from circle) that results in loss of
+    "gap".
