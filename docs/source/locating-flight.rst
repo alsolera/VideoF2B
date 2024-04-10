@@ -60,4 +60,4 @@ Locating a Flight
 
     If you are satisfied with your selections, click :guilabel:`Yes`.  Processing will begin.
 
-See :doc:`user-controls-ar` to learn how to control AR geometry during the processing.
+See :doc:`user-controls-ar` to learn how to control AR geometry during the processing.  You may want to review information about :doc:`/world-coordinate-system` first.

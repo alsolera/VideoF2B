@@ -60,6 +60,7 @@ If you find any errors, omissions, opportunities for improvement, etc., let us k
     camera-calibration
     loading-flight
     locating-flight
+    world-coordinate-system
     user-controls-ar
     cheatsheet
 
