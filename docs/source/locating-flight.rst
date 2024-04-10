@@ -2,6 +2,11 @@
 Locating a Flight
 #################
 
+After you load a flight for AR processing, the AR graphics can only be drawn in video after the flight has
+been located. This is done via the **locating procedure** described below.  This procedure establishes a
+relationship between the real 3D world and the 2D video that was used to record it.  The procedure consists of picking objects in video that are positioned at known locations in the real world.
+
+To locate a flight, follow these steps after loading it:
 
 #. The video window will display the first frame of your video so that you can select F2B markers.  This
    procedure locates the camera in video relative to the flight circle so that AR geometry can be displayed.

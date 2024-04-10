@@ -36,7 +36,7 @@ To produce an AR video, follow these steps:
 
 #. :doc:`Locate the flight <locating-flight>` in VideoF2B.
 
-#. Process the flight video. See :doc:`user-controls-ar`.
+#. Process the flight video. See :doc:`user-controls-ar` for guidance on manipulation of AR graphics.
 
 #. When finished, you will find the processed AR video file in the same location as the original video. The AR
    video will have the same name as the original, but with a ``_out`` suffix.  For example, if your original

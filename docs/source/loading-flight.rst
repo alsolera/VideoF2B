@@ -2,7 +2,7 @@
 Loading a Flight
 ################
 
-To load a flight into VideoF2B, follow these steps:
+To load a flight into VideoF2B for AR processing, follow these steps:
 
 #. Choose :menuselection:`File --> Load` in the main menu.
 
