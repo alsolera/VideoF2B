@@ -70,24 +70,25 @@ Every stroke of the above keys moves the hemisphere in the commanded direction b
 
 Pressing :kbd:`X` resets the hemisphere's center to the origin of the World Coordinate System.
 
-When the hemisphere's center is not at the origin, its offset will be displayed in the bottom left corner of
-the video window:
+The flight radius (*R*) is always displayed in the bottom left corner of AR videos. Additionally, when the AR
+hemisphere's center (*C*) is not at the origin, its XYZ offset will be displayed next to the flight radius:
 
     .. figure:: images/sphere-info-overlay.png
 
-        Sphere information overlay in video. All dimensions are in meters.
+        Sphere information in AR video. All dimensions are in meters.
 
-.. tip:: *Dealing with the pilot's off-center displacement*
+.. tip:: *Compensating for the pilot's off-center displacement*
 
     Position of the pilot along the X-axis is easy to match accurately. Position along the Y-axis is more
     difficult to estimate because depth is difficult to gauge in video. Take advantage of the **Reverse
-    Wingover** maneuver to assess the pilot's initial position because you will be able to adjust the
-    hemisphere's position so that the aircraft's centerline crosses the visible edge of the sphere. As the
-    flight proceeds, use your best judgment. Other maneuvers whose approaches cross the visible edge of the
-    hemisphere above the base (**Outside Square Loops** and **Overhead Eight**) also help to correct for the
-    pilot's position along the Y-axis throughout the flight.
+    Wingover** maneuver to assess the pilot's initial position.  You will be able to adjust the hemisphere's
+    position so that the aircraft's centerline crosses the visible edge of the sphere, while keeping the
+    hemisphere's center on the pilot. As the flight proceeds, use your best judgment. Other maneuvers whose
+    approaches cross the visible edge of the hemisphere above the base (entry and exit of **Outside Square
+    Loops** and entry of **Overhead Eight**) also help to correct for the pilot's position along the Y-axis
+    throughout the flight.
 
-To match the :term:`nominal` figure to the maneuver flown by the pilot, use the arrow keys to rotate the
+To match the :term:`nominal` figure to the maneuver flown by the pilot, use the **arrow keys** to rotate the
 hemisphere. The keys operate as follows:
 
     :kbd:`Left Arrow` rotates the AR hemisphere **counterclockwise** on its vertical axis (i.e., the nominal
@@ -99,24 +100,70 @@ hemisphere. The keys operate as follows:
 Every stroke of these arrow keys rotates the hemisphere in the commanded direction by **0.5°**.
 
 Displaying Nominal Figures
-------------------------------
+--------------------------
 
-**TODO**
+To toggle the display of any nominal figure, click its corresponding checkbox in the user controls.  You can
+also use the :kbd:`Down Arrow` key or the |Icon for Figure Advance| button to advance to the next figure in
+the Stunt Pattern sequence.  If no figures are selected in the controls, the advancing function will select
+loops.  If one figure is selected, the advance function will unselect the current figure and select the next
+figure in the sequence.  If the current figure is the four-leaf clover, the figure selection will remain and
+the advancing function will not have any effect.  If more than one figure is selected, the advancing function
+will likewise have no effect.
+
+.. note::
+
+    Any combination of nominal figures can be displayed, even if only for
+    training and/or demonstration purposes.
 
 Displaying Start/End Points
 ---------------------------
 
-**TODO**
+Every maneuver has a start and an end point for judging purposes, as defined by the FAI F2B Rules. To toggle
+the display of start and end points on the displayed nominal figure(s), click the **Draw Start/End points**
+checkbox at any time during AR processing:
+
+    .. figure:: images/draw-endpoints-chk.png
+
+        This controls the display of start/end points in displayed figure(s).
+
+The start point is displayed in green |Image for start point|, and the end point
+is displayed in red |Image for end point|.
 
 Displaying Diagnostic Points
 ----------------------------
 
-**TODO**
+VideoF2B can optionally display diagnostic points. These are just visual aids for presentation. They are
+defined as endpoints of the arcs that make up a figure.  In simple loops, they're at the bottom of the loop.
+In more complex figures, diagnostic points help to visualize where the connections between the "straight"
+segments and the corners or loops of the figure are located.
 
+To toggle the display of diagnostic points on the displayed nominal figure(s), click the **Draw Diagnostics** checkbox at any time during AR processing:
+
+    .. figure:: images/draw-diags-chk.png
+
+        This controls the display of diagnostic points in displayed figure(s).
+
+Diagnostic points are displayed in alternating green and red colors per figure.  For example, this is the
+square horizontal eight with diagnostics displayed:
+
+    .. figure:: images/diagnostic-points.png
+
+        Example: figure with diagnostics enabled.
+
+The start/end points are drawn on top of the diagnostic points in case both options are enabled for display.
 
 
 .. |Icon for Pause button| image:: images/icons/pause-circle-line.svg
     :class: inline
 
 .. |Icon for Play button| image:: images/icons/play-circle-line.svg
+    :class: inline
+
+.. |Icon for Figure Advance| image:: images/icons/arrow-down-line.svg
+    :class: inline
+
+.. |Image for start point| image:: images/ar-start-pt.png
+    :class: inline
+
+.. |Image for end point| image:: images/ar-end-pt.png
     :class: inline
