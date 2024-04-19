@@ -41,7 +41,7 @@ def set_up_fault_handling():
     # Set the fault handler to log to an error log file there.
     try:
         PD.user_data_path.mkdir(parents=True, exist_ok=True)
-        ERROR_LOG_FILE = (PD.user_data_path / 'error.log').open('ab')
+        ERROR_LOG_FILE = (PD.user_data_path / 'error.log').open('ab', encoding='utf8')
         atexit.register(tear_down_fault_handling)
         faulthandler.enable(ERROR_LOG_FILE)
     except OSError:
