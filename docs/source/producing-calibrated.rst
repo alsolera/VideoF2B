@@ -6,8 +6,14 @@ An :term:`Augmented-Reality <Augmented Reality>` (AR) video contains overlays of
 top of the original video footage.  In addition to the motion trace behind the model aircraft, the AR graphics
 may include the following:
 
-- A wireframe representation of the :term:`flight hemisphere`, which includes :term:`verticals <vertical>` at
-  every 1/8 lap, the 45° :term:`horizontal`, tolerance horizontals above and below the base.
+- A wireframe representation of the :term:`flight hemisphere`, which includes:
+
+    - the :term:`base`;
+    - tolerance :term:`horizontals <horizontal>` 0.30 m above and 0.30 m below the base;
+    - the 45° horizontal;
+    - :term:`verticals <vertical>` at every 1/8 lap, from base to :term:`top of circle`; and
+    - the visible edge of the hemisphere.
+
 - Marker points.
 - :term:`Nominal` figure representations according to current rules.
 - Start and end points of maneuvers.
