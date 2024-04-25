@@ -649,6 +649,8 @@ class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
         '''Handle required preparations when the processing thread starts.'''
         # Do not allow loading of a Flight while we are processing a loaded one.
         self.act_file_load.setEnabled(False)
+        # Do not allow camera calibration while we are processing a Flight.
+        self.act_tools_cal_cam.setEnabled(False)
 
     def on_proc_finished(self, retcode: ProcessorReturnCodes):
         '''Handle return codes and any possible exceptions that are reported
@@ -670,6 +672,7 @@ class MainWindow(QtWidgets.QMainWindow, UIMainWindow, StoreProperties):
         self.act_file_load.setEnabled(True)
         self.act_pause_resume.setIcon(MyIcons().play)
         self.act_pause_resume.setEnabled(False)
+        self.act_tools_cal_cam.setEnabled(True)
         self._reset_figure_controls()
         self._enable_figure_controls(False)
         self.video_window.clear()
