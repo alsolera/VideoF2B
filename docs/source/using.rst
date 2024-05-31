@@ -1,46 +1,34 @@
-.. VideoF2B user guide
+####################
+Ways to use VideoF2B
+####################
 
-##############
-Using VideoF2B
-##############
+The most prominent feature of VideoF2B is the drawing, or **tracing**, of a path behind a Control Line
+aircraft in video. These traces help us to visualize the figures that a Stunt pilot performs during a flight.
 
-The most prominent feature of VideoF2B is the drawing (tracing) of a path behind a Control Line aircraft in video.
-These traces help us to visualize the figures that a Stunt pilot performed during a flight.
-There are two general ways in which you can use this capability in VideoF2B: :ref:`traces only <uncalibrated>`,
-and traces with :ref:`Augmented Reality <calibrated>`.
+There are two general ways you can use VideoF2B to produce videos: `Basic`_, and `Augmented Reality`_.
 
-**TODO: perhaps these two are better as glossary terms?**
+Basic
+-----
 
-.. _uncalibrated:
+This is the simplest use of VideoF2B.  The result is a video where the path of the aircraft is traced with a
+colored line.  No additional geometry is drawn.
 
-**Traces only**
+.. figure:: images/uncalibrated-example.png
 
-**TODO**: overview of use case with uncalibrated videos.
+    Example of Basic video production in progress.
 
-.. _calibrated:
+To learn how to produce Basic video, see :doc:`Producing Basic videos <producing-uncalibrated>`.
 
-**Augmented Reality (AR)**
+Augmented Reality
+-----------------
 
-**TODO**: overview of use case with calibrated videos.
+In this mode, VideoF2B draws the traced path as well as reference geometry that includes a wireframe of the
+:term:`flight hemisphere` and all F2B Stunt :term:`figures <figure>` of the correct shape and size per the
+current FAI rules.
 
-Camera calibration
-==================
+.. figure:: images/calibrated-example.png
 
-Before you go to the field...
+    Example of AR video production in progress.
 
-**TODO**: describe how to calibrate a camera for use with AR.
-
-Field setup
-===========
-
-When you get to the flying field...
-
-**TODO**: describe how to arrange field equipment for best results.
-
-Processing your videos
-======================
-
-After you recorded your videos...
-
-**TODO**: describe full details of app usage here.
-
+To learn how to produce Augmented Reality video, see
+:doc:`Producing Augmented-Reality videos <producing-calibrated>`.

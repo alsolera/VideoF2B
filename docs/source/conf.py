@@ -6,6 +6,8 @@ For a full list of configuration options, see the documentation:
 https://www.sphinx-doc.org/en/master/usage/configuration.html
 '''
 
+import datetime
+
 # -- Path setup --------------------------------------------------------------
 
 # If extensions (or modules to document with autodoc) are in another directory,
@@ -20,7 +22,7 @@ https://www.sphinx-doc.org/en/master/usage/configuration.html
 # -- Project information -----------------------------------------------------
 
 project = 'VideoF2B'
-copyright = f'2022, {project} Documentation Authors'
+copyright = f'2022-{datetime.datetime.today().year}, {project} Documentation Authors'
 author = 'Alberto Solera'
 
 
@@ -76,8 +78,15 @@ html_logo = '../../resources/art/videof2b.svg'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-# html_static_path = ['_static']
+html_static_path = ['static']
 
+html_css_files = [
+    'css/videof2b.css',
+]
+
+html_js_files = [
+    'js/videof2b.js',
+]
 
 # -- Autodoc extension options -----------------------------------------------
 
