@@ -29,12 +29,14 @@ Clearing the Trace
 To clear the trace behind the model aircraft, press :kbd:`Space`. This is useful for presenting clear traces
 of maneuvers — clear the trace shortly before an upcoming maneuver to present the traced maneuver clearly.
 
+.. _manipulating-hemisphere:
+
 Manipulating the Flight Hemisphere
 ----------------------------------
 
 To account for the pilot's movement in the pilot circle during a flight, use the `WASD keys
-<https://www.computerhope.com/jargon/w/wsad.htm>`__ to move the flight hemisphere in the world XY plane. The
-keys operate as follows:
+<https://www.computerhope.com/jargon/w/wsad.htm>`__ to move the flight hemisphere in the :doc:`world XY plane
+<world-coordinate-system>`. The keys operate as follows:
 
     :kbd:`W` moves the hemisphere in **+Y** direction (**forward**, away from the camera).
 
