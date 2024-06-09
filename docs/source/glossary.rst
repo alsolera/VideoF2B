@@ -86,6 +86,9 @@ Glossary
         particular points are detailed. For example, the first loop which makes the first half of the first
         complete figure eight in the two consecutive overhead eight maneuver is referred to as a segment.
 
+    Small arc
+        Any arc of a :term:`small circle`.
+
     Small circle
         The circular intersection of a :term:`sphere` and a plane that does not pass through the sphere's
         center point.  See `Small circle <https://en.wikipedia.org/wiki/Spherical_circle>`__.
