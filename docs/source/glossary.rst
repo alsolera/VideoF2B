@@ -61,6 +61,10 @@ Glossary
         the three consecutive inside loops maneuver, and the single four-leaf clover maneuver, are all
         referred to as a single whole maneuver throughout F2B Rules.
 
+    Markers
+        Physical items in the field arranged according to the recommendation in **Annex 4F, Appendix II** of
+        the `FAI Sporting Code <https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_24.pdf>`__. Markers enable production of :term:`Augmented Reality` videos.
+
     Momentary
     Momentarily
         Used throughout F2B Rules in their original dictionary definition sense (that is: something that lasts

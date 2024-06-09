@@ -14,7 +14,7 @@ may include the following:
     - :term:`verticals <vertical>` at every 1/8 lap, from base to :term:`top of circle`; and
     - the visible edge of the hemisphere.
 
-- Marker points.
+- Field :term:`marker <Markers>` points.
 - :term:`Nominal` figure representations according to current rules.
 - Start and end points of maneuvers.
 - Diagnostic points in figures.
