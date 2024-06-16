@@ -60,6 +60,10 @@ Steps
    - Attach one end of the tape measure to the center stick (at ground level).
    - Measure out 31 meters and draw the circle using chalk or spray paint.
 
+    .. figure:: images/markers2.png
+
+        Marking references circle.
+
 3. **Mark the First Point:**
    - Place a stick at the 0° position on the circumference.
 
@@ -68,18 +72,31 @@ Steps
    - Place a stick at this point.
 
 5. **Find the 90° Points:**
-   - Use the tape measure to measure \(31m \times \sqrt{2} = 43.84m\) meters from one of the placed points to intersect the circumference.
+   - Use the tape measure to measure :math:`31 \textrm{m} \times \sqrt{2} = 43.84 \textrm{m}` from one of the placed points to intersect the circumference.
    - Mark the point located at 90° and place a stick there.
    - Mark the opposite 270° point using the previous method.
 
+
+    .. figure:: images/markers5.png
+
+        Marking 90 deg references using the diagonal length.
+
 6. **Mark Remaining Points:**
    - You now have four equally spaced points (0°, 90°, 180°, 270°).
-   - Before moving the tape from the previous diagonal, measure the half-diagonal, \(31m \times \sqrt{2} / 2 = 21.92m\) meters, between each adjacent previous points to find the bisectors of the 90° angles (i.e., 45°, 135°, 225°, and 315°) and mark the position.
+   - Before moving the tape from the previous diagonal, measure the half-diagonal, :math:`31 \textrm{m} \times \sqrt{2} / 2 = 21.92\textrm{m}` meters, between each adjacent previous points to find the bisectors of the 90° angles (i.e., 45°, 135°, 225°, and 315°) and mark the position.
    - Repeat the previous step for the adjacent diagonal.
    - Place the remaining four sticks aligning the center stick and the half diagonal points.
 
+    .. figure:: images/markers6.png
+
+        Marking 45 deg reference points using middle point of diagonals.
+
 7. **Adjust Marker Heights:**
    - Use the water tube level to transfer the 1.5-meter reference height from the center to each of the eight marker sticks. Be careful to remove all air bubbles from the tube.
+
+    .. figure:: images/markers7.png
+
+        Tube level schematic.
 
 8. **Place the final markers**
    - Place the final marker plates using the sticks as a reference.
