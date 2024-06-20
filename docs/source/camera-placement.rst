@@ -22,10 +22,11 @@ General Procedure
 #. Turn on the camera and make sure it is in video mode.  In photo mode the aspect ratio of the image frame
    will likely be different from that of the video, resulting in incorrect alignment.
 #. Point the camera approximately at the center of the circle.
-#. Tilt the camera upward so that there is a visible margin between the pilot's feet at the center of the
-   circle and the bottom edge of the frame.  During this adjustment make sure that the camera is
+#. Tilt the camera upward until there is a small but visible margin between the pilot's feet at the center of
+   the circle and the bottom edge of the frame. During this adjustment make sure that the camera is
    :term:`level`. Most modern cameras have a built-in leveling guide—take advantage of it.
 #. Pan the camera so that the frame's vertical centerline aligns with the center of the flight circle.
+#. Finally, double-check to make sure the camera is level after all the above adjustments.
 
 When the above steps are followed, you will find that the top of the flight hemisphere is near the top of the
 frame in your AR videos.  You will also generally find that the center of the frame points somewhat above the
