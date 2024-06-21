@@ -40,6 +40,12 @@ in video.
 
 -----
 
+**Q: Why do I mostly see dots ("bread crumbs") in the motion trace instead of a solid line?**
+
+**A:** This happens when the video resolution is too low. Try to use **1080p** video if possible.
+
+-----
+
 **Q: Why are background objects tracked instead of the model aircraft?**
 
 **A:** VideoF2B currently does not distinguish between objects and just follows the largest moving object.  If
