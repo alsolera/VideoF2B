@@ -40,11 +40,11 @@ also acceptable.
 Record the Video
 ----------------
 
-Record the video using your camera system. The video should be fairly short; about 30-50 seconds is enough.
-The pattern should be visible in its entirety throughout the video. Move and tilt the camera so that you
-record as many perspectives of the pattern as possible. To see an example video, **click the thumbnail under
-Step 2** in the calibration window. An alternative method is to mount the camera on a tripod, then move and
-tilt the printed pattern in front of the camera.
+Record the video using your camera system. For best results, record at **1080p** resolution. The video should
+be fairly short; about 30-50 seconds is enough. The pattern should be visible in its entirety throughout the
+video. Move and tilt the camera so that you record as many perspectives of the pattern as possible. To see an
+example video, **click the thumbnail under Step 2** in the calibration window. An alternative method is to
+mount the camera on a tripod, then move and tilt the printed pattern in front of the camera.
 
 .. attention::
 

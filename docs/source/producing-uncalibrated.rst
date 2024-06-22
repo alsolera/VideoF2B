@@ -10,8 +10,9 @@ Here is an example:
 
 To produce a Basic video, follow these steps:
 
-#. Record a Stunt flight using a video camera. For guidelines on how to position the camera in the field, see
-   :doc:`camera-placement`. Save the video file to your computer.
+#. Record a Stunt flight using a video camera. For best results, record at **1080p** resolution. For
+   guidelines on how to position the camera in the field, see :doc:`camera-placement`. Save the video file to
+   your computer.
 
 #. Start the VideoF2B application. The main window looks like this when the application starts:
 

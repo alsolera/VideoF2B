@@ -29,8 +29,9 @@ To produce an AR video, follow these steps:
 
 #. To enable AR graphics, see :doc:`field-setup`.
 
-#. Record a Stunt flight using a video camera. For guidelines on how to position the camera in the field, see
-   :doc:`camera-placement`. Save the video file to your computer.
+#. Record a Stunt flight using a video camera. For best results, record at **1080p** resolution. For
+   guidelines on how to position the camera in the field, see :doc:`camera-placement`. Save the video file to
+   your computer.
 
 #. :doc:`Load the flight <loading-flight>` into VideoF2B.
 
