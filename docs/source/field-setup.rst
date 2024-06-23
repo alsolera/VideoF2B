@@ -34,14 +34,17 @@ Setting Up Your Own Markers
 
 If your field does not have F2B :term:`markers`, you can install them yourself with some basic equipment:
 
-This procedure outlines the steps to place eight markers spaced 45° apart in a 31-meter radius circle, 1.5 meters above the center height, using simple tools.
+This procedure outlines the steps to place eight markers spaced 45° apart in a 31-meter radius circle, 1.5
+meters above the center height, using simple tools.
 
 The recommended dimensions and placement of markers are described in **Annex 4F, Appendix II** of the `FAI
 Sporting Code <https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_24.pdf>`__.
 
 .. note::
 
-    31 Meters radius is the FAI recommendation, however, if your circle is smaller than 31 meters, you can still place the markers in a smaller circle and indicate it in the "Load a Flight" window. In fact, the default value is 25 meters.
+    31 Meters radius is the FAI recommendation, however, if your circle is smaller than 31 meters, you can
+    still place the markers in a smaller circle and indicate it in the "Load a Flight" window. In fact, the
+    default value is 25 meters.
 
 Materials Needed
 ================
@@ -79,7 +82,8 @@ Steps
 
 #. **Find the 90° Points:**
 
-   - Use the tape measure to measure :math:`31 \textrm{m} \times \sqrt{2} = 43.84 \textrm{m}` from one of the placed points to intersect the circumference.
+   - Use the tape measure to measure :math:`31 \textrm{m} \times \sqrt{2} = 43.84 \textrm{m}` from one of the
+     placed points to intersect the circumference.
    - Mark the point located at 90° and place a stick there.
    - Mark the opposite 270° point using the previous method.
 
@@ -91,7 +95,9 @@ Steps
 #. **Mark Remaining Points:**
 
    - You now have four equally spaced points (0°, 90°, 180°, 270°).
-   - Before moving the tape from the previous diagonal, measure the half-diagonal, :math:`31 \textrm{m} \times \sqrt{2} / 2 = 21.92\textrm{m}` meters, between each adjacent previous points to find the bisectors of the 90° angles (i.e., 45°, 135°, 225°, and 315°) and mark the position.
+   - Before moving the tape from the previous diagonal, measure the half-diagonal, :math:`31 \textrm{m} \times
+     \sqrt{2} / 2 = 21.92\textrm{m}` meters, between each adjacent previous points to find the bisectors of
+     the 90° angles (i.e., 45°, 135°, 225°, and 315°) and mark the position.
    - Repeat the previous step for the adjacent diagonal.
    - Place the remaining four sticks aligning the center stick and the half diagonal points.
 
@@ -101,7 +107,8 @@ Steps
 
 #. **Adjust Marker Heights:**
 
-   - Use the water tube level to transfer the 1.5-meter reference height from the center to each of the eight marker sticks. Be careful to remove all air bubbles from the tube.
+   - Use the water tube level to transfer the 1.5-meter reference height from the center to each of the eight
+     marker sticks. Be careful to remove all air bubbles from the tube.
 
     .. figure:: images/markers7.png
 
@@ -115,5 +122,6 @@ Steps
 
 .. note::
 
-    This is the simplest and cheapest method we imagined. A laser level or similar equipment will be more convenient if it is available.
+    This is the simplest and cheapest method we imagined. A laser level or similar equipment will be more
+    convenient if it is available.
 
