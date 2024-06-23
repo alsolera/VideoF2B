@@ -40,7 +40,7 @@ The recommended dimensions and placement of markers are described in **Annex 4F,
 Sporting Code <https://www.fai.org/sites/default/files/sc4_vol_f2_controlline_24.pdf>`__.
 
 .. note::
-    31 Meters radius is the FAI recommendation, however, if your circle is smaller than 31 meters, you can still place the markers in an smaller circle and indicate it in the "Load a Flight" window. In fact, the default value is 25 meters.
+    31 Meters radius is the FAI recommendation, however, if your circle is smaller than 31 meters, you can still place the markers in a smaller circle and indicate it in the "Load a Flight" window. In fact, the default value is 25 meters.
 
 Materials Needed
 ================
@@ -62,7 +62,7 @@ Steps
 
     .. figure:: images/markers2.png
 
-        Marking references circle.
+        Marking references on circle.
 
 3. **Mark the First Point:**
    - Place a stick at the 0° position on the circumference.
