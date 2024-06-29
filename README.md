@@ -63,6 +63,9 @@ The latest versions of these regulations are available at the
 
 ## Building a release
 
+- **IMPORTANT:** Create a clean virtual environment.  Do not update `setuptools` in it. Verify that
+  `setuptools` version is `56.0.0` via `pip show setuptools`.
+
 - Tag the latest stable commit in `master` with the desired version using a scheme that complies with PEP 440.
 
 - Switch to the project's root directory.
