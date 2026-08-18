@@ -17,6 +17,8 @@
 
 '''General geometry related to F2B figures.'''
 
+from __future__ import annotations
+
 from math import (acos, asin, atan, atan2, cos, degrees, pi, radians, sin,
                   sqrt, tan)
 from typing import Optional, Tuple
@@ -25,6 +27,7 @@ import numpy as np
 import numpy.linalg as LA
 import numpy.typing as npt
 from scipy.optimize import fsolve
+
 from videof2b.core.common import QUART_PI, TWO_PI
 
 
